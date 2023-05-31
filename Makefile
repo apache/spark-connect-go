@@ -49,7 +49,7 @@ OK := $(shell tput setaf 6; echo ' [OK]'; tput sgr0;)
 
 all: build
 
-build: $(BUILD_OUTPUT) $(BINARIES)
+build: $(BUILD_OUTPUT) $(BINARIES) internal/generated.out
 
 internal/generated.out:
 	@echo -n ">> BUILD, output = $@"
