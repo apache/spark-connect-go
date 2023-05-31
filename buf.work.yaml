@@ -16,4 +16,4 @@
 #
 version: v1
 directories:
-  - proto
+  - spark/connector/connect/common/src/main/protobuf
