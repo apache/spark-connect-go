@@ -57,15 +57,16 @@ internal/generated.out:
 	@touch internal/generated.out
 	@printf '%s\n' '$(OK)'
 
-$(GOFILES_BUILD): internal/generated.out
+gen: internal/generated.out
+
+$(GOFILES_BUILD): gen
 
 $(BUILD_OUTPUT): $(GOFILES_BUILD)
 	@echo -n ">> BUILD, output = $@"
 	@$(GO) build -o $@ $(BUILDFLAGS)
 	@printf '%s\n' '$(OK)'
 
-
-check: $(ALLGOFILES)
+check: $(ALLGOFILES) | gen
 	@echo -n ">> BUILD, output = $@"
 	@$(GO) build $(BUILDFLAGS) $^
 	@printf '%s\n' '$(OK)'
