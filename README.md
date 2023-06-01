@@ -12,6 +12,15 @@ not be used in any production setting. In addition, the PMC of the Apache Spark
 project reserves the right to withdraw and abandon the development of this project
 if it is not sustainable.
 
+### Getting started
+
+```
+git clone https://github.com/apache/spark-connect-go.git
+git submodule init --depth 1
+
+make gen && make check && make test
+```
+
 ## Contributing
 
 Please review the [Contribution to Spark guide](https://spark.apache.org/contributing.html)
