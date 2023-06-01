@@ -478,7 +478,11 @@ def main():
     branches = get_json("%s/branches" % GITHUB_API_BASE)
     branch_names = list(filter(lambda x: x.startswith("branch-"), [x["name"] for x in branches]))
     # Assumes branch names can be sorted lexicographically
-    latest_branch = sorted(branch_names, reverse=True)[0]
+    if len(branch_names) == 0:
+        # Remove this when we have a branch. It fails now because we don't have branch-*.
+        latest_branch = "master"
+    else:
+        latest_branch = sorted(branch_names, reverse=True)[0]
 
     pr_num = input("Which pull request would you like to merge? (e.g. 34): ")
     pr = get_json("%s/pulls/%s" % (GITHUB_API_BASE, pr_num))
