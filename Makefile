@@ -37,7 +37,7 @@ GOARCH                    ?= $(shell go version | cut -d' ' -f4 | cut -d'/' -f2)
 TAGS                      ?= netgo
 SHELL = bash
 
-BINARIES				  :=
+BINARIES				  := cmd/spark-connect-example-spark-session cmd/spark-connect-example-raw-grpc-client
 
 # Define the location of SPARK_HOME because we need that to depend on the build paths
 MAKEFILE_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
@@ -50,6 +50,16 @@ OK := $(shell tput setaf 6; echo ' [OK]'; tput sgr0;)
 all: build
 
 build: $(BUILD_OUTPUT) $(BINARIES) internal/generated.out
+
+cmd/spark-connect-example-raw-grpc-client: $(GOFILES_BUILD)
+	@echo ">> BUILD, output = $@"
+	@cd $@ && $(GO) build -o $(notdir $@) $(BUILDFLAGS)
+	@printf '%s\n' '$(OK)'
+
+cmd/spark-connect-example-spark-session: $(GOFILES_BUILD)
+	@echo ">> BUILD, output = $@"
+	@cd $@ && $(GO) build -o $(notdir $@) $(BUILDFLAGS)
+	@printf '%s\n' '$(OK)'
 
 internal/generated.out:
 	@echo -n ">> BUILD, output = $@"
@@ -64,11 +74,6 @@ $(GOFILES_BUILD): gen
 $(BUILD_OUTPUT): $(GOFILES_BUILD)
 	@echo -n ">> BUILD, output = $@"
 	@$(GO) build -o $@ $(BUILDFLAGS)
-	@printf '%s\n' '$(OK)'
-
-check: $(ALLGOFILES) | gen
-	@echo -n ">> BUILD, output = $@"
-	@$(GO) build $(BUILDFLAGS) $^
 	@printf '%s\n' '$(OK)'
 
 lint: $(BUILD_OUTPUT)
