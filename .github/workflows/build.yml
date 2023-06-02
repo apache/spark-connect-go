@@ -60,5 +60,5 @@ jobs:
           pwd
           go mod download -x
           make gen
-          make check
+          make
           make test
