@@ -21,3 +21,6 @@ internal/generated.out
 
 # Ignore Coverage Files
 coverage*
+
+# Ignore IDE files
+.idea/
