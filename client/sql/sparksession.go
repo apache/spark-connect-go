@@ -19,10 +19,11 @@ package sql
 import (
 	"context"
 	"fmt"
+
+	"github.com/apache/spark-connect-go/v_3_4/client/channel"
 	proto "github.com/apache/spark-connect-go/v_3_4/internal/generated"
 	"github.com/google/uuid"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 var SparkSession sparkSessionBuilderEntrypoint
@@ -47,25 +48,35 @@ func (s SparkSessionBuilder) Remote(connectionString string) SparkSessionBuilder
 }
 
 func (s SparkSessionBuilder) Build() (sparkSession, error) {
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	}
 
-	conn, err := grpc.Dial(s.connectionString, opts...)
+	cb, err := channel.NewBuilder(s.connectionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to remote %s: %w", s.connectionString, err)
+	}
+
+	conn, err := cb.Build()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to remote %s: %w", s.connectionString, err)
+	}
+
+	// Add metadata to the request.
+	meta := metadata.MD{}
+	for k, v := range cb.Headers {
+		meta[k] = append(meta[k], v)
 	}
 
 	client := proto.NewSparkConnectServiceClient(conn)
 	return &sparkSessionImpl{
 		sessionId: uuid.NewString(),
 		client:    client,
+		metadata:  meta,
 	}, nil
 }
 
 type sparkSessionImpl struct {
 	sessionId string
 	client    proto.SparkConnectServiceClient
+	metadata  metadata.MD
 }
 
 func (s *sparkSessionImpl) Sql(query string) (DataFrame, error) {
@@ -109,8 +120,13 @@ func (s *sparkSessionImpl) executePlan(plan *proto.Plan) (proto.SparkConnectServ
 	request := proto.ExecutePlanRequest{
 		SessionId: s.sessionId,
 		Plan:      plan,
+		UserContext: &proto.UserContext{
+			UserId: "na",
+		},
 	}
-	executePlanClient, err := s.client.ExecutePlan(context.TODO(), &request)
+	// Append the other items to the request.
+	ctx := metadata.NewOutgoingContext(context.Background(), s.metadata)
+	executePlanClient, err := s.client.ExecutePlan(ctx, &request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err)
 	}
@@ -125,8 +141,14 @@ func (s *sparkSessionImpl) analyzePlan(plan *proto.Plan) (*proto.AnalyzePlanResp
 				Plan: plan,
 			},
 		},
+		UserContext: &proto.UserContext{
+			UserId: "na",
+		},
 	}
-	response, err := s.client.AnalyzePlan(context.TODO(), &request)
+	// Append the other items to the request.
+	ctx := metadata.NewOutgoingContext(context.Background(), s.metadata)
+
+	response, err := s.client.AnalyzePlan(ctx, &request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call AnalyzePlan in session %s: %w", s.sessionId, err)
 	}
