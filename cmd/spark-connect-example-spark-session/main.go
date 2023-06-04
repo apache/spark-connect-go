@@ -18,8 +18,9 @@ package main
 
 import (
 	"flag"
-	"github.com/apache/spark-connect-go/v_3_4/client/sql"
 	"log"
+
+	"github.com/apache/spark-connect-go/v_3_4/client/sql"
 )
 
 var (
@@ -28,6 +29,7 @@ var (
 )
 
 func main() {
+	flag.Parse()
 	spark, err := sql.SparkSession.Builder.Remote(*remote).Build()
 	if err != nil {
 		log.Fatalf("Failed: %s", err.Error())
