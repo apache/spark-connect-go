@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	remote = flag.String("remote", "localhost:15002",
+	remote = flag.String("remote", "sc://localhost:15002",
 		"the remote address of Spark Connect server to connect to")
 )
 
@@ -72,4 +72,19 @@ func main() {
 	for _, row := range rows {
 		log.Printf("Row: %v", row)
 	}
+
+	err = df.Write().Mode("overwrite").
+		Format("parquet").
+		Save("file:///tmp/spark-connect-write-example-output.parquet")
+	if err != nil {
+		log.Fatalf("Failed: %s", err.Error())
+	}
+
+	df, err = spark.Read().Format("parquet").
+		Load("file:///tmp/spark-connect-write-example-output.parquet")
+	if err != nil {
+		log.Fatalf("Failed: %s", err.Error())
+	}
+
+	df.Show(100, false)
 }

@@ -31,6 +31,7 @@ type DataFrame interface {
 	Show(numRows int, truncate bool) error
 	Schema() (*StructType, error)
 	Collect() ([]Row, error)
+	Write() DataFrameWriter
 }
 
 type dataFrameImpl struct {
@@ -140,6 +141,14 @@ func (df *dataFrameImpl) Collect() ([]Row, error) {
 	}
 
 	return allRows, nil
+}
+
+func (df *dataFrameImpl) Write() DataFrameWriter {
+	writer := dataFrameWriterImpl{
+		sparkSession: df.sparkSession,
+		relation:     df.relation,
+	}
+	return &writer
 }
 
 func (df *dataFrameImpl) createPlan() *proto.Plan {

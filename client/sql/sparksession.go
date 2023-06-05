@@ -18,17 +18,20 @@ package sql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/apache/spark-connect-go/v_3_4/client/channel"
 	proto "github.com/apache/spark-connect-go/v_3_4/internal/generated"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"
+	"io"
 )
 
 var SparkSession sparkSessionBuilderEntrypoint
 
 type sparkSession interface {
+	Read() DataFrameReader
 	Sql(query string) (DataFrame, error)
 	Stop() error
 }
@@ -77,6 +80,12 @@ type sparkSessionImpl struct {
 	sessionId string
 	client    proto.SparkConnectServiceClient
 	metadata  metadata.MD
+}
+
+func (s *sparkSessionImpl) Read() DataFrameReader {
+	return &dataFrameReaderImpl{
+		sparkSession: s,
+	}
 }
 
 func (s *sparkSessionImpl) Sql(query string) (DataFrame, error) {
@@ -153,4 +162,18 @@ func (s *sparkSessionImpl) analyzePlan(plan *proto.Plan) (*proto.AnalyzePlanResp
 		return nil, fmt.Errorf("failed to call AnalyzePlan in session %s: %w", s.sessionId, err)
 	}
 	return response, nil
+}
+
+func consumeExecutePlanClient(responseClient proto.SparkConnectService_ExecutePlanClient) error {
+	for {
+		_, err := responseClient.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			} else {
+				return fmt.Errorf("failed to receive plan execution response: %w", err)
+			}
+		}
+	}
+	return nil
 }
