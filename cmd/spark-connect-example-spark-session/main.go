@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	remote = flag.String("remote", "localhost:15002",
+	remote = flag.String("remote", "sc://localhost:15002",
 		"the remote address of Spark Connect server to connect to")
 )
 
