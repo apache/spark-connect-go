@@ -6,12 +6,17 @@ import (
 	"strings"
 )
 
+// DataFrameWriter supports writing data frame to storage.
 type DataFrameWriter interface {
+	// Mode specifies saving mode for the data, e.g. Append, Overwrite, ErrorIfExists.
 	Mode(saveMode string) DataFrameWriter
+	// Format specifies data format (data source type) for the underlying data, e.g. parquet.
 	Format(source string) DataFrameWriter
+	// Save writes data frame to the given path.
 	Save(path string) error
 }
 
+// dataFrameWriterImpl is an implementation of DataFrameWriter interface.
 type dataFrameWriterImpl struct {
 	sparkSession *sparkSessionImpl
 	relation     *proto.Relation

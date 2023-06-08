@@ -164,6 +164,10 @@ func (s *sparkSessionImpl) analyzePlan(plan *proto.Plan) (*proto.AnalyzePlanResp
 	return response, nil
 }
 
+// consumeExecutePlanClient reads through the returned GRPC stream from Spark Connect Driver. It will
+// discard the returned data if there is no error. This is necessary for handling GRPC response for
+// saving data frame, since such consuming will trigger Spark Connect Driver really saving data frame.
+// If we do not consume the returned GRPC stream, Spark Connect Driver will not really save data frame.
 func consumeExecutePlanClient(responseClient proto.SparkConnectService_ExecutePlanClient) error {
 	for {
 		_, err := responseClient.Recv()
