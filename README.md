@@ -13,13 +13,13 @@ project reserves the right to withdraw and abandon the development of this proje
 if it is not sustainable.
 
 ### Getting started
-
 ```
 git clone https://github.com/apache/spark-connect-go.git
-git submodule init --depth 1
+git submodule update --init --recursive
 
-make gen && make check && make test
+make gen && make test
 ```
+> Ensure you have installed `buf CLI`; [more info](https://buf.build/docs/installation/)
 
 ## Spark Connect Go Application Example
 
