@@ -27,12 +27,19 @@ import (
 	"io"
 )
 
+// DataFrame is a wrapper for data frame, representing a distributed collection of data row.
 type DataFrame interface {
+	// Show prints out data frame data.
 	Show(numRows int, truncate bool) error
+	// Schema returns the schema for the current data frame.
 	Schema() (*StructType, error)
+	// Collect returns the data rows of the current data frame.
 	Collect() ([]Row, error)
+	// Write returns a data frame writer, which could be used to save data frame to supported storage.
+	Write() DataFrameWriter
 }
 
+// dataFrameImpl is an implementation of DataFrame interface.
 type dataFrameImpl struct {
 	sparkSession *sparkSessionImpl
 	relation     *proto.Relation // TODO change to proto.Plan?
@@ -140,6 +147,14 @@ func (df *dataFrameImpl) Collect() ([]Row, error) {
 	}
 
 	return allRows, nil
+}
+
+func (df *dataFrameImpl) Write() DataFrameWriter {
+	writer := dataFrameWriterImpl{
+		sparkSession: df.sparkSession,
+		relation:     df.relation,
+	}
+	return &writer
 }
 
 func (df *dataFrameImpl) createPlan() *proto.Plan {
