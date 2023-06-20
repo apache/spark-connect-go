@@ -22,6 +22,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/ipc"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	proto "github.com/apache/spark-connect-go/v_3_4/internal/generated"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -54,4 +55,145 @@ func TestShowArrowBatchData(t *testing.T) {
 
 	err = showArrowBatchData(buf.Bytes())
 	assert.Nil(t, err)
+}
+
+func TestReadArrowRecord(t *testing.T) {
+	arrowFields := []arrow.Field{
+		{
+			Name: "boolean_column",
+			Type: &arrow.BooleanType{},
+		},
+		{
+			Name: "int8_column",
+			Type: &arrow.Int8Type{},
+		},
+		{
+			Name: "int16_column",
+			Type: &arrow.Int16Type{},
+		},
+		{
+			Name: "int32_column",
+			Type: &arrow.Int32Type{},
+		},
+		{
+			Name: "int64_column",
+			Type: &arrow.Int64Type{},
+		},
+		{
+			Name: "string_column",
+			Type: &arrow.StringType{},
+		},
+		{
+			Name: "binary_column",
+			Type: &arrow.BinaryType{},
+		},
+		{
+			Name: "timestamp_column",
+			Type: &arrow.TimestampType{},
+		},
+		{
+			Name: "date64_column",
+			Type: &arrow.Date64Type{},
+		},
+	}
+	arrowSchema := arrow.NewSchema(arrowFields, nil)
+	var buf bytes.Buffer
+	arrowWriter := ipc.NewWriter(&buf, ipc.WithSchema(arrowSchema))
+	defer arrowWriter.Close()
+
+	alloc := memory.NewGoAllocator()
+	recordBuilder := array.NewRecordBuilder(alloc, arrowSchema)
+	defer recordBuilder.Release()
+
+	recordBuilder.Field(0).(*array.BooleanBuilder).Append(false)
+	recordBuilder.Field(0).(*array.BooleanBuilder).Append(true)
+
+	recordBuilder.Field(1).(*array.Int8Builder).Append(1)
+	recordBuilder.Field(1).(*array.Int8Builder).Append(2)
+
+	recordBuilder.Field(2).(*array.Int16Builder).Append(10)
+	recordBuilder.Field(2).(*array.Int16Builder).Append(20)
+
+	recordBuilder.Field(3).(*array.Int32Builder).Append(100)
+	recordBuilder.Field(3).(*array.Int32Builder).Append(200)
+
+	recordBuilder.Field(4).(*array.Int64Builder).Append(1000)
+	recordBuilder.Field(4).(*array.Int64Builder).Append(2000)
+
+	recordBuilder.Field(5).(*array.StringBuilder).Append("str1")
+	recordBuilder.Field(5).(*array.StringBuilder).Append("str2")
+
+	recordBuilder.Field(6).(*array.BinaryBuilder).Append([]byte("bytes1"))
+	recordBuilder.Field(6).(*array.BinaryBuilder).Append([]byte("bytes2"))
+
+	recordBuilder.Field(7).(*array.TimestampBuilder).Append(arrow.Timestamp(1686981953115000))
+	recordBuilder.Field(7).(*array.TimestampBuilder).Append(arrow.Timestamp(1686981953116000))
+
+	recordBuilder.Field(8).(*array.Date64Builder).Append(arrow.Date64(1686981953117000))
+	recordBuilder.Field(8).(*array.Date64Builder).Append(arrow.Date64(1686981953118000))
+
+	record := recordBuilder.NewRecord()
+	defer record.Release()
+
+	values, err := readArrowRecord(record)
+	require.Nil(t, err)
+	assert.Equal(t, 2, len(values))
+	assert.Equal(t, []any{
+		false, int8(1), int16(10), int32(100), int64(1000), "str1", []byte("bytes1"), arrow.Timestamp(1686981953115000), arrow.Date64(1686981953117000)},
+		values[0])
+	assert.Equal(t, []any{
+		true, int8(2), int16(20), int32(200), int64(2000), "str2", []byte("bytes2"), arrow.Timestamp(1686981953116000), arrow.Date64(1686981953118000)},
+		values[1])
+}
+
+func TestConvertProtoDataTypeToDataType(t *testing.T) {
+	booleanDataType := &proto.DataType{
+		Kind: &proto.DataType_Boolean_{},
+	}
+	assert.Equal(t, "Boolean", convertProtoDataTypeToDataType(booleanDataType).TypeName())
+
+	byteDataType := &proto.DataType{
+		Kind: &proto.DataType_Byte_{},
+	}
+	assert.Equal(t, "Byte", convertProtoDataTypeToDataType(byteDataType).TypeName())
+
+	shortDataType := &proto.DataType{
+		Kind: &proto.DataType_Short_{},
+	}
+	assert.Equal(t, "Short", convertProtoDataTypeToDataType(shortDataType).TypeName())
+
+	integerDataType := &proto.DataType{
+		Kind: &proto.DataType_Integer_{},
+	}
+	assert.Equal(t, "Integer", convertProtoDataTypeToDataType(integerDataType).TypeName())
+
+	longDataType := &proto.DataType{
+		Kind: &proto.DataType_Long_{},
+	}
+	assert.Equal(t, "Long", convertProtoDataTypeToDataType(longDataType).TypeName())
+
+	stringDataType := &proto.DataType{
+		Kind: &proto.DataType_String_{},
+	}
+	assert.Equal(t, "String", convertProtoDataTypeToDataType(stringDataType).TypeName())
+
+	binaryDataType := &proto.DataType{
+		Kind: &proto.DataType_Binary_{},
+	}
+	assert.Equal(t, "Binary", convertProtoDataTypeToDataType(binaryDataType).TypeName())
+
+	timestampDataType := &proto.DataType{
+		Kind: &proto.DataType_Timestamp_{},
+	}
+	assert.Equal(t, "Timestamp", convertProtoDataTypeToDataType(timestampDataType).TypeName())
+
+	timestampNtzDataType := &proto.DataType{
+		Kind: &proto.DataType_TimestampNtz{},
+	}
+	assert.Equal(t, "TimestampNtz", convertProtoDataTypeToDataType(timestampNtzDataType).TypeName())
+
+	dateDataType := &proto.DataType{
+		Kind: &proto.DataType_Date_{},
+	}
+	assert.Equal(t, "Date", convertProtoDataTypeToDataType(dateDataType).TypeName())
 }
