@@ -312,6 +312,31 @@ func readArrowRecordColumn(record arrow.Record, columnIndex int, values [][]any)
 		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
 			values[rowIndex][columnIndex] = vector.Value(rowIndex)
 		}
+	case arrow.FLOAT16:
+		vector := array.NewFloat16Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.FLOAT32:
+		vector := array.NewFloat32Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.FLOAT64:
+		vector := array.NewFloat64Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.DECIMAL | arrow.DECIMAL128:
+		vector := array.NewDecimal128Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.DECIMAL256:
+		vector := array.NewDecimal256Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
 	case arrow.STRING:
 		vector := array.NewStringData(columnData)
 		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
@@ -376,6 +401,12 @@ func convertProtoDataTypeToDataType(input *proto.DataType) DataType {
 		return IntegerType{}
 	case *proto.DataType_Long_:
 		return LongType{}
+	case *proto.DataType_Float_:
+		return FloatType{}
+	case *proto.DataType_Double_:
+		return DoubleType{}
+	case *proto.DataType_Decimal_:
+		return DecimalType{}
 	case *proto.DataType_String_:
 		return StringType{}
 	case *proto.DataType_Binary_:

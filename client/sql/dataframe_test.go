@@ -20,6 +20,9 @@ import (
 	"bytes"
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/decimal256"
+	"github.com/apache/arrow/go/v12/arrow/float16"
 	"github.com/apache/arrow/go/v12/arrow/ipc"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	proto "github.com/apache/spark-connect-go/v_3_4/internal/generated"
@@ -80,6 +83,26 @@ func TestReadArrowRecord(t *testing.T) {
 			Type: &arrow.Int64Type{},
 		},
 		{
+			Name: "float16_column",
+			Type: &arrow.Float16Type{},
+		},
+		{
+			Name: "float32_column",
+			Type: &arrow.Float32Type{},
+		},
+		{
+			Name: "float64_column",
+			Type: &arrow.Float64Type{},
+		},
+		{
+			Name: "decimal128_column",
+			Type: &arrow.Decimal128Type{},
+		},
+		{
+			Name: "decimal256_column",
+			Type: &arrow.Decimal256Type{},
+		},
+		{
 			Name: "string_column",
 			Type: &arrow.StringType{},
 		},
@@ -105,32 +128,61 @@ func TestReadArrowRecord(t *testing.T) {
 	recordBuilder := array.NewRecordBuilder(alloc, arrowSchema)
 	defer recordBuilder.Release()
 
-	recordBuilder.Field(0).(*array.BooleanBuilder).Append(false)
-	recordBuilder.Field(0).(*array.BooleanBuilder).Append(true)
+	i := 0
+	recordBuilder.Field(i).(*array.BooleanBuilder).Append(false)
+	recordBuilder.Field(i).(*array.BooleanBuilder).Append(true)
 
-	recordBuilder.Field(1).(*array.Int8Builder).Append(1)
-	recordBuilder.Field(1).(*array.Int8Builder).Append(2)
+	i++
+	recordBuilder.Field(i).(*array.Int8Builder).Append(1)
+	recordBuilder.Field(i).(*array.Int8Builder).Append(2)
 
-	recordBuilder.Field(2).(*array.Int16Builder).Append(10)
-	recordBuilder.Field(2).(*array.Int16Builder).Append(20)
+	i++
+	recordBuilder.Field(i).(*array.Int16Builder).Append(10)
+	recordBuilder.Field(i).(*array.Int16Builder).Append(20)
 
-	recordBuilder.Field(3).(*array.Int32Builder).Append(100)
-	recordBuilder.Field(3).(*array.Int32Builder).Append(200)
+	i++
+	recordBuilder.Field(i).(*array.Int32Builder).Append(100)
+	recordBuilder.Field(i).(*array.Int32Builder).Append(200)
 
-	recordBuilder.Field(4).(*array.Int64Builder).Append(1000)
-	recordBuilder.Field(4).(*array.Int64Builder).Append(2000)
+	i++
+	recordBuilder.Field(i).(*array.Int64Builder).Append(1000)
+	recordBuilder.Field(i).(*array.Int64Builder).Append(2000)
 
-	recordBuilder.Field(5).(*array.StringBuilder).Append("str1")
-	recordBuilder.Field(5).(*array.StringBuilder).Append("str2")
+	i++
+	recordBuilder.Field(i).(*array.Float16Builder).Append(float16.New(10000.1))
+	recordBuilder.Field(i).(*array.Float16Builder).Append(float16.New(20000.1))
 
-	recordBuilder.Field(6).(*array.BinaryBuilder).Append([]byte("bytes1"))
-	recordBuilder.Field(6).(*array.BinaryBuilder).Append([]byte("bytes2"))
+	i++
+	recordBuilder.Field(i).(*array.Float32Builder).Append(100000.1)
+	recordBuilder.Field(i).(*array.Float32Builder).Append(200000.1)
 
-	recordBuilder.Field(7).(*array.TimestampBuilder).Append(arrow.Timestamp(1686981953115000))
-	recordBuilder.Field(7).(*array.TimestampBuilder).Append(arrow.Timestamp(1686981953116000))
+	i++
+	recordBuilder.Field(i).(*array.Float64Builder).Append(1000000.1)
+	recordBuilder.Field(i).(*array.Float64Builder).Append(2000000.1)
 
-	recordBuilder.Field(8).(*array.Date64Builder).Append(arrow.Date64(1686981953117000))
-	recordBuilder.Field(8).(*array.Date64Builder).Append(arrow.Date64(1686981953118000))
+	i++
+	recordBuilder.Field(i).(*array.Decimal128Builder).Append(decimal128.FromI64(10000000))
+	recordBuilder.Field(i).(*array.Decimal128Builder).Append(decimal128.FromI64(20000000))
+
+	i++
+	recordBuilder.Field(i).(*array.Decimal256Builder).Append(decimal256.FromI64(100000000))
+	recordBuilder.Field(i).(*array.Decimal256Builder).Append(decimal256.FromI64(200000000))
+
+	i++
+	recordBuilder.Field(i).(*array.StringBuilder).Append("str1")
+	recordBuilder.Field(i).(*array.StringBuilder).Append("str2")
+
+	i++
+	recordBuilder.Field(i).(*array.BinaryBuilder).Append([]byte("bytes1"))
+	recordBuilder.Field(i).(*array.BinaryBuilder).Append([]byte("bytes2"))
+
+	i++
+	recordBuilder.Field(i).(*array.TimestampBuilder).Append(arrow.Timestamp(1686981953115000))
+	recordBuilder.Field(i).(*array.TimestampBuilder).Append(arrow.Timestamp(1686981953116000))
+
+	i++
+	recordBuilder.Field(i).(*array.Date64Builder).Append(arrow.Date64(1686981953117000))
+	recordBuilder.Field(i).(*array.Date64Builder).Append(arrow.Date64(1686981953118000))
 
 	record := recordBuilder.NewRecord()
 	defer record.Release()
@@ -139,10 +191,18 @@ func TestReadArrowRecord(t *testing.T) {
 	require.Nil(t, err)
 	assert.Equal(t, 2, len(values))
 	assert.Equal(t, []any{
-		false, int8(1), int16(10), int32(100), int64(1000), "str1", []byte("bytes1"), arrow.Timestamp(1686981953115000), arrow.Date64(1686981953117000)},
+		false, int8(1), int16(10), int32(100), int64(1000),
+		float16.New(10000.1), float32(100000.1), 1000000.1,
+		decimal128.FromI64(10000000), decimal256.FromI64(100000000),
+		"str1", []byte("bytes1"),
+		arrow.Timestamp(1686981953115000), arrow.Date64(1686981953117000)},
 		values[0])
 	assert.Equal(t, []any{
-		true, int8(2), int16(20), int32(200), int64(2000), "str2", []byte("bytes2"), arrow.Timestamp(1686981953116000), arrow.Date64(1686981953118000)},
+		true, int8(2), int16(20), int32(200), int64(2000),
+		float16.New(20000.1), float32(200000.1), 2000000.1,
+		decimal128.FromI64(20000000), decimal256.FromI64(200000000),
+		"str2", []byte("bytes2"),
+		arrow.Timestamp(1686981953116000), arrow.Date64(1686981953118000)},
 		values[1])
 }
 
@@ -196,6 +256,21 @@ func TestConvertProtoDataTypeToDataType(t *testing.T) {
 		Kind: &proto.DataType_Long_{},
 	}
 	assert.Equal(t, "Long", convertProtoDataTypeToDataType(longDataType).TypeName())
+
+	floatDataType := &proto.DataType{
+		Kind: &proto.DataType_Float_{},
+	}
+	assert.Equal(t, "Float", convertProtoDataTypeToDataType(floatDataType).TypeName())
+
+	doubleDataType := &proto.DataType{
+		Kind: &proto.DataType_Double_{},
+	}
+	assert.Equal(t, "Double", convertProtoDataTypeToDataType(doubleDataType).TypeName())
+
+	decimalDataType := &proto.DataType{
+		Kind: &proto.DataType_Decimal_{},
+	}
+	assert.Equal(t, "Decimal", convertProtoDataTypeToDataType(decimalDataType).TypeName())
 
 	stringDataType := &proto.DataType{
 		Kind: &proto.DataType_String_{},

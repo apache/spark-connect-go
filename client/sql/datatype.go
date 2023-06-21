@@ -60,6 +60,27 @@ func (t LongType) TypeName() string {
 	return getDataTypeName(t)
 }
 
+type FloatType struct {
+}
+
+func (t FloatType) TypeName() string {
+	return getDataTypeName(t)
+}
+
+type DoubleType struct {
+}
+
+func (t DoubleType) TypeName() string {
+	return getDataTypeName(t)
+}
+
+type DecimalType struct {
+}
+
+func (t DecimalType) TypeName() string {
+	return getDataTypeName(t)
+}
+
 type StringType struct {
 }
 
