@@ -146,6 +146,31 @@ func TestReadArrowRecord(t *testing.T) {
 		values[1])
 }
 
+func TestReadArrowRecord_UnsupportedType(t *testing.T) {
+	arrowFields := []arrow.Field{
+		{
+			Name: "unsupported_type_column",
+			Type: &arrow.MonthIntervalType{},
+		},
+	}
+	arrowSchema := arrow.NewSchema(arrowFields, nil)
+	var buf bytes.Buffer
+	arrowWriter := ipc.NewWriter(&buf, ipc.WithSchema(arrowSchema))
+	defer arrowWriter.Close()
+
+	alloc := memory.NewGoAllocator()
+	recordBuilder := array.NewRecordBuilder(alloc, arrowSchema)
+	defer recordBuilder.Release()
+
+	recordBuilder.Field(0).(*array.MonthIntervalBuilder).Append(1)
+
+	record := recordBuilder.NewRecord()
+	defer record.Release()
+
+	_, err := readArrowRecord(record)
+	require.NotNil(t, err)
+}
+
 func TestConvertProtoDataTypeToDataType(t *testing.T) {
 	booleanDataType := &proto.DataType{
 		Kind: &proto.DataType_Boolean_{},
@@ -196,4 +221,11 @@ func TestConvertProtoDataTypeToDataType(t *testing.T) {
 		Kind: &proto.DataType_Date_{},
 	}
 	assert.Equal(t, "Date", convertProtoDataTypeToDataType(dateDataType).TypeName())
+}
+
+func TestConvertProtoDataTypeToDataType_UnsupportedType(t *testing.T) {
+	unsupportedDataType := &proto.DataType{
+		Kind: &proto.DataType_YearMonthInterval_{},
+	}
+	assert.Equal(t, "Unsupported", convertProtoDataTypeToDataType(unsupportedDataType).TypeName())
 }
