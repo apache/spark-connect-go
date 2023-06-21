@@ -37,6 +37,9 @@ GOARCH                    ?= $(shell go version | cut -d' ' -f4 | cut -d'/' -f2)
 TAGS                      ?= netgo
 SHELL = bash
 
+## Build tools
+BUF                       := $(GO) run github.com/bufbuild/buf/cmd/buf@v1.21.0
+
 BINARIES				  := cmd/spark-connect-example-spark-session cmd/spark-connect-example-raw-grpc-client
 
 # Define the location of SPARK_HOME because we need that to depend on the build paths
@@ -63,7 +66,7 @@ cmd/spark-connect-example-spark-session: $(GOFILES_BUILD)
 
 internal/generated.out:
 	@echo -n ">> BUILD, output = $@"
-	buf generate --debug -vvv
+	$(BUF) generate --debug -vvv
 	@touch internal/generated.out
 	@printf '%s\n' '$(OK)'
 
