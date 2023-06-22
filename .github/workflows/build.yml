@@ -47,15 +47,8 @@ jobs:
         run: |
           curl -LO https://go.dev/dl/go1.19.9.linux-amd64.tar.gz
           sudo tar -C /usr/local -xzf go1.19.9.linux-amd64.tar.gz
-      - name: Install Buf
-        run: |
-          # See more in "Installation" https://docs.buf.build/installation#tarball
-          curl -LO https://github.com/bufbuild/buf/releases/download/v1.18.0/buf-Linux-x86_64.tar.gz
-          mkdir -p $HOME/buf
-          tar -xvzf buf-Linux-x86_64.tar.gz -C $HOME/buf --strip-components 1
       - name: Run Build & Test
         run: |
-          export PATH=$PATH:$HOME/buf/bin
           export PATH=$PATH:/usr/local/go/bin
           pwd
           go mod download -x
