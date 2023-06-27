@@ -41,6 +41,7 @@ func main() {
 		log.Fatalf("Failed: %s", err.Error())
 	}
 
+	log.Printf("DataFrame from sql: select 'apple' as word, 123 as count union all select 'orange' as word, 456 as count")
 	err = df.Show(100, false)
 	if err != nil {
 		log.Fatalf("Failed: %s", err.Error())
@@ -86,5 +87,19 @@ func main() {
 		log.Fatalf("Failed: %s", err.Error())
 	}
 
+	log.Printf("DataFrame from reading parquet")
+	df.Show(100, false)
+
+	err = df.CreateTempView("view1", true, false)
+	if err != nil {
+		log.Fatalf("Failed: %s", err.Error())
+	}
+
+	df, err = spark.Sql("select count, word from view1 order by count")
+	if err != nil {
+		log.Fatalf("Failed: %s", err.Error())
+	}
+
+	log.Printf("DataFrame from sql: select count, word from view1 order by count")
 	df.Show(100, false)
 }

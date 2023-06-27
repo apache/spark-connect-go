@@ -37,6 +37,8 @@ type DataFrame interface {
 	Collect() ([]Row, error)
 	// Write returns a data frame writer, which could be used to save data frame to supported storage.
 	Write() DataFrameWriter
+	// CreateTempView creates or replaces a temporary view.
+	CreateTempView(viewName string, replace bool, global bool) error
 }
 
 // dataFrameImpl is an implementation of DataFrame interface.
@@ -157,6 +159,30 @@ func (df *dataFrameImpl) Write() DataFrameWriter {
 	return &writer
 }
 
+func (df *dataFrameImpl) CreateTempView(viewName string, replace bool, global bool) error {
+	plan := &proto.Plan{
+		OpType: &proto.Plan_Command{
+			Command: &proto.Command{
+				CommandType: &proto.Command_CreateDataframeView{
+					CreateDataframeView: &proto.CreateDataFrameViewCommand{
+						Input:    df.relation,
+						Name:     viewName,
+						Replace:  replace,
+						IsGlobal: global,
+					},
+				},
+			},
+		},
+	}
+
+	responseClient, err := df.sparkSession.executePlan(plan)
+	if err != nil {
+		return fmt.Errorf("failed to create temp view %s: %w", viewName, err)
+	}
+
+	return consumeExecutePlanClient(responseClient)
+}
+
 func (df *dataFrameImpl) createPlan() *proto.Plan {
 	return &proto.Plan{
 		OpType: &proto.Plan_Root{
@@ -208,37 +234,15 @@ func readArrowBatchData(data []byte, schema *StructType) ([]Row, error) {
 				return nil, fmt.Errorf("failed to read arrow: %w", err)
 			}
 		}
-		numColumns := len(arrowReader.Schema().Fields())
+
+		values, err := readArrowRecord(record)
+		if err != nil {
+			return nil, err
+		}
+
 		numRows := int(record.NumRows())
 		if rows == nil {
 			rows = make([]Row, 0, numRows)
-		}
-		values := make([][]any, numRows)
-		for i := range values {
-			values[i] = make([]any, numColumns)
-		}
-		for columnIndex := 0; columnIndex < numColumns; columnIndex++ {
-			columnData := record.Column(columnIndex).Data()
-			dataTypeId := columnData.DataType().ID()
-			switch dataTypeId {
-			case arrow.STRING:
-				vector := array.NewStringData(columnData)
-				for rowIndex := 0; rowIndex < numRows; rowIndex++ {
-					values[rowIndex][columnIndex] = vector.Value(rowIndex)
-				}
-			case arrow.INT32:
-				vector := array.NewInt32Data(columnData)
-				for rowIndex := 0; rowIndex < numRows; rowIndex++ {
-					values[rowIndex][columnIndex] = vector.Value(rowIndex)
-				}
-			case arrow.INT64:
-				vector := array.NewInt64Data(columnData)
-				for rowIndex := 0; rowIndex < numRows; rowIndex++ {
-					values[rowIndex][columnIndex] = vector.Value(rowIndex)
-				}
-			default:
-				return nil, fmt.Errorf("unsupported arrow data type %s in column %d", dataTypeId.String(), columnIndex)
-			}
 		}
 
 		for _, v := range values {
@@ -256,6 +260,107 @@ func readArrowBatchData(data []byte, schema *StructType) ([]Row, error) {
 	}
 
 	return rows, nil
+}
+
+// readArrowRecordColumn reads all values from arrow record and return [][]any
+func readArrowRecord(record arrow.Record) ([][]any, error) {
+	numRows := record.NumRows()
+	numColumns := int(record.NumCols())
+
+	values := make([][]any, numRows)
+	for i := range values {
+		values[i] = make([]any, numColumns)
+	}
+
+	for columnIndex := 0; columnIndex < numColumns; columnIndex++ {
+		err := readArrowRecordColumn(record, columnIndex, values)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return values, nil
+}
+
+// readArrowRecordColumn reads all values in a column and stores them in values
+func readArrowRecordColumn(record arrow.Record, columnIndex int, values [][]any) error {
+	numRows := int(record.NumRows())
+	columnData := record.Column(columnIndex).Data()
+	dataTypeId := columnData.DataType().ID()
+	switch dataTypeId {
+	case arrow.BOOL:
+		vector := array.NewBooleanData(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.INT8:
+		vector := array.NewInt8Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.INT16:
+		vector := array.NewInt16Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.INT32:
+		vector := array.NewInt32Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.INT64:
+		vector := array.NewInt64Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.FLOAT16:
+		vector := array.NewFloat16Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.FLOAT32:
+		vector := array.NewFloat32Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.FLOAT64:
+		vector := array.NewFloat64Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.DECIMAL | arrow.DECIMAL128:
+		vector := array.NewDecimal128Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.DECIMAL256:
+		vector := array.NewDecimal256Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.STRING:
+		vector := array.NewStringData(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.BINARY:
+		vector := array.NewBinaryData(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.TIMESTAMP:
+		vector := array.NewTimestampData(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	case arrow.DATE64:
+		vector := array.NewDate64Data(columnData)
+		for rowIndex := 0; rowIndex < numRows; rowIndex++ {
+			values[rowIndex][columnIndex] = vector.Value(rowIndex)
+		}
+	default:
+		return fmt.Errorf("unsupported arrow data type %s in column %d", dataTypeId.String(), columnIndex)
+	}
+	return nil
 }
 
 func convertProtoDataTypeToStructType(input *proto.DataType) *StructType {
@@ -283,12 +388,35 @@ func convertProtoStructField(field *proto.DataType_StructField) StructField {
 	}
 }
 
+// convertProtoDataTypeToDataType converts protobuf data type to Spark connect sql data type
 func convertProtoDataTypeToDataType(input *proto.DataType) DataType {
 	switch v := input.GetKind().(type) {
+	case *proto.DataType_Boolean_:
+		return BooleanType{}
+	case *proto.DataType_Byte_:
+		return ByteType{}
+	case *proto.DataType_Short_:
+		return ShortType{}
 	case *proto.DataType_Integer_:
 		return IntegerType{}
+	case *proto.DataType_Long_:
+		return LongType{}
+	case *proto.DataType_Float_:
+		return FloatType{}
+	case *proto.DataType_Double_:
+		return DoubleType{}
+	case *proto.DataType_Decimal_:
+		return DecimalType{}
 	case *proto.DataType_String_:
 		return StringType{}
+	case *proto.DataType_Binary_:
+		return BinaryType{}
+	case *proto.DataType_Timestamp_:
+		return TimestampType{}
+	case *proto.DataType_TimestampNtz:
+		return TimestampNtzType{}
+	case *proto.DataType_Date_:
+		return DateType{}
 	default:
 		return UnsupportedType{
 			TypeInfo: v,
