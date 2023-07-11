@@ -39,6 +39,15 @@ type DataFrame interface {
 	Write() DataFrameWriter
 	// CreateTempView creates or replaces a temporary view.
 	CreateTempView(viewName string, replace bool, global bool) error
+	// Repartition re-partitions a data frame.
+	Repartition(numPartitions int, columns []string) (DataFrame, error)
+	// RepartitionByRange re-partitions a data frame by range partition.
+	RepartitionByRange(numPartitions int, columns []RangePartitionColumn) (DataFrame, error)
+}
+
+type RangePartitionColumn struct {
+	Name       string
+	Descending bool
 }
 
 // dataFrameImpl is an implementation of DataFrame interface.
@@ -183,6 +192,54 @@ func (df *dataFrameImpl) CreateTempView(viewName string, replace bool, global bo
 	return consumeExecutePlanClient(responseClient)
 }
 
+func (df *dataFrameImpl) Repartition(numPartitions int, columns []string) (DataFrame, error) {
+	var partitionExpressions []*proto.Expression
+	if columns != nil {
+		partitionExpressions = make([]*proto.Expression, 0, len(columns))
+		for _, c := range columns {
+			expr := &proto.Expression{
+				ExprType: &proto.Expression_UnresolvedAttribute_{
+					UnresolvedAttribute: &proto.Expression_UnresolvedAttribute{
+						UnparsedIdentifier: c,
+					},
+				},
+			}
+			partitionExpressions = append(partitionExpressions, expr)
+		}
+	}
+	return df.repartitionByExpressions(numPartitions, partitionExpressions)
+}
+
+func (df *dataFrameImpl) RepartitionByRange(numPartitions int, columns []RangePartitionColumn) (DataFrame, error) {
+	var partitionExpressions []*proto.Expression
+	if columns != nil {
+		partitionExpressions = make([]*proto.Expression, 0, len(columns))
+		for _, c := range columns {
+			columnExpr := &proto.Expression{
+				ExprType: &proto.Expression_UnresolvedAttribute_{
+					UnresolvedAttribute: &proto.Expression_UnresolvedAttribute{
+						UnparsedIdentifier: c.Name,
+					},
+				},
+			}
+			direction := proto.Expression_SortOrder_SORT_DIRECTION_ASCENDING
+			if c.Descending {
+				direction = proto.Expression_SortOrder_SORT_DIRECTION_DESCENDING
+			}
+			sortExpr := &proto.Expression{
+				ExprType: &proto.Expression_SortOrder_{
+					SortOrder: &proto.Expression_SortOrder{
+						Child:     columnExpr,
+						Direction: direction,
+					},
+				},
+			}
+			partitionExpressions = append(partitionExpressions, sortExpr)
+		}
+	}
+	return df.repartitionByExpressions(numPartitions, partitionExpressions)
+}
+
 func (df *dataFrameImpl) createPlan() *proto.Plan {
 	return &proto.Plan{
 		OpType: &proto.Plan_Root{
@@ -194,6 +251,31 @@ func (df *dataFrameImpl) createPlan() *proto.Plan {
 			},
 		},
 	}
+}
+
+func (df *dataFrameImpl) repartitionByExpressions(numPartitions int, partitionExpressions []*proto.Expression) (DataFrame, error) {
+	var numPartitionsPointerValue *int32
+	if numPartitions != 0 {
+		int32Value := int32(numPartitions)
+		numPartitionsPointerValue = &int32Value
+	}
+	df.relation.GetRepartitionByExpression()
+	newRelation := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_RepartitionByExpression{
+			RepartitionByExpression: &proto.RepartitionByExpression{
+				Input:          df.relation,
+				NumPartitions:  numPartitionsPointerValue,
+				PartitionExprs: partitionExpressions,
+			},
+		},
+	}
+	return &dataFrameImpl{
+		sparkSession: df.sparkSession,
+		relation:     newRelation,
+	}, nil
 }
 
 func showArrowBatch(arrowBatch *proto.ExecutePlanResponse_ArrowBatch) error {

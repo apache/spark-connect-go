@@ -102,4 +102,61 @@ func main() {
 
 	log.Printf("DataFrame from sql: select count, word from view1 order by count")
 	df.Show(100, false)
+
+	log.Printf("Repartition with one partition")
+	df, err = df.Repartition(1, nil)
+	if err != nil {
+		log.Fatalf("Failed: %s", err.Error())
+	}
+
+	err = df.Write().Mode("overwrite").
+		Format("parquet").
+		Save("file:///tmp/spark-connect-write-example-output-one-partition.parquet")
+	if err != nil {
+		log.Fatalf("Failed: %s", err.Error())
+	}
+
+	log.Printf("Repartition with two partitions")
+	df, err = df.Repartition(2, nil)
+	if err != nil {
+		log.Fatalf("Failed: %s", err.Error())
+	}
+
+	err = df.Write().Mode("overwrite").
+		Format("parquet").
+		Save("file:///tmp/spark-connect-write-example-output-two-partition.parquet")
+	if err != nil {
+		log.Fatalf("Failed: %s", err.Error())
+	}
+
+	log.Printf("Repartition with columns")
+	df, err = df.Repartition(0, []string{"word", "count"})
+	if err != nil {
+		log.Fatalf("Failed: %s", err.Error())
+	}
+
+	err = df.Write().Mode("overwrite").
+		Format("parquet").
+		Save("file:///tmp/spark-connect-write-example-output-repartition-with-column.parquet")
+	if err != nil {
+		log.Fatalf("Failed: %s", err.Error())
+	}
+
+	log.Printf("Repartition by range with columns")
+	df, err = df.RepartitionByRange(0, []sql.RangePartitionColumn{
+		{
+			Name:       "word",
+			Descending: true,
+		},
+	})
+	if err != nil {
+		log.Fatalf("Failed: %s", err.Error())
+	}
+
+	err = df.Write().Mode("overwrite").
+		Format("parquet").
+		Save("file:///tmp/spark-connect-write-example-output-repartition-by-range-with-column.parquet")
+	if err != nil {
+		log.Fatalf("Failed: %s", err.Error())
+	}
 }
