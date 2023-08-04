@@ -16,7 +16,6 @@
 #
 
 # All generated files
-internal/generated
 internal/generated.out
 
 # Ignore Coverage Files
