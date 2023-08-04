@@ -25,7 +25,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/float16"
 	"github.com/apache/arrow/go/v12/arrow/ipc"
 	"github.com/apache/arrow/go/v12/arrow/memory"
-	proto "github.com/apache/spark-connect-go/v_3_4/internal/generated"
+	proto "github.com/apache/spark-connect-go/v34/internal/generated"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
