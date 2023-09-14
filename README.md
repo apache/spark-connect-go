@@ -12,7 +12,7 @@ not be used in any production setting. In addition, the PMC of the Apache Spark
 project reserves the right to withdraw and abandon the development of this project
 if it is not sustainable.
 
-### Getting started
+## Getting started
 ```
 git clone https://github.com/apache/spark-connect-go.git
 git submodule update --init --recursive
@@ -20,6 +20,10 @@ git submodule update --init --recursive
 make gen && make test
 ```
 > Ensure you have installed `buf CLI`; [more info](https://buf.build/docs/installation/)
+
+## How to write Spark Connect Go Application in your own project
+
+See [Quick Start Guide](quick-start.md)
 
 ## Spark Connect Go Application Example
 
