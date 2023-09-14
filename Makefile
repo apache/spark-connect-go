@@ -38,7 +38,7 @@ TAGS                      ?= netgo
 SHELL = bash
 
 ## Build tools
-BUF                       := $(GO) run github.com/bufbuild/buf/cmd/buf@v1.21.0
+BUF                       := $(GO) run github.com/bufbuild/buf/cmd/buf@v1.26.1
 
 BINARIES				  := cmd/spark-connect-example-spark-session cmd/spark-connect-example-raw-grpc-client
 
