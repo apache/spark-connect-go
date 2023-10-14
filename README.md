@@ -19,7 +19,6 @@ git submodule update --init --recursive
 
 make gen && make test
 ```
-> Ensure you have installed `buf CLI`; [more info](https://buf.build/docs/installation/)
 
 ## How to write Spark Connect Go Application in your own project
 
