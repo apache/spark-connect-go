@@ -2,7 +2,7 @@ package sql
 
 import (
 	"fmt"
-	proto "github.com/apache/spark-connect-go/v34/internal/generated"
+	proto "github.com/apache/spark-connect-go/v1/internal/generated"
 	"strings"
 )
 

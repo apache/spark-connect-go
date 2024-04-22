@@ -5,7 +5,7 @@
 In your Go project `go.mod` file, add `spark-connect-go` library:
 ```
 require (
-	github.com/apache/spark-connect-go/v34 master
+	github.com/apache/spark-connect-go/v1 master
 )
 ```
 
@@ -21,7 +21,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/apache/spark-connect-go/v34/client/sql"
+	"github.com/apache/spark-connect-go/v1/client/sql"
 )
 
 var (
