@@ -23,7 +23,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/ipc"
-	proto "github.com/apache/spark-connect-go/v34/internal/generated"
+	proto "github.com/apache/spark-connect-go/v1/internal/generated"
 	"io"
 )
 
