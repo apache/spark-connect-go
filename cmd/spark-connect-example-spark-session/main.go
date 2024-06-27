@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 
@@ -30,40 +31,41 @@ var (
 
 func main() {
 	flag.Parse()
-	spark, err := sql.SparkSession.Builder.Remote(*remote).Build()
+	ctx := context.Background()
+	spark, err := sql.NewSessionBuilder().Remote(*remote).Build(ctx)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 	defer spark.Stop()
 
-	df, err := spark.Sql("select 'apple' as word, 123 as count union all select 'orange' as word, 456 as count")
+	df, err := spark.Sql(ctx, "select 'apple' as word, 123 as count union all select 'orange' as word, 456 as count")
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	log.Printf("DataFrame from sql: select 'apple' as word, 123 as count union all select 'orange' as word, 456 as count")
-	err = df.Show(100, false)
+	err = df.Show(ctx, 100, false)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
-	schema, err := df.Schema()
+	schema, err := df.Schema(ctx)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	for _, f := range schema.Fields {
 		log.Printf("Field in dataframe schema: %s - %s", f.Name, f.DataType.TypeName())
 	}
 
-	rows, err := df.Collect()
+	rows, err := df.Collect(ctx)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	schema, err = rows[0].Schema()
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	for _, f := range schema.Fields {
@@ -74,72 +76,78 @@ func main() {
 		log.Printf("Row: %v", row)
 	}
 
-	err = df.Write().Mode("overwrite").
+	err = df.Writer().Mode("overwrite").
 		Format("parquet").
-		Save("file:///tmp/spark-connect-write-example-output.parquet")
+		Save(ctx, "file:///tmp/spark-connect-write-example-output.parquet")
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	df, err = spark.Read().Format("parquet").
 		Load("file:///tmp/spark-connect-write-example-output.parquet")
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	log.Printf("DataFrame from reading parquet")
-	df.Show(100, false)
-
-	err = df.CreateTempView("view1", true, false)
+	err = df.Show(ctx, 100, false)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
-	df, err = spark.Sql("select count, word from view1 order by count")
+	err = df.CreateTempView(ctx, "view1", true, false)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
+	}
+
+	df, err = spark.Sql(ctx, "select count, word from view1 order by count")
+	if err != nil {
+		log.Fatalf("Failed: %s", err)
 	}
 
 	log.Printf("DataFrame from sql: select count, word from view1 order by count")
-	df.Show(100, false)
+	err = df.Show(ctx, 100, false)
+	if err != nil {
+		log.Fatalf("Failed: %s", err)
+	}
 
 	log.Printf("Repartition with one partition")
 	df, err = df.Repartition(1, nil)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
-	err = df.Write().Mode("overwrite").
+	err = df.Writer().Mode("overwrite").
 		Format("parquet").
-		Save("file:///tmp/spark-connect-write-example-output-one-partition.parquet")
+		Save(ctx, "file:///tmp/spark-connect-write-example-output-one-partition.parquet")
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	log.Printf("Repartition with two partitions")
 	df, err = df.Repartition(2, nil)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
-	err = df.Write().Mode("overwrite").
+	err = df.Writer().Mode("overwrite").
 		Format("parquet").
-		Save("file:///tmp/spark-connect-write-example-output-two-partition.parquet")
+		Save(ctx, "file:///tmp/spark-connect-write-example-output-two-partition.parquet")
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	log.Printf("Repartition with columns")
 	df, err = df.Repartition(0, []string{"word", "count"})
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
-	err = df.Write().Mode("overwrite").
+	err = df.Writer().Mode("overwrite").
 		Format("parquet").
-		Save("file:///tmp/spark-connect-write-example-output-repartition-with-column.parquet")
+		Save(ctx, "file:///tmp/spark-connect-write-example-output-repartition-with-column.parquet")
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	log.Printf("Repartition by range with columns")
@@ -150,13 +158,13 @@ func main() {
 		},
 	})
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
-	err = df.Write().Mode("overwrite").
+	err = df.Writer().Mode("overwrite").
 		Format("parquet").
-		Save("file:///tmp/spark-connect-write-example-output-repartition-by-range-with-column.parquet")
+		Save(ctx, "file:///tmp/spark-connect-write-example-output-repartition-by-range-with-column.parquet")
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 }

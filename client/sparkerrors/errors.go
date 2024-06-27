@@ -14,33 +14,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sql
+package sparkerrors
 
-// Row represents a row in a DataFrame.
-type Row interface {
-	// Schema returns the schema of the row.
-	Schema() (*StructType, error)
-	// Values returns the values of the row.
-	Values() ([]any, error)
+import (
+	"errors"
+	"fmt"
+)
+
+type wrappedError struct {
+	errorType error
+	cause     error
 }
 
-// genericRowWithSchema represents a row in a DataFrame with schema.
-type genericRowWithSchema struct {
-	values []any
-	schema *StructType
+func (w *wrappedError) Unwrap() []error {
+	return []error{w.errorType, w.cause}
 }
 
-func NewRowWithSchema(values []any, schema *StructType) Row {
-	return &genericRowWithSchema{
-		values: values,
-		schema: schema,
-	}
+func (w *wrappedError) Error() string {
+	return fmt.Sprintf("%s: %s", w.errorType, w.cause)
 }
 
-func (r *genericRowWithSchema) Schema() (*StructType, error) {
-	return r.schema, nil
+func WithType(err error, errType errorType) error {
+	return &wrappedError{cause: err, errorType: errType}
 }
 
-func (r *genericRowWithSchema) Values() ([]any, error) {
-	return r.values, nil
-}
+type errorType error
+
+var (
+	ConnectionError   = errorType(errors.New("connection error"))
+	ReadError         = errorType(errors.New("read error"))
+	ExecutionError    = errorType(errors.New("execution error"))
+	InvalidInputError = errorType(errors.New("invalid input"))
+)

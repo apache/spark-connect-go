@@ -18,27 +18,41 @@ package sql
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"io"
+
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/ipc"
+	"github.com/apache/spark-connect-go/v1/client/sparkerrors"
 	proto "github.com/apache/spark-connect-go/v1/internal/generated"
-	"io"
 )
+
+// ResultCollector receives a stream of result rows
+type ResultCollector interface {
+	// WriteRow receives a single row from the data frame
+	WriteRow(values []any)
+}
 
 // DataFrame is a wrapper for data frame, representing a distributed collection of data row.
 type DataFrame interface {
-	// Show prints out data frame data.
-	Show(numRows int, truncate bool) error
+	// WriteResult streams the data frames to a result collector
+	WriteResult(ctx context.Context, collector ResultCollector, numRows int, truncate bool) error
+	// Show uses WriteResult to write the data frames to the console output.
+	Show(ctx context.Context, numRows int, truncate bool) error
 	// Schema returns the schema for the current data frame.
-	Schema() (*StructType, error)
+	Schema(ctx context.Context) (*StructType, error)
 	// Collect returns the data rows of the current data frame.
-	Collect() ([]Row, error)
-	// Write returns a data frame writer, which could be used to save data frame to supported storage.
+	Collect(ctx context.Context) ([]Row, error)
+	// Writer returns a data frame writer, which could be used to save data frame to supported storage.
+	Writer() DataFrameWriter
+	// Write is an alias for Writer
+	// Deprecated: Use Writer
 	Write() DataFrameWriter
 	// CreateTempView creates or replaces a temporary view.
-	CreateTempView(viewName string, replace bool, global bool) error
+	CreateTempView(ctx context.Context, viewName string, replace bool, global bool) error
 	// Repartition re-partitions a data frame.
 	Repartition(numPartitions int, columns []string) (DataFrame, error)
 	// RepartitionByRange re-partitions a data frame by range partition.
@@ -52,11 +66,22 @@ type RangePartitionColumn struct {
 
 // dataFrameImpl is an implementation of DataFrame interface.
 type dataFrameImpl struct {
-	sparkSession *sparkSessionImpl
+	sparkSession sparkExecutor
 	relation     *proto.Relation // TODO change to proto.Plan?
 }
 
-func (df *dataFrameImpl) Show(numRows int, truncate bool) error {
+type consoleCollector struct {
+}
+
+func (c consoleCollector) WriteRow(values []any) {
+	fmt.Println(values...)
+}
+
+func (df *dataFrameImpl) Show(ctx context.Context, numRows int, truncate bool) error {
+	return df.WriteResult(ctx, &consoleCollector{}, numRows, truncate)
+}
+
+func (df *dataFrameImpl) WriteResult(ctx context.Context, collector ResultCollector, numRows int, truncate bool) error {
 	truncateValue := 0
 	if truncate {
 		truncateValue = 20
@@ -81,45 +106,42 @@ func (df *dataFrameImpl) Show(numRows int, truncate bool) error {
 		},
 	}
 
-	responseClient, err := df.sparkSession.executePlan(plan)
+	responseClient, err := df.sparkSession.executePlan(ctx, plan)
 	if err != nil {
-		return fmt.Errorf("failed to show dataframe: %w", err)
+		return sparkerrors.WithType(fmt.Errorf("failed to show dataframe: %w", err), sparkerrors.ExecutionError)
 	}
 
 	for {
 		response, err := responseClient.Recv()
 		if err != nil {
-			return fmt.Errorf("failed to receive show response: %w", err)
+			return sparkerrors.WithType(fmt.Errorf("failed to receive show response: %w", err), sparkerrors.ReadError)
 		}
 		arrowBatch := response.GetArrowBatch()
 		if arrowBatch == nil {
 			continue
 		}
-		err = showArrowBatch(arrowBatch)
+		err = showArrowBatch(arrowBatch, collector)
 		if err != nil {
 			return err
 		}
 		return nil
 	}
-
-	return fmt.Errorf("did not get arrow batch in response")
 }
 
-func (df *dataFrameImpl) Schema() (*StructType, error) {
-	response, err := df.sparkSession.analyzePlan(df.createPlan())
+func (df *dataFrameImpl) Schema(ctx context.Context) (*StructType, error) {
+	response, err := df.sparkSession.analyzePlan(ctx, df.createPlan())
 	if err != nil {
-		return nil, fmt.Errorf("failed to analyze plan: %w", err)
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to analyze plan: %w", err), sparkerrors.ExecutionError)
 	}
 
 	responseSchema := response.GetSchema().Schema
-	result := convertProtoDataTypeToStructType(responseSchema)
-	return result, nil
+	return convertProtoDataTypeToStructType(responseSchema)
 }
 
-func (df *dataFrameImpl) Collect() ([]Row, error) {
-	responseClient, err := df.sparkSession.executePlan(df.createPlan())
+func (df *dataFrameImpl) Collect(ctx context.Context) ([]Row, error) {
+	responseClient, err := df.sparkSession.executePlan(ctx, df.createPlan())
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute plan: %w", err)
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
 	}
 
 	var schema *StructType
@@ -131,13 +153,16 @@ func (df *dataFrameImpl) Collect() ([]Row, error) {
 			if errors.Is(err, io.EOF) {
 				return allRows, nil
 			} else {
-				return nil, fmt.Errorf("failed to receive plan execution response: %w", err)
+				return nil, sparkerrors.WithType(fmt.Errorf("failed to receive plan execution response: %w", err), sparkerrors.ReadError)
 			}
 		}
 
 		dataType := response.GetSchema()
 		if dataType != nil {
-			schema = convertProtoDataTypeToStructType(dataType)
+			schema, err = convertProtoDataTypeToStructType(dataType)
+			if err != nil {
+				return nil, err
+			}
 			continue
 		}
 
@@ -156,19 +181,17 @@ func (df *dataFrameImpl) Collect() ([]Row, error) {
 		}
 		allRows = append(allRows, rowBatch...)
 	}
-
-	return allRows, nil
 }
 
 func (df *dataFrameImpl) Write() DataFrameWriter {
-	writer := dataFrameWriterImpl{
-		sparkSession: df.sparkSession,
-		relation:     df.relation,
-	}
-	return &writer
+	return df.Writer()
 }
 
-func (df *dataFrameImpl) CreateTempView(viewName string, replace bool, global bool) error {
+func (df *dataFrameImpl) Writer() DataFrameWriter {
+	return newDataFrameWriter(df.sparkSession, df.relation)
+}
+
+func (df *dataFrameImpl) CreateTempView(ctx context.Context, viewName string, replace bool, global bool) error {
 	plan := &proto.Plan{
 		OpType: &proto.Plan_Command{
 			Command: &proto.Command{
@@ -184,12 +207,12 @@ func (df *dataFrameImpl) CreateTempView(viewName string, replace bool, global bo
 		},
 	}
 
-	responseClient, err := df.sparkSession.executePlan(plan)
+	responseClient, err := df.sparkSession.executePlan(ctx, plan)
 	if err != nil {
-		return fmt.Errorf("failed to create temp view %s: %w", viewName, err)
+		return sparkerrors.WithType(fmt.Errorf("failed to create temp view %s: %w", viewName, err), sparkerrors.ExecutionError)
 	}
 
-	return consumeExecutePlanClient(responseClient)
+	return responseClient.consumeAll()
 }
 
 func (df *dataFrameImpl) Repartition(numPartitions int, columns []string) (DataFrame, error) {
@@ -278,11 +301,11 @@ func (df *dataFrameImpl) repartitionByExpressions(numPartitions int, partitionEx
 	}, nil
 }
 
-func showArrowBatch(arrowBatch *proto.ExecutePlanResponse_ArrowBatch) error {
-	return showArrowBatchData(arrowBatch.Data)
+func showArrowBatch(arrowBatch *proto.ExecutePlanResponse_ArrowBatch, collector ResultCollector) error {
+	return showArrowBatchData(arrowBatch.Data, collector)
 }
 
-func showArrowBatchData(data []byte) error {
+func showArrowBatchData(data []byte, collector ResultCollector) error {
 	rows, err := readArrowBatchData(data, nil)
 	if err != nil {
 		return err
@@ -290,9 +313,9 @@ func showArrowBatchData(data []byte) error {
 	for _, row := range rows {
 		values, err := row.Values()
 		if err != nil {
-			return fmt.Errorf("failed to get values in the row: %w", err)
+			return sparkerrors.WithType(fmt.Errorf("failed to get values in the row: %w", err), sparkerrors.ReadError)
 		}
-		fmt.Println(values...)
+		collector.WriteRow(values)
 	}
 	return nil
 }
@@ -301,7 +324,7 @@ func readArrowBatchData(data []byte, schema *StructType) ([]Row, error) {
 	reader := bytes.NewReader(data)
 	arrowReader, err := ipc.NewReader(reader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create arrow reader: %w", err)
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to create arrow reader: %w", err), sparkerrors.ReadError)
 	}
 	defer arrowReader.Release()
 
@@ -313,7 +336,7 @@ func readArrowBatchData(data []byte, schema *StructType) ([]Row, error) {
 			if errors.Is(err, io.EOF) {
 				return rows, nil
 			} else {
-				return nil, fmt.Errorf("failed to read arrow: %w", err)
+				return nil, sparkerrors.WithType(fmt.Errorf("failed to read arrow: %w", err), sparkerrors.ReadError)
 			}
 		}
 
@@ -328,10 +351,7 @@ func readArrowBatchData(data []byte, schema *StructType) ([]Row, error) {
 		}
 
 		for _, v := range values {
-			row := &GenericRowWithSchema{
-				schema: schema,
-				values: v,
-			}
+			row := NewRowWithSchema(v, schema)
 			rows = append(rows, row)
 		}
 
@@ -445,14 +465,14 @@ func readArrowRecordColumn(record arrow.Record, columnIndex int, values [][]any)
 	return nil
 }
 
-func convertProtoDataTypeToStructType(input *proto.DataType) *StructType {
+func convertProtoDataTypeToStructType(input *proto.DataType) (*StructType, error) {
 	dataTypeStruct := input.GetStruct()
 	if dataTypeStruct == nil {
-		panic("dataType.GetStruct() is nil")
+		return nil, sparkerrors.WithType(errors.New("dataType.GetStruct() is nil"), sparkerrors.InvalidInputError)
 	}
 	return &StructType{
 		Fields: convertProtoStructFields(dataTypeStruct.Fields),
-	}
+	}, nil
 }
 
 func convertProtoStructFields(input []*proto.DataType_StructField) []StructField {

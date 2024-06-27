@@ -19,12 +19,13 @@ package main
 import (
 	"context"
 	"flag"
+	"log"
+	"time"
+
 	proto "github.com/apache/spark-connect-go/v1/internal/generated"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
-	"time"
 )
 
 var (
@@ -32,13 +33,14 @@ var (
 )
 
 func main() {
+	ctx := context.Background()
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
-	conn, err := grpc.Dial(*remote, opts...)
+	conn, err := grpc.DialContext(ctx, *remote, opts...)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 	defer conn.Close()
 
@@ -57,7 +59,7 @@ func main() {
 	}
 	configResponse, err := client.Config(ctx, &configRequest)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	log.Printf("configResponse: %v", configResponse)
