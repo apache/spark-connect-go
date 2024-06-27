@@ -34,6 +34,7 @@ func (w *wrappedError) Error() string {
 	return fmt.Sprintf("%s: %s", w.errorType, w.cause)
 }
 
+// WithType wraps an error with a type that can later be checked using `errors.Is`
 func WithType(err error, errType errorType) error {
 	return &wrappedError{cause: err, errorType: errType}
 }
