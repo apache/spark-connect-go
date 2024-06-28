@@ -19,12 +19,11 @@ package sql
 import (
 	"context"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
-
-	client2 "github.com/apache/spark-connect-go/v35/spark/client"
+	"github.com/apache/arrow/go/v17/arrow"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+	client2 "github.com/apache/spark-connect-go/v35/spark/client"
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 )
 
 type testExecutor struct {
