@@ -23,9 +23,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+
 	"github.com/apache/spark-connect-go/v1/client/sparkerrors"
 	proto "github.com/apache/spark-connect-go/v1/internal/generated"
 )
