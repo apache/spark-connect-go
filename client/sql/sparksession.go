@@ -109,10 +109,7 @@ func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, er
 		if sqlCommandResult == nil {
 			continue
 		}
-		return &dataFrameImpl{
-			sparkSession: s,
-			relation:     sqlCommandResult.GetRelation(),
-		}, nil
+		return newDataFrame(s, sqlCommandResult.GetRelation()), nil
 	}
 }
 

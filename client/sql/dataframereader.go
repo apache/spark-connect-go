@@ -34,11 +34,7 @@ func (w *dataFrameReaderImpl) Load(path string) (DataFrame, error) {
 	if w.formatSource != "" {
 		format = w.formatSource
 	}
-	df := &dataFrameImpl{
-		sparkSession: w.sparkSession,
-		relation:     toRelation(path, format),
-	}
-	return df, nil
+	return newDataFrame(w.sparkSession, toRelation(path, format)), nil
 }
 
 func toRelation(path string, format string) *proto.Relation {
