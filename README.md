@@ -17,7 +17,7 @@ This section explains how to run Spark Connect Go locally.
 
 Step 1: Install Golang: https://go.dev/doc/install.
 
-Step 2: Ensure you have installed `buf CLI` installed, [more info here](https://buf.build/docs/installation/)
+Step 2: Install [bazel](https://bazel.build/install) to build the code.
 
 Step 3: Run the following commands to setup the Spark Connect client.
 
@@ -25,7 +25,7 @@ Step 3: Run the following commands to setup the Spark Connect client.
 git clone https://github.com/apache/spark-connect-go.git
 git submodule update --init --recursive
 
-make gen && make test
+bazel test //...
 ```
 
 Step 4: Setup the Spark Driver on localhost.
@@ -53,26 +53,26 @@ See [Quick Start Guide](quick-start.md)
 Following [diagram](https://textik.com/#ac299c8f32c4c342) shows main code in current prototype:
 
 ```
-    +-------------------+                                                                              
-    |                   |                                                                              
-    |   dataFrameImpl   |                                                                              
-    |                   |                                                                              
-    +-------------------+                                                                              
-              |                                                                                        
-              |                                                                                        
-              +                                                                                        
-    +-------------------+                                                                              
-    |                   |                                                                              
-    | sparkSessionImpl  |                                                                              
-    |                   |                                                                              
-    +-------------------+                                                                              
-              |                                                                                        
-              |                                                                                        
-              +                                                                                        
-+---------------------------+               +----------------+                                         
-|                           |               |                |                                         
-| SparkConnectServiceClient |--------------+|  Spark Driver  |                                         
-|                           |               |                |                                         
+    +-------------------+
+    |                   |
+    |   dataFrameImpl   |
+    |                   |
+    +-------------------+
+              |
+              |
+              +
+    +-------------------+
+    |                   |
+    | sparkSessionImpl  |
+    |                   |
+    +-------------------+
+              |
+              |
+              +
++---------------------------+               +----------------+
+|                           |               |                |
+| SparkConnectServiceClient |--------------+|  Spark Driver  |
+|                           |               |                |
 +---------------------------+               +----------------+
 ```
 
