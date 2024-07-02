@@ -38,11 +38,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0
           submodules: recursive
-          ref: master
       - name: Install Golang
         run: |
           curl -LO https://go.dev/dl/go1.21.11.linux-amd64.tar.gz
