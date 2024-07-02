@@ -2,8 +2,9 @@ package sql
 
 import (
 	"fmt"
-	proto "github.com/apache/spark-connect-go/v34/internal/generated"
 	"strings"
+
+	proto "github.com/apache/spark-connect-go/v34/internal/generated/spark/connect"
 )
 
 // DataFrameWriter supports writing data frame to storage.

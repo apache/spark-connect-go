@@ -1,9 +1,10 @@
 package sql
 
 import (
-	proto "github.com/apache/spark-connect-go/v34/internal/generated"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	proto "github.com/apache/spark-connect-go/v34/internal/generated/spark/connect"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetSaveMode(t *testing.T) {

@@ -20,11 +20,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
+
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/ipc"
-	proto "github.com/apache/spark-connect-go/v34/internal/generated"
-	"io"
+	proto "github.com/apache/spark-connect-go/v34/internal/generated/spark/connect"
 )
 
 // DataFrame is a wrapper for data frame, representing a distributed collection of data row.

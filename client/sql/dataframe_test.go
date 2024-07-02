@@ -18,6 +18,8 @@ package sql
 
 import (
 	"bytes"
+	"testing"
+
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/decimal128"
@@ -25,10 +27,9 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/float16"
 	"github.com/apache/arrow/go/v12/arrow/ipc"
 	"github.com/apache/arrow/go/v12/arrow/memory"
-	proto "github.com/apache/spark-connect-go/v34/internal/generated"
+	proto "github.com/apache/spark-connect-go/v34/internal/generated/spark/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestShowArrowBatchData(t *testing.T) {
