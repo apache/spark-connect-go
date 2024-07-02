@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "sparkerrors",
+    srcs = ["errors.go"],
+    importpath = "github.com/apache/spark-connect-go/v1/client/sparkerrors",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "sparkerrors_test",
+    srcs = ["errors_test.go"],
+    embed = [":sparkerrors"],
+    deps = ["@com_github_stretchr_testify//assert"],
+)
