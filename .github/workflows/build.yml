@@ -47,15 +47,6 @@ jobs:
         run: |
           curl -LO https://go.dev/dl/go1.21.11.linux-amd64.tar.gz
           sudo tar -C /usr/local -xzf go1.21.11.linux-amd64.tar.gz
-      - name: Install Bazel
-        uses: bazel-contrib/setup-bazel@0.8.5
-        with:
-          # Avoid downloading Bazel every time.
-          bazelisk-cache: true
-          # Store build cache per workflow.
-          disk-cache: ${{ github.workflow }}
-          # Share repository cache between workflows.
-          repository-cache: true
       - name: Run Build & Test
         run: |
           export PATH=$PATH:/usr/local/go/bin
