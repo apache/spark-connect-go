@@ -15,7 +15,7 @@
 
 module github.com/apache/spark-connect-go/v1
 
-go 1.19
+go 1.21
 
 require (
 	github.com/apache/arrow/go/v12 v12.0.0

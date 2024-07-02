@@ -14,8 +14,14 @@ type DataFrameReader interface {
 
 // dataFrameReaderImpl is an implementation of DataFrameReader interface.
 type dataFrameReaderImpl struct {
-	sparkSession *sparkSessionImpl
+	sparkSession sparkExecutor
 	formatSource string
+}
+
+func newDataframeReader(session sparkExecutor) DataFrameReader {
+	return &dataFrameReaderImpl{
+		sparkSession: session,
+	}
 }
 
 func (w *dataFrameReaderImpl) Format(source string) DataFrameReader {
@@ -24,24 +30,24 @@ func (w *dataFrameReaderImpl) Format(source string) DataFrameReader {
 }
 
 func (w *dataFrameReaderImpl) Load(path string) (DataFrame, error) {
-	var format *string
+	var format string
 	if w.formatSource != "" {
-		format = &w.formatSource
+		format = w.formatSource
 	}
-	df := &dataFrameImpl{
-		sparkSession: w.sparkSession,
-		relation: &proto.Relation{
-			RelType: &proto.Relation_Read{
-				Read: &proto.Read{
-					ReadType: &proto.Read_DataSource_{
-						DataSource: &proto.Read_DataSource{
-							Format: format,
-							Paths:  []string{path},
-						},
+	return newDataFrame(w.sparkSession, toRelation(path, format)), nil
+}
+
+func toRelation(path string, format string) *proto.Relation {
+	return &proto.Relation{
+		RelType: &proto.Relation_Read{
+			Read: &proto.Read{
+				ReadType: &proto.Read_DataSource_{
+					DataSource: &proto.Read_DataSource{
+						Format: &format,
+						Paths:  []string{path},
 					},
 				},
 			},
 		},
 	}
-	return df, nil
 }

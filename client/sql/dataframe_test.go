@@ -18,6 +18,9 @@ package sql
 
 import (
 	"bytes"
+	"context"
+	"testing"
+
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/decimal128"
@@ -28,7 +31,6 @@ import (
 	proto "github.com/apache/spark-connect-go/v1/internal/generated"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestShowArrowBatchData(t *testing.T) {
@@ -56,8 +58,10 @@ func TestShowArrowBatchData(t *testing.T) {
 	err := arrowWriter.Write(record)
 	require.Nil(t, err)
 
-	err = showArrowBatchData(buf.Bytes())
+	collector := &testCollector{}
+	err = showArrowBatchData(buf.Bytes(), collector)
 	assert.Nil(t, err)
+	assert.Equal(t, []any{"str2"}, collector.row)
 }
 
 func TestReadArrowRecord(t *testing.T) {
@@ -303,4 +307,74 @@ func TestConvertProtoDataTypeToDataType_UnsupportedType(t *testing.T) {
 		Kind: &proto.DataType_YearMonthInterval_{},
 	}
 	assert.Equal(t, "Unsupported", convertProtoDataTypeToDataType(unsupportedDataType).TypeName())
+}
+
+type testCollector struct {
+	row []any
+}
+
+func (t *testCollector) WriteRow(values []any) {
+	t.row = values
+}
+
+func TestWriteResultStreamsArrowResultToCollector(t *testing.T) {
+	ctx := context.Background()
+
+	arrowFields := []arrow.Field{
+		{
+			Name: "show_string",
+			Type: &arrow.StringType{},
+		},
+	}
+	arrowSchema := arrow.NewSchema(arrowFields, nil)
+	var buf bytes.Buffer
+	arrowWriter := ipc.NewWriter(&buf, ipc.WithSchema(arrowSchema))
+	defer arrowWriter.Close()
+
+	alloc := memory.NewGoAllocator()
+	recordBuilder := array.NewRecordBuilder(alloc, arrowSchema)
+	defer recordBuilder.Release()
+
+	recordBuilder.Field(0).(*array.StringBuilder).Append("str1a\nstr1b")
+	recordBuilder.Field(0).(*array.StringBuilder).Append("str2")
+
+	record := recordBuilder.NewRecord()
+	defer record.Release()
+
+	err := arrowWriter.Write(record)
+	require.Nil(t, err)
+
+	query := "select * from bla"
+
+	session := &sparkSessionImpl{
+		client: &connectServiceClient{
+			executePlanClient: &executePlanClient{&protoClient{
+				recvResponses: []*proto.ExecutePlanResponse{
+					{
+						ResponseType: &proto.ExecutePlanResponse_SqlCommandResult_{
+							SqlCommandResult: &proto.ExecutePlanResponse_SqlCommandResult{},
+						},
+					},
+					{
+						ResponseType: &proto.ExecutePlanResponse_ArrowBatch_{
+							ArrowBatch: &proto.ExecutePlanResponse_ArrowBatch{
+								RowCount: 1,
+								Data:     buf.Bytes(),
+							},
+						},
+					},
+				}},
+			},
+			t: t,
+		},
+	}
+	resp, err := session.Sql(ctx, query)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	writer, err := resp.Repartition(1, []string{"1"})
+	assert.NoError(t, err)
+	collector := &testCollector{}
+	err = writer.WriteResult(ctx, collector, 1, false)
+	assert.NoError(t, err)
+	assert.Equal(t, []any{"str2"}, collector.row)
 }

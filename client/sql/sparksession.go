@@ -18,48 +18,46 @@ package sql
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/apache/spark-connect-go/v1/client/channel"
+	"github.com/apache/spark-connect-go/v1/client/sparkerrors"
 	proto "github.com/apache/spark-connect-go/v1/internal/generated"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"
-	"io"
 )
 
-var SparkSession sparkSessionBuilderEntrypoint
-
-type sparkSession interface {
+type SparkSession interface {
 	Read() DataFrameReader
-	Sql(query string) (DataFrame, error)
+	Sql(ctx context.Context, query string) (DataFrame, error)
 	Stop() error
 }
 
-type sparkSessionBuilderEntrypoint struct {
-	Builder SparkSessionBuilder
+// NewSessionBuilder creates a new session builder for starting a new spark session
+func NewSessionBuilder() *SparkSessionBuilder {
+	return &SparkSessionBuilder{}
 }
 
 type SparkSessionBuilder struct {
 	connectionString string
 }
 
-func (s SparkSessionBuilder) Remote(connectionString string) SparkSessionBuilder {
-	copy := s
-	copy.connectionString = connectionString
-	return copy
+// Remote sets the connection string for remote connection
+func (s *SparkSessionBuilder) Remote(connectionString string) *SparkSessionBuilder {
+	s.connectionString = connectionString
+	return s
 }
 
-func (s SparkSessionBuilder) Build() (sparkSession, error) {
+func (s *SparkSessionBuilder) Build(ctx context.Context) (SparkSession, error) {
 
 	cb, err := channel.NewBuilder(s.connectionString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to remote %s: %w", s.connectionString, err)
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w", s.connectionString, err), sparkerrors.ConnectionError)
 	}
 
-	conn, err := cb.Build()
+	conn, err := cb.Build(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to remote %s: %w", s.connectionString, err)
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w", s.connectionString, err), sparkerrors.ConnectionError)
 	}
 
 	// Add metadata to the request.
@@ -83,12 +81,10 @@ type sparkSessionImpl struct {
 }
 
 func (s *sparkSessionImpl) Read() DataFrameReader {
-	return &dataFrameReaderImpl{
-		sparkSession: s,
-	}
+	return newDataframeReader(s)
 }
 
-func (s *sparkSessionImpl) Sql(query string) (DataFrame, error) {
+func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, error) {
 	plan := &proto.Plan{
 		OpType: &proto.Plan_Command{
 			Command: &proto.Command{
@@ -100,32 +96,28 @@ func (s *sparkSessionImpl) Sql(query string) (DataFrame, error) {
 			},
 		},
 	}
-	responseClient, err := s.executePlan(plan)
+	responseClient, err := s.executePlan(ctx, plan)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute sql: %s: %w", query, err)
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to execute sql: %s: %w", query, err), sparkerrors.ExecutionError)
 	}
 	for {
 		response, err := responseClient.Recv()
 		if err != nil {
-			return nil, fmt.Errorf("failed to receive ExecutePlan response: %w", err)
+			return nil, sparkerrors.WithType(fmt.Errorf("failed to receive ExecutePlan response: %w", err), sparkerrors.ReadError)
 		}
 		sqlCommandResult := response.GetSqlCommandResult()
 		if sqlCommandResult == nil {
 			continue
 		}
-		return &dataFrameImpl{
-			sparkSession: s,
-			relation:     sqlCommandResult.GetRelation(),
-		}, nil
+		return newDataFrame(s, sqlCommandResult.GetRelation()), nil
 	}
-	return nil, fmt.Errorf("failed to get SqlCommandResult in ExecutePlan response")
 }
 
 func (s *sparkSessionImpl) Stop() error {
 	return nil
 }
 
-func (s *sparkSessionImpl) executePlan(plan *proto.Plan) (proto.SparkConnectService_ExecutePlanClient, error) {
+func (s *sparkSessionImpl) executePlan(ctx context.Context, plan *proto.Plan) (*executePlanClient, error) {
 	request := proto.ExecutePlanRequest{
 		SessionId: s.sessionId,
 		Plan:      plan,
@@ -134,15 +126,15 @@ func (s *sparkSessionImpl) executePlan(plan *proto.Plan) (proto.SparkConnectServ
 		},
 	}
 	// Append the other items to the request.
-	ctx := metadata.NewOutgoingContext(context.Background(), s.metadata)
-	executePlanClient, err := s.client.ExecutePlan(ctx, &request)
+	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
+	client, err := s.client.ExecutePlan(ctx, &request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err)
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
-	return executePlanClient, nil
+	return newExecutePlanClient(client), nil
 }
 
-func (s *sparkSessionImpl) analyzePlan(plan *proto.Plan) (*proto.AnalyzePlanResponse, error) {
+func (s *sparkSessionImpl) analyzePlan(ctx context.Context, plan *proto.Plan) (*proto.AnalyzePlanResponse, error) {
 	request := proto.AnalyzePlanRequest{
 		SessionId: s.sessionId,
 		Analyze: &proto.AnalyzePlanRequest_Schema_{
@@ -155,29 +147,11 @@ func (s *sparkSessionImpl) analyzePlan(plan *proto.Plan) (*proto.AnalyzePlanResp
 		},
 	}
 	// Append the other items to the request.
-	ctx := metadata.NewOutgoingContext(context.Background(), s.metadata)
+	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
 
 	response, err := s.client.AnalyzePlan(ctx, &request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call AnalyzePlan in session %s: %w", s.sessionId, err)
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to call AnalyzePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
 	return response, nil
-}
-
-// consumeExecutePlanClient reads through the returned GRPC stream from Spark Connect Driver. It will
-// discard the returned data if there is no error. This is necessary for handling GRPC response for
-// saving data frame, since such consuming will trigger Spark Connect Driver really saving data frame.
-// If we do not consume the returned GRPC stream, Spark Connect Driver will not really save data frame.
-func consumeExecutePlanClient(responseClient proto.SparkConnectService_ExecutePlanClient) error {
-	for {
-		_, err := responseClient.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			} else {
-				return fmt.Errorf("failed to receive plan execution response: %w", err)
-			}
-		}
-	}
-	return nil
 }
