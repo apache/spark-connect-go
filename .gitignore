@@ -20,6 +20,7 @@ internal/generated.out
 
 # Ignore Coverage Files
 coverage*
+genhtml
 
 # Ignore IDE files
 .idea/
@@ -27,3 +28,8 @@ coverage*
 # Ignore binaries
 cmd/spark-connect-example-raw-grpc-client/spark-connect-example-raw-grpc-client
 cmd/spark-connect-example-spark-session/spark-connect-example-spark-session
+
+# Ignore Bazel specific files
+bazel-out
+bazel-bin
+bazel-testlogs
