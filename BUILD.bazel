@@ -20,19 +20,9 @@ proto_library(
 )
 
 # Create the proto library directly.
-go_proto_compile(
-     name = "spark_connect_proto_go",
-     protos = [":spark_connect_protos"],
-)
-
-go_grpc_compile(
-     name = "spark_connect_proto_grpc_go",
-     protos = [":spark_connect_protos"],
-)
-
 go_proto_library(
     name = "spark_connect_proto",
-    importpath = "github.com/apache/spark-connect-go/v34/internal/generated/spark/connect",
+    importpath = "github.com/apache/spark-connect-go/v1/internal/generated/spark/connect",
     protos = [
       ":spark_connect_protos",
     ],
@@ -41,7 +31,7 @@ go_proto_library(
 
 go_grpc_library(
     name = "spark_connect_proto_grpc",
-    importpath = "github.com/apache/spark-connect-go/v34/internal/generated/spark/connect",
+    importpath = "github.com/apache/spark-connect-go/v1/internal/generated/spark/connect",
     protos = [
       ":spark_connect_protos",
     ],

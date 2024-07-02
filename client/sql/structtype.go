@@ -16,12 +16,14 @@
 
 package sql
 
+// StructField represents a field in a StructType.
 type StructField struct {
 	Name     string
 	DataType DataType
 	Nullable bool // default should be true
 }
 
+// StructType represents a struct type.
 type StructType struct {
 	TypeName string
 	Fields   []StructField

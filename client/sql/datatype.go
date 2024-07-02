@@ -17,7 +17,7 @@
 package sql
 
 import (
-	"reflect"
+	"fmt"
 	"strings"
 )
 
@@ -125,16 +125,7 @@ func (t UnsupportedType) TypeName() string {
 }
 
 func getDataTypeName(dataType DataType) string {
-	t := reflect.TypeOf(dataType)
-	if t == nil {
-		return "(nil)"
-	}
-	var name string
-	if t.Kind() == reflect.Ptr {
-		name = t.Elem().Name()
-	} else {
-		name = t.Name()
-	}
-	name = strings.TrimSuffix(name, "Type")
-	return name
+	typeName := fmt.Sprintf("%T", dataType)
+	nonQualifiedTypeName := strings.Split(typeName, ".")[1]
+	return strings.TrimSuffix(nonQualifiedTypeName, "Type")
 }

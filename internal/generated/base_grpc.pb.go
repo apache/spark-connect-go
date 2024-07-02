@@ -35,12 +35,14 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	SparkConnectService_ExecutePlan_FullMethodName    = "/spark.connect.SparkConnectService/ExecutePlan"
-	SparkConnectService_AnalyzePlan_FullMethodName    = "/spark.connect.SparkConnectService/AnalyzePlan"
-	SparkConnectService_Config_FullMethodName         = "/spark.connect.SparkConnectService/Config"
-	SparkConnectService_AddArtifacts_FullMethodName   = "/spark.connect.SparkConnectService/AddArtifacts"
-	SparkConnectService_ArtifactStatus_FullMethodName = "/spark.connect.SparkConnectService/ArtifactStatus"
-	SparkConnectService_Interrupt_FullMethodName      = "/spark.connect.SparkConnectService/Interrupt"
+	SparkConnectService_ExecutePlan_FullMethodName     = "/spark.connect.SparkConnectService/ExecutePlan"
+	SparkConnectService_AnalyzePlan_FullMethodName     = "/spark.connect.SparkConnectService/AnalyzePlan"
+	SparkConnectService_Config_FullMethodName          = "/spark.connect.SparkConnectService/Config"
+	SparkConnectService_AddArtifacts_FullMethodName    = "/spark.connect.SparkConnectService/AddArtifacts"
+	SparkConnectService_ArtifactStatus_FullMethodName  = "/spark.connect.SparkConnectService/ArtifactStatus"
+	SparkConnectService_Interrupt_FullMethodName       = "/spark.connect.SparkConnectService/Interrupt"
+	SparkConnectService_ReattachExecute_FullMethodName = "/spark.connect.SparkConnectService/ReattachExecute"
+	SparkConnectService_ReleaseExecute_FullMethodName  = "/spark.connect.SparkConnectService/ReleaseExecute"
 )
 
 // SparkConnectServiceClient is the client API for SparkConnectService service.
@@ -62,6 +64,16 @@ type SparkConnectServiceClient interface {
 	ArtifactStatus(ctx context.Context, in *ArtifactStatusesRequest, opts ...grpc.CallOption) (*ArtifactStatusesResponse, error)
 	// Interrupts running executions
 	Interrupt(ctx context.Context, in *InterruptRequest, opts ...grpc.CallOption) (*InterruptResponse, error)
+	// Reattach to an existing reattachable execution.
+	// The ExecutePlan must have been started with ReattachOptions.reattachable=true.
+	// If the ExecutePlanResponse stream ends without a ResultComplete message, there is more to
+	// continue. If there is a ResultComplete, the client should use ReleaseExecute with
+	ReattachExecute(ctx context.Context, in *ReattachExecuteRequest, opts ...grpc.CallOption) (SparkConnectService_ReattachExecuteClient, error)
+	// Release an reattachable execution, or parts thereof.
+	// The ExecutePlan must have been started with ReattachOptions.reattachable=true.
+	// Non reattachable executions are released automatically and immediately after the ExecutePlan
+	// RPC and ReleaseExecute may not be used.
+	ReleaseExecute(ctx context.Context, in *ReleaseExecuteRequest, opts ...grpc.CallOption) (*ReleaseExecuteResponse, error)
 }
 
 type sparkConnectServiceClient struct {
@@ -174,6 +186,47 @@ func (c *sparkConnectServiceClient) Interrupt(ctx context.Context, in *Interrupt
 	return out, nil
 }
 
+func (c *sparkConnectServiceClient) ReattachExecute(ctx context.Context, in *ReattachExecuteRequest, opts ...grpc.CallOption) (SparkConnectService_ReattachExecuteClient, error) {
+	stream, err := c.cc.NewStream(ctx, &SparkConnectService_ServiceDesc.Streams[2], SparkConnectService_ReattachExecute_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &sparkConnectServiceReattachExecuteClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type SparkConnectService_ReattachExecuteClient interface {
+	Recv() (*ExecutePlanResponse, error)
+	grpc.ClientStream
+}
+
+type sparkConnectServiceReattachExecuteClient struct {
+	grpc.ClientStream
+}
+
+func (x *sparkConnectServiceReattachExecuteClient) Recv() (*ExecutePlanResponse, error) {
+	m := new(ExecutePlanResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *sparkConnectServiceClient) ReleaseExecute(ctx context.Context, in *ReleaseExecuteRequest, opts ...grpc.CallOption) (*ReleaseExecuteResponse, error) {
+	out := new(ReleaseExecuteResponse)
+	err := c.cc.Invoke(ctx, SparkConnectService_ReleaseExecute_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SparkConnectServiceServer is the server API for SparkConnectService service.
 // All implementations must embed UnimplementedSparkConnectServiceServer
 // for forward compatibility
@@ -193,6 +246,16 @@ type SparkConnectServiceServer interface {
 	ArtifactStatus(context.Context, *ArtifactStatusesRequest) (*ArtifactStatusesResponse, error)
 	// Interrupts running executions
 	Interrupt(context.Context, *InterruptRequest) (*InterruptResponse, error)
+	// Reattach to an existing reattachable execution.
+	// The ExecutePlan must have been started with ReattachOptions.reattachable=true.
+	// If the ExecutePlanResponse stream ends without a ResultComplete message, there is more to
+	// continue. If there is a ResultComplete, the client should use ReleaseExecute with
+	ReattachExecute(*ReattachExecuteRequest, SparkConnectService_ReattachExecuteServer) error
+	// Release an reattachable execution, or parts thereof.
+	// The ExecutePlan must have been started with ReattachOptions.reattachable=true.
+	// Non reattachable executions are released automatically and immediately after the ExecutePlan
+	// RPC and ReleaseExecute may not be used.
+	ReleaseExecute(context.Context, *ReleaseExecuteRequest) (*ReleaseExecuteResponse, error)
 	mustEmbedUnimplementedSparkConnectServiceServer()
 }
 
@@ -217,6 +280,12 @@ func (UnimplementedSparkConnectServiceServer) ArtifactStatus(context.Context, *A
 }
 func (UnimplementedSparkConnectServiceServer) Interrupt(context.Context, *InterruptRequest) (*InterruptResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Interrupt not implemented")
+}
+func (UnimplementedSparkConnectServiceServer) ReattachExecute(*ReattachExecuteRequest, SparkConnectService_ReattachExecuteServer) error {
+	return status.Errorf(codes.Unimplemented, "method ReattachExecute not implemented")
+}
+func (UnimplementedSparkConnectServiceServer) ReleaseExecute(context.Context, *ReleaseExecuteRequest) (*ReleaseExecuteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReleaseExecute not implemented")
 }
 func (UnimplementedSparkConnectServiceServer) mustEmbedUnimplementedSparkConnectServiceServer() {}
 
@@ -350,6 +419,45 @@ func _SparkConnectService_Interrupt_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SparkConnectService_ReattachExecute_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ReattachExecuteRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SparkConnectServiceServer).ReattachExecute(m, &sparkConnectServiceReattachExecuteServer{stream})
+}
+
+type SparkConnectService_ReattachExecuteServer interface {
+	Send(*ExecutePlanResponse) error
+	grpc.ServerStream
+}
+
+type sparkConnectServiceReattachExecuteServer struct {
+	grpc.ServerStream
+}
+
+func (x *sparkConnectServiceReattachExecuteServer) Send(m *ExecutePlanResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _SparkConnectService_ReleaseExecute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReleaseExecuteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SparkConnectServiceServer).ReleaseExecute(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SparkConnectService_ReleaseExecute_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SparkConnectServiceServer).ReleaseExecute(ctx, req.(*ReleaseExecuteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SparkConnectService_ServiceDesc is the grpc.ServiceDesc for SparkConnectService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -373,6 +481,10 @@ var SparkConnectService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Interrupt",
 			Handler:    _SparkConnectService_Interrupt_Handler,
 		},
+		{
+			MethodName: "ReleaseExecute",
+			Handler:    _SparkConnectService_ReleaseExecute_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -384,6 +496,11 @@ var SparkConnectService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "AddArtifacts",
 			Handler:       _SparkConnectService_AddArtifacts_Handler,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "ReattachExecute",
+			Handler:       _SparkConnectService_ReattachExecute_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "spark/connect/base.proto",

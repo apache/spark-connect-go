@@ -1,9 +1,11 @@
 package sql
 
 import (
+	"context"
+	"io"
 	"testing"
 
-	proto "github.com/apache/spark-connect-go/v34/internal/generated/spark/connect"
+	proto "github.com/apache/spark-connect-go/v1/internal/generated/spark/connect"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,4 +33,54 @@ func TestGetSaveMode(t *testing.T) {
 	mode, err = getSaveMode("XYZ")
 	assert.NotNil(t, err)
 	assert.Equal(t, proto.WriteOperation_SAVE_MODE_UNSPECIFIED, mode)
+}
+
+func TestSaveExecutesWriteOperationUntilEOF(t *testing.T) {
+	relation := &proto.Relation{}
+	executor := &testExecutor{
+		client: newExecutePlanClient(&protoClient{
+			err: io.EOF,
+		}),
+	}
+	ctx := context.Background()
+	path := "path"
+
+	writer := newDataFrameWriter(executor, relation)
+	writer.Format("format")
+	writer.Mode("append")
+	err := writer.Save(ctx, path)
+	assert.NoError(t, err)
+}
+
+func TestSaveFailsIfAnotherErrorHappensWhenReadingStream(t *testing.T) {
+	relation := &proto.Relation{}
+	executor := &testExecutor{
+		client: newExecutePlanClient(&protoClient{
+			err: assert.AnError,
+		}),
+	}
+	ctx := context.Background()
+	path := "path"
+
+	writer := newDataFrameWriter(executor, relation)
+	writer.Format("format")
+	writer.Mode("append")
+	err := writer.Save(ctx, path)
+	assert.Error(t, err)
+}
+
+func TestSaveFailsIfAnotherErrorHappensWhenExecuting(t *testing.T) {
+	relation := &proto.Relation{}
+	executor := &testExecutor{
+		client: newExecutePlanClient(&protoClient{}),
+		err:    assert.AnError,
+	}
+	ctx := context.Background()
+	path := "path"
+
+	writer := newDataFrameWriter(executor, relation)
+	writer.Format("format")
+	writer.Mode("append")
+	err := writer.Save(ctx, path)
+	assert.Error(t, err)
 }
