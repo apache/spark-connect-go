@@ -51,5 +51,6 @@ jobs:
         run: |
           export PATH=$PATH:/usr/local/go/bin
           pwd
+          ls
           bazel build //...
           bazel test //...
