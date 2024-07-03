@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/spark-connect-go/v1/client/sparkerrors"
-	proto "github.com/apache/spark-connect-go/v1/internal/generated"
+	"github.com/apache/spark-connect-go/v3.5/client/sparkerrors"
+	proto "github.com/apache/spark-connect-go/v3.5/internal/generated"
 )
 
 type executePlanClient struct {

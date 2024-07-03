@@ -26,8 +26,8 @@ import (
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/spark-connect-go/v1/client/sparkerrors"
-	proto "github.com/apache/spark-connect-go/v1/internal/generated"
+	"github.com/apache/spark-connect-go/v3.5/client/sparkerrors"
+	proto "github.com/apache/spark-connect-go/v3.5/internal/generated"
 )
 
 // ResultCollector receives a stream of result rows
