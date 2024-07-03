@@ -14,16 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-# All generated files
-internal/generated.out
-
-# Ignore Coverage Files
-coverage*
-
-# Ignore IDE files
-.idea/
-
-# Ignore binaries
-cmd/spark-connect-example-raw-grpc-client/spark-connect-example-raw-grpc-client
-cmd/spark-connect-example-spark-session/spark-connect-example-spark-session
+version: v1
+directories:
+  - spark/connector/connect/common/src/main/protobuf

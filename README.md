@@ -17,7 +17,7 @@ This section explains how to run Spark Connect Go locally.
 
 Step 1: Install Golang: https://go.dev/doc/install.
 
-Step 2: Install [bazel](https://bazel.build/install) to build the code.
+Step 2: Ensure you have installed `buf CLI` installed, [more info here](https://buf.build/docs/installation/)
 
 Step 3: Run the following commands to setup the Spark Connect client.
 
@@ -25,17 +25,17 @@ Step 3: Run the following commands to setup the Spark Connect client.
 git clone https://github.com/apache/spark-connect-go.git
 git submodule update --init --recursive
 
-bazel test //...
+make gen && make test
 ```
 
 Step 4: Setup the Spark Driver on localhost.
 
-1. [Download Spark distribution](https://spark.apache.org/downloads.html) (3.5.1), unzip the package.
+1. [Download Spark distribution](https://spark.apache.org/downloads.html) (3.4.0+), unzip the package.
 
 2. Start the Spark Connect server with the following command (make sure to use a package version that matches your Spark distribution):
 
 ```
-sbin/start-connect-server.sh --packages org.apache.spark:spark-connect_2.12:3.5.1
+sbin/start-connect-server.sh --packages org.apache.spark:spark-connect_2.12:3.4.0
 ```
 
 Step 5: Run the example Go application.
@@ -53,26 +53,26 @@ See [Quick Start Guide](quick-start.md)
 Following [diagram](https://textik.com/#ac299c8f32c4c342) shows main code in current prototype:
 
 ```
-    +-------------------+
-    |                   |
-    |   dataFrameImpl   |
-    |                   |
-    +-------------------+
-              |
-              |
-              +
-    +-------------------+
-    |                   |
-    | sparkSessionImpl  |
-    |                   |
-    +-------------------+
-              |
-              |
-              +
-+---------------------------+               +----------------+
-|                           |               |                |
-| SparkConnectServiceClient |--------------+|  Spark Driver  |
-|                           |               |                |
+    +-------------------+                                                                              
+    |                   |                                                                              
+    |   dataFrameImpl   |                                                                              
+    |                   |                                                                              
+    +-------------------+                                                                              
+              |                                                                                        
+              |                                                                                        
+              +                                                                                        
+    +-------------------+                                                                              
+    |                   |                                                                              
+    | sparkSessionImpl  |                                                                              
+    |                   |                                                                              
+    +-------------------+                                                                              
+              |                                                                                        
+              |                                                                                        
+              +                                                                                        
++---------------------------+               +----------------+                                         
+|                           |               |                |                                         
+| SparkConnectServiceClient |--------------+|  Spark Driver  |                                         
+|                           |               |                |                                         
 +---------------------------+               +----------------+
 ```
 

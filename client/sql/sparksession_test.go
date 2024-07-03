@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/apache/spark-connect-go/v1/client/sparkerrors"
-	proto "github.com/apache/spark-connect-go/v1/internal/generated/spark/connect"
+	proto "github.com/apache/spark-connect-go/v1/internal/generated"
 	"github.com/stretchr/testify/assert"
 )
 

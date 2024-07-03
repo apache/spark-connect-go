@@ -22,7 +22,7 @@ import (
 
 	"github.com/apache/spark-connect-go/v1/client/channel"
 	"github.com/apache/spark-connect-go/v1/client/sparkerrors"
-	proto "github.com/apache/spark-connect-go/v1/internal/generated/spark/connect"
+	proto "github.com/apache/spark-connect-go/v1/internal/generated"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"
 )

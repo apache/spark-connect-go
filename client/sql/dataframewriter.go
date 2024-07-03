@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/apache/spark-connect-go/v1/client/sparkerrors"
-	proto "github.com/apache/spark-connect-go/v1/internal/generated/spark/connect"
+	proto "github.com/apache/spark-connect-go/v1/internal/generated"
 )
 
 // DataFrameWriter supports writing data frame to storage.
