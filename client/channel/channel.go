@@ -27,7 +27,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/spark-connect-go/v1/client/sparkerrors"
+	"github.com/apache/spark-connect-go/v3.5/client/sparkerrors"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
