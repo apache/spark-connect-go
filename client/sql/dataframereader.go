@@ -1,6 +1,6 @@
 package sql
 
-import proto "github.com/apache/spark-connect-go/v3.5/internal/generated"
+import proto "github.com/apache/spark-connect-go/v35/internal/generated"
 
 // DataFrameReader supports reading data from storage and returning a data frame.
 // TODO needs to implement other methods like Option(), Schema(), and also "strong typed"

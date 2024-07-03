@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/apache/spark-connect-go/v3.5/client/sparkerrors"
-	proto "github.com/apache/spark-connect-go/v3.5/internal/generated"
+	"github.com/apache/spark-connect-go/v35/client/sparkerrors"
+	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/stretchr/testify/assert"
 )
 
