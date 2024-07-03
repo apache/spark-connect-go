@@ -6,7 +6,7 @@ go_library(
         "channel.go",
         "compat.go",
     ],
-    importpath = "github.com/apache/spark-connect-go/v1/client/channel",
+    importpath = "github.com/apache/spark-connect-go/v35/client/channel",
     visibility = ["//visibility:public"],
     deps = [
         "//client/sparkerrors",
