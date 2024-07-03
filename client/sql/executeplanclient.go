@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/apache/spark-connect-go/v1/client/sparkerrors"
-	proto "github.com/apache/spark-connect-go/v1/internal/generated"
+	proto "github.com/apache/spark-connect-go/v1/internal/generated/spark/connect"
 )
 
 type executePlanClient struct {

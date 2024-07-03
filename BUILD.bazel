@@ -1,0 +1,38 @@
+# Define the dependencies:
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@gazelle//:def.bzl", "gazelle")
+load("@rules_proto_grpc_go//:defs.bzl", "go_grpc_compile", "go_grpc_library", "go_proto_compile", "go_proto_library")
+
+# gazelle:prefix github.com/apache/spark-connect-go/v1
+# gazelle:exclude spark
+gazelle(name = "gazelle")
+
+# This is the proto library definition that comes directly out of Spark.
+proto_library(
+    name = "spark_connect_protos",
+    srcs = glob(["spark/connector/connect/common/src/main/protobuf/**/*.proto"]),
+    import_prefix = "",
+    strip_import_prefix = "spark/connector/connect/common/src/main/protobuf/",
+    visibility = ["//visibility:public"],
+    deps = ["@protobuf//:any_proto"],
+)
+
+# Create the proto library directly.
+go_proto_library(
+    name = "spark_connect_proto",
+    importpath = "github.com/apache/spark-connect-go/v1/internal/generated/spark/connect",
+    protos = [
+        ":spark_connect_protos",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+go_grpc_library(
+    name = "spark_connect_proto_grpc",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "github.com/apache/spark-connect-go/v1/internal/generated/spark/connect",
+    protos = [
+        ":spark_connect_protos",
+    ],
+    visibility = ["//visibility:public"],
+)
