@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated/spark/connect"
+	proto "github.com/apache/spark-connect-go/v1/internal/generated/spark/connect"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"

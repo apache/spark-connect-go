@@ -21,8 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/spark-connect-go/v35/client/channel"
-	"github.com/apache/spark-connect-go/v35/client/sparkerrors"
+	"github.com/apache/spark-connect-go/v1/client/channel"
+	"github.com/apache/spark-connect-go/v1/client/sparkerrors"
 	"github.com/stretchr/testify/assert"
 )
 

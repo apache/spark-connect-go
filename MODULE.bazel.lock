@@ -1578,7 +1578,7 @@
       "general": {
         "bzlTransitiveDigest": "sH0ZfrlZyTTSTIpGNBfQJlEWK7fgxR4W5O3QYxF2pqQ=",
         "recordedFileInputs": {
-          "@@//go.mod": "a7d7fa6517fcca894a472a4152e3bc39daf9733f771bf7fc16b01c35e529e642",
+          "@@//go.mod": "abc5a8099d706c7fbcdeea3162c89e59a155692760627e15fb1b0ad3390ce1b8",
           "@@rules_go~//go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
           "@@gazelle~//go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@//go.sum": "55323de741b9c6ec4540ada81453c5156c974951335ef4935f6ce3f27e1f0f0c",

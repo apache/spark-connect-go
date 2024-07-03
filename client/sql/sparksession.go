@@ -20,9 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apache/spark-connect-go/v35/client/channel"
-	"github.com/apache/spark-connect-go/v35/client/sparkerrors"
-	proto "github.com/apache/spark-connect-go/v35/internal/generated/spark/connect"
+	"github.com/apache/spark-connect-go/v1/client/channel"
+	"github.com/apache/spark-connect-go/v1/client/sparkerrors"
+	proto "github.com/apache/spark-connect-go/v1/internal/generated/spark/connect"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"
 )
