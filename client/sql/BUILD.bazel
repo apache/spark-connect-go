@@ -13,7 +13,7 @@ go_library(
         "sparksession.go",
         "structtype.go",
     ],
-    importpath = "github.com/apache/spark-connect-go/v1/client/sql",
+    importpath = "github.com/apache/spark-connect-go/v35/client/sql",
     visibility = ["//visibility:public"],
     deps = [
         "//client/channel",
