@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sql
+package session
 
 import (
 	"context"
@@ -22,14 +22,15 @@ import (
 
 	"github.com/apache/spark-connect-go/v35/client/channel"
 	"github.com/apache/spark-connect-go/v35/client/sparkerrors"
+	"github.com/apache/spark-connect-go/v35/client/sql"
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"
 )
 
 type SparkSession interface {
-	Read() DataFrameReader
-	Sql(ctx context.Context, query string) (DataFrame, error)
+	Read() sql.DataFrameReader
+	Sql(ctx context.Context, query string) (sql.DataFrame, error)
 	Stop() error
 }
 
@@ -80,11 +81,11 @@ type sparkSessionImpl struct {
 	metadata  metadata.MD
 }
 
-func (s *sparkSessionImpl) Read() DataFrameReader {
-	return newDataframeReader(s)
+func (s *sparkSessionImpl) Read() sql.DataFrameReader {
+	return sql.NewDataframeReader(s)
 }
 
-func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, error) {
+func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (sql.DataFrame, error) {
 	plan := &proto.Plan{
 		OpType: &proto.Plan_Command{
 			Command: &proto.Command{
@@ -96,7 +97,7 @@ func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, er
 			},
 		},
 	}
-	responseClient, err := s.executePlan(ctx, plan)
+	responseClient, err := s.ExecutePlan(ctx, plan)
 	if err != nil {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to execute sql: %s: %w", query, err), sparkerrors.ExecutionError)
 	}
@@ -109,7 +110,7 @@ func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, er
 		if sqlCommandResult == nil {
 			continue
 		}
-		return newDataFrame(s, sqlCommandResult.GetRelation()), nil
+		return sql.NewDataFrame(s, sqlCommandResult.GetRelation()), nil
 	}
 }
 
@@ -117,7 +118,7 @@ func (s *sparkSessionImpl) Stop() error {
 	return nil
 }
 
-func (s *sparkSessionImpl) executePlan(ctx context.Context, plan *proto.Plan) (*executePlanClient, error) {
+func (s *sparkSessionImpl) ExecutePlan(ctx context.Context, plan *proto.Plan) (*sql.ExecutePlanClient, error) {
 	request := proto.ExecutePlanRequest{
 		SessionId: s.sessionId,
 		Plan:      plan,
@@ -131,10 +132,10 @@ func (s *sparkSessionImpl) executePlan(ctx context.Context, plan *proto.Plan) (*
 	if err != nil {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
-	return newExecutePlanClient(client), nil
+	return sql.NewExecutePlanClient(client), nil
 }
 
-func (s *sparkSessionImpl) analyzePlan(ctx context.Context, plan *proto.Plan) (*proto.AnalyzePlanResponse, error) {
+func (s *sparkSessionImpl) AnalyzePlan(ctx context.Context, plan *proto.Plan) (*proto.AnalyzePlanResponse, error) {
 	request := proto.AnalyzePlanRequest{
 		SessionId: s.sessionId,
 		Analyze: &proto.AnalyzePlanRequest_Schema_{

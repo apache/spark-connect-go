@@ -7,7 +7,7 @@ import (
 )
 
 func TestLoadCreatesADataFrame(t *testing.T) {
-	reader := newDataframeReader(nil)
+	reader := NewDataframeReader(nil)
 	source := "source"
 	path := "path"
 	reader.Format(source)

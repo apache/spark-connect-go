@@ -5,6 +5,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/apache/spark-connect-go/v35/client/mocks"
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/stretchr/testify/assert"
 )
@@ -38,8 +39,8 @@ func TestGetSaveMode(t *testing.T) {
 func TestSaveExecutesWriteOperationUntilEOF(t *testing.T) {
 	relation := &proto.Relation{}
 	executor := &testExecutor{
-		client: newExecutePlanClient(&protoClient{
-			err: io.EOF,
+		client: NewExecutePlanClient(&mocks.ProtoClient{
+			Err: io.EOF,
 		}),
 	}
 	ctx := context.Background()
@@ -55,8 +56,8 @@ func TestSaveExecutesWriteOperationUntilEOF(t *testing.T) {
 func TestSaveFailsIfAnotherErrorHappensWhenReadingStream(t *testing.T) {
 	relation := &proto.Relation{}
 	executor := &testExecutor{
-		client: newExecutePlanClient(&protoClient{
-			err: assert.AnError,
+		client: NewExecutePlanClient(&mocks.ProtoClient{
+			Err: assert.AnError,
 		}),
 	}
 	ctx := context.Background()
@@ -72,7 +73,7 @@ func TestSaveFailsIfAnotherErrorHappensWhenReadingStream(t *testing.T) {
 func TestSaveFailsIfAnotherErrorHappensWhenExecuting(t *testing.T) {
 	relation := &proto.Relation{}
 	executor := &testExecutor{
-		client: newExecutePlanClient(&protoClient{}),
+		client: NewExecutePlanClient(&mocks.ProtoClient{}),
 		err:    assert.AnError,
 	}
 	ctx := context.Background()
