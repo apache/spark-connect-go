@@ -19,12 +19,12 @@ type DataFrameWriter interface {
 	Save(ctx context.Context, path string) error
 }
 
-type sparkExecutor interface {
-	executePlan(ctx context.Context, plan *proto.Plan) (*executePlanClient, error)
-	analyzePlan(ctx context.Context, plan *proto.Plan) (*proto.AnalyzePlanResponse, error)
+type SparkExecutor interface {
+	ExecutePlan(ctx context.Context, plan *proto.Plan) (*ExecutePlanClient, error)
+	AnalyzePlan(ctx context.Context, plan *proto.Plan) (*proto.AnalyzePlanResponse, error)
 }
 
-func newDataFrameWriter(sparkExecutor sparkExecutor, relation *proto.Relation) DataFrameWriter {
+func newDataFrameWriter(sparkExecutor SparkExecutor, relation *proto.Relation) DataFrameWriter {
 	return &dataFrameWriterImpl{
 		sparkExecutor: sparkExecutor,
 		relation:      relation,
@@ -33,7 +33,7 @@ func newDataFrameWriter(sparkExecutor sparkExecutor, relation *proto.Relation) D
 
 // dataFrameWriterImpl is an implementation of DataFrameWriter interface.
 type dataFrameWriterImpl struct {
-	sparkExecutor sparkExecutor
+	sparkExecutor SparkExecutor
 	relation      *proto.Relation
 	saveMode      string
 	formatSource  string
@@ -74,7 +74,7 @@ func (w *dataFrameWriterImpl) Save(ctx context.Context, path string) error {
 			},
 		},
 	}
-	responseClient, err := w.sparkExecutor.executePlan(ctx, plan)
+	responseClient, err := w.sparkExecutor.ExecutePlan(ctx, plan)
 	if err != nil {
 		return err
 	}

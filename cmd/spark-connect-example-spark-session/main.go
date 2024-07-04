@@ -21,6 +21,7 @@ import (
 	"flag"
 	"log"
 
+	"github.com/apache/spark-connect-go/v35/client/session"
 	"github.com/apache/spark-connect-go/v35/client/sql"
 )
 
@@ -32,7 +33,7 @@ var (
 func main() {
 	flag.Parse()
 	ctx := context.Background()
-	spark, err := sql.NewSessionBuilder().Remote(*remote).Build(ctx)
+	spark, err := session.NewSessionBuilder().Remote(*remote).Build(ctx)
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}

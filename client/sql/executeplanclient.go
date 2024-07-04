@@ -9,12 +9,12 @@ import (
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 )
 
-type executePlanClient struct {
+type ExecutePlanClient struct {
 	proto.SparkConnectService_ExecutePlanClient
 }
 
-func newExecutePlanClient(responseClient proto.SparkConnectService_ExecutePlanClient) *executePlanClient {
-	return &executePlanClient{
+func NewExecutePlanClient(responseClient proto.SparkConnectService_ExecutePlanClient) *ExecutePlanClient {
+	return &ExecutePlanClient{
 		responseClient,
 	}
 }
@@ -23,7 +23,7 @@ func newExecutePlanClient(responseClient proto.SparkConnectService_ExecutePlanCl
 // discard the returned data if there is no error. This is necessary for handling GRPC response for
 // saving data frame, since such consuming will trigger Spark Connect Driver really saving data frame.
 // If we do not consume the returned GRPC stream, Spark Connect Driver will not really save data frame.
-func (c *executePlanClient) consumeAll() error {
+func (c *ExecutePlanClient) consumeAll() error {
 	for {
 		_, err := c.Recv()
 		if err != nil {
