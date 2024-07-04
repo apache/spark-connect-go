@@ -5,8 +5,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/apache/spark-connect-go/v35/client/mocks"
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+	"github.com/apache/spark-connect-go/v35/spark/mocks"
 	"github.com/stretchr/testify/assert"
 )
 

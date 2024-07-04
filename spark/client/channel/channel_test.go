@@ -18,11 +18,11 @@ package channel_test
 
 import (
 	"context"
+	"github.com/apache/spark-connect-go/v35/spark/client/channel"
 	"strings"
 	"testing"
 
-	"github.com/apache/spark-connect-go/v35/client/channel"
-	"github.com/apache/spark-connect-go/v35/client/sparkerrors"
+	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 	"github.com/stretchr/testify/assert"
 )
 

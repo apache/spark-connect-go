@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/spark-connect-go/v35/client/sparkerrors"
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 )
 
 // DataFrameWriter supports writing data frame to storage.

@@ -19,10 +19,10 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/apache/spark-connect-go/v35/spark/sql/session"
 	"log"
 
-	"github.com/apache/spark-connect-go/v35/client/session"
-	"github.com/apache/spark-connect-go/v35/client/sql"
+	"github.com/apache/spark-connect-go/v35/spark/sql"
 )
 
 var (
