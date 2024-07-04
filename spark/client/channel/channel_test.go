@@ -38,10 +38,12 @@ func TestBasicChannelBuilder(t *testing.T) {
 
 func TestBasicChannelParsing(t *testing.T) {
 	_, err := channel.NewBuilder("abc://asdada:1333")
-
 	assert.False(t, strings.Contains(err.Error(), "scheme"), "Channel build should fail with wrong scheme")
-	cb, err := channel.NewBuilder("sc://empty")
 
+	_, err = channel.NewBuilder("sc://:1333")
+	assert.False(t, strings.Contains(err.Error(), "scheme"), "Should not have an error for a proper URL")
+
+	cb, err := channel.NewBuilder("sc://empty")
 	assert.Nilf(t, err, "Valid path should not fail: %v", err)
 	assert.Equalf(t, 15002, cb.Port(), "Default port must be set, but got %v", cb.Port)
 

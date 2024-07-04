@@ -125,6 +125,10 @@ func NewBuilder(connection string) (Builder, error) {
 		return nil, err
 	}
 
+	if u.Hostname() == "" {
+		return nil, sparkerrors.WithType(errors.New("URL must contain a hostname"), sparkerrors.InvalidInputError)
+	}
+
 	if u.Scheme != "sc" {
 		return nil, sparkerrors.WithType(errors.New("URL schema must be set to `sc`"), sparkerrors.InvalidInputError)
 	}
@@ -133,10 +137,9 @@ func NewBuilder(connection string) (Builder, error) {
 	host := u.Host
 	// Check if the host part of the URL contains a port and extract.
 	if strings.Contains(u.Host, ":") {
-		hostStr, portStr, err := net.SplitHostPort(u.Host)
-		if err != nil {
-			return nil, err
-		}
+		// We can ignore the error here already since the url parsing
+		// raises the error about invalid port.
+		hostStr, portStr, _ := net.SplitHostPort(u.Host)
 		host = hostStr
 		if len(portStr) != 0 {
 			port, err = strconv.Atoi(portStr)
