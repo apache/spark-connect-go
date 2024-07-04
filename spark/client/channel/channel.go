@@ -40,7 +40,10 @@ import (
 var reservedParams = []string{"user_id", "token", "use_ssl"}
 
 // Builder is the interface that is used to implement different patterns that
-// create the GRPC connection. The main interface method is the Build method.
+// create the GRPC connection.
+//
+// This allows other consumers to plugin custom authentication and authorization
+// handlers without having to extend directly the Spark Connect code.
 type Builder interface {
 	Build(ctx context.Context) (*grpc.ClientConn, error)
 	Headers() map[string]string
