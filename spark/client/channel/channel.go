@@ -27,6 +27,8 @@ import (
 	"strconv"
 	"strings"
 
+	"google.golang.org/grpc/credentials/insecure"
+
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
@@ -37,27 +39,58 @@ import (
 // Reserved header parameters that must not be injected as variables.
 var reservedParams = []string{"user_id", "token", "use_ssl"}
 
-// Builder is used to parse the different parameters of the connection
+// Builder is the interface that is used to implement different patterns that
+// create the GRPC connection. The main interface method is the Build method.
+type Builder interface {
+	Build(ctx context.Context) (*grpc.ClientConn, error)
+	Headers() map[string]string
+	Host() string
+	Port() int
+	Token() string
+	User() string
+}
+
+// BaseBuilder is used to parse the different parameters of the connection
 // string according to the specification documented here:
 //
 //	https://github.com/apache/spark/blob/master/connector/connect/docs/client-connection-string.md
-type Builder struct {
-	Host    string
-	Port    int
-	Token   string
-	User    string
-	Headers map[string]string
+type BaseBuilder struct {
+	host    string
+	port    int
+	token   string
+	user    string
+	headers map[string]string
+}
+
+func (cb BaseBuilder) Host() string {
+	return cb.host
+}
+
+func (cb BaseBuilder) Port() int {
+	return cb.port
+}
+
+func (cb BaseBuilder) Token() string {
+	return cb.token
+}
+
+func (cb BaseBuilder) User() string {
+	return cb.user
+}
+
+func (cb BaseBuilder) Headers() map[string]string {
+	return cb.headers
 }
 
 // Build finalizes the creation of the gprc.ClientConn by creating a GRPC channel
 // with the necessary options extracted from the connection string. For
 // TLS connections, this function will load the system certificates.
-func (cb *Builder) Build(ctx context.Context) (*grpc.ClientConn, error) {
+func (cb *BaseBuilder) Build(ctx context.Context) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 
-	opts = append(opts, grpc.WithAuthority(cb.Host))
-	if cb.Token == "" {
-		opts = append(opts, grpc.WithInsecure())
+	opts = append(opts, grpc.WithAuthority(cb.host))
+	if cb.token == "" {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		// Note: On the Windows platform, use of x509.SystemCertPool() requires
 		// go version 1.18 or higher.
@@ -69,15 +102,14 @@ func (cb *Builder) Build(ctx context.Context) (*grpc.ClientConn, error) {
 			RootCAs: systemRoots,
 		})
 		opts = append(opts, grpc.WithTransportCredentials(cred))
-
-		t := oauth2.Token{
-			AccessToken: cb.Token,
+		ts := oauth2.StaticTokenSource(&oauth2.Token{
+			AccessToken: cb.token,
 			TokenType:   "bearer",
-		}
-		opts = append(opts, grpc.WithPerRPCCredentials(oauth.NewOauthAccess(&t)))
+		})
+		opts = append(opts, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: ts}))
 	}
 
-	remote := fmt.Sprintf("%v:%v", cb.Host, cb.Port)
+	remote := fmt.Sprintf("%v:%v", cb.host, cb.port)
 	conn, err := grpc.DialContext(ctx, remote, opts...)
 	if err != nil {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w", remote, err), sparkerrors.ConnectionError)
@@ -85,10 +117,9 @@ func (cb *Builder) Build(ctx context.Context) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-// NewBuilder creates a new instance of the Builder. This constructor effectively
+// NewBuilder creates a new instance of the BaseBuilder. This constructor effectively
 // parses the connection string and extracts the relevant parameters directly.
-func NewBuilder(connection string) (*Builder, error) {
-
+func NewBuilder(connection string) (Builder, error) {
 	u, err := url.Parse(connection)
 	if err != nil {
 		return nil, err
@@ -98,8 +129,8 @@ func NewBuilder(connection string) (*Builder, error) {
 		return nil, sparkerrors.WithType(errors.New("URL schema must be set to `sc`"), sparkerrors.InvalidInputError)
 	}
 
-	var port = 15002
-	var host = u.Host
+	port := 15002
+	host := u.Host
 	// Check if the host part of the URL contains a port and extract.
 	if strings.Contains(u.Host, ":") {
 		hostStr, portStr, err := net.SplitHostPort(u.Host)
@@ -117,13 +148,15 @@ func NewBuilder(connection string) (*Builder, error) {
 
 	// Validate that the URL path is empty or follows the right format.
 	if u.Path != "" && !strings.HasPrefix(u.Path, "/;") {
-		return nil, sparkerrors.WithType(fmt.Errorf("the URL path (%v) must be empty or have a proper parameter syntax", u.Path), sparkerrors.InvalidInputError)
+		return nil, sparkerrors.WithType(
+			fmt.Errorf("the URL path (%v) must be empty or have a proper parameter syntax", u.Path),
+			sparkerrors.InvalidInputError)
 	}
 
-	cb := &Builder{
-		Host:    host,
-		Port:    port,
-		Headers: map[string]string{},
+	cb := &BaseBuilder{
+		host:    host,
+		port:    port,
+		headers: map[string]string{},
 	}
 
 	elements := strings.Split(u.Path, ";")
@@ -131,11 +164,11 @@ func NewBuilder(connection string) (*Builder, error) {
 		props := strings.Split(e, "=")
 		if len(props) == 2 {
 			if props[0] == "token" {
-				cb.Token = props[1]
+				cb.token = props[1]
 			} else if props[0] == "user_id" {
-				cb.User = props[1]
+				cb.user = props[1]
 			} else {
-				cb.Headers[props[0]] = props[1]
+				cb.headers[props[0]] = props[1]
 			}
 		}
 	}

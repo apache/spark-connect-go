@@ -19,6 +19,7 @@ package session
 import (
 	"context"
 	"fmt"
+
 	"github.com/apache/spark-connect-go/v35/spark/client/channel"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
@@ -50,7 +51,6 @@ func (s *SparkSessionBuilder) Remote(connectionString string) *SparkSessionBuild
 }
 
 func (s *SparkSessionBuilder) Build(ctx context.Context) (SparkSession, error) {
-
 	cb, err := channel.NewBuilder(s.connectionString)
 	if err != nil {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w", s.connectionString, err), sparkerrors.ConnectionError)
@@ -63,7 +63,7 @@ func (s *SparkSessionBuilder) Build(ctx context.Context) (SparkSession, error) {
 
 	// Add metadata to the request.
 	meta := metadata.MD{}
-	for k, v := range cb.Headers {
+	for k, v := range cb.Headers() {
 		meta[k] = append(meta[k], v)
 	}
 
