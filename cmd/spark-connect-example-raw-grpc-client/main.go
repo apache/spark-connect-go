@@ -28,9 +28,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var (
-	remote = flag.String("remote", "localhost:15002", "the remote address of Spark Connect server to connect to")
-)
+var remote = flag.String("remote", "localhost:15002", "the remote address of Spark Connect server to connect to")
 
 func main() {
 	ctx := context.Background()

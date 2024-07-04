@@ -151,7 +151,7 @@ func TestSQLCallsExecutePlanWithSQLOnClient(t *testing.T) {
 
 func TestNewSessionBuilderCreatesASession(t *testing.T) {
 	ctx := context.Background()
-	spark, err := NewSessionBuilder().Remote("sc:connection").Build(ctx)
+	spark, err := NewSessionBuilder().Remote("sc://connection").Build(ctx)
 	assert.NoError(t, err)
 	assert.NotNil(t, spark)
 }
@@ -195,22 +195,24 @@ func TestWriteResultStreamsArrowResultToCollector(t *testing.T) {
 
 	session := &sparkSessionImpl{
 		client: &connectServiceClient{
-			executePlanClient: &sql.ExecutePlanClient{&mocks.ProtoClient{
-				RecvResponses: []*proto.ExecutePlanResponse{
-					{
-						ResponseType: &proto.ExecutePlanResponse_SqlCommandResult_{
-							SqlCommandResult: &proto.ExecutePlanResponse_SqlCommandResult{},
+			executePlanClient: &sql.ExecutePlanClient{
+				&mocks.ProtoClient{
+					RecvResponses: []*proto.ExecutePlanResponse{
+						{
+							ResponseType: &proto.ExecutePlanResponse_SqlCommandResult_{
+								SqlCommandResult: &proto.ExecutePlanResponse_SqlCommandResult{},
+							},
 						},
-					},
-					{
-						ResponseType: &proto.ExecutePlanResponse_ArrowBatch_{
-							ArrowBatch: &proto.ExecutePlanResponse_ArrowBatch{
-								RowCount: 1,
-								Data:     buf.Bytes(),
+						{
+							ResponseType: &proto.ExecutePlanResponse_ArrowBatch_{
+								ArrowBatch: &proto.ExecutePlanResponse_ArrowBatch{
+									RowCount: 1,
+									Data:     buf.Bytes(),
+								},
 							},
 						},
 					},
-				}},
+				},
 			},
 			t: t,
 		},

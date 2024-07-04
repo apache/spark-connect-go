@@ -25,92 +25,79 @@ type DataType interface {
 	TypeName() string
 }
 
-type BooleanType struct {
-}
+type BooleanType struct{}
 
 func (t BooleanType) TypeName() string {
 	return getDataTypeName(t)
 }
 
-type ByteType struct {
-}
+type ByteType struct{}
 
 func (t ByteType) TypeName() string {
 	return getDataTypeName(t)
 }
 
-type ShortType struct {
-}
+type ShortType struct{}
 
 func (t ShortType) TypeName() string {
 	return getDataTypeName(t)
 }
 
-type IntegerType struct {
-}
+type IntegerType struct{}
 
 func (t IntegerType) TypeName() string {
 	return getDataTypeName(t)
 }
 
-type LongType struct {
-}
+type LongType struct{}
 
 func (t LongType) TypeName() string {
 	return getDataTypeName(t)
 }
 
-type FloatType struct {
-}
+type FloatType struct{}
 
 func (t FloatType) TypeName() string {
 	return getDataTypeName(t)
 }
 
-type DoubleType struct {
-}
+type DoubleType struct{}
 
 func (t DoubleType) TypeName() string {
 	return getDataTypeName(t)
 }
 
-type DecimalType struct {
-}
+type DecimalType struct{}
 
 func (t DecimalType) TypeName() string {
 	return getDataTypeName(t)
 }
 
-type StringType struct {
-}
+type StringType struct{}
 
 func (t StringType) TypeName() string {
 	return getDataTypeName(t)
 }
 
-type BinaryType struct {
-}
+type BinaryType struct{}
 
 func (t BinaryType) TypeName() string {
 	return getDataTypeName(t)
 }
 
-type TimestampType struct {
-}
+type TimestampType struct{}
 
 func (t TimestampType) TypeName() string {
 	return getDataTypeName(t)
 }
 
-type TimestampNtzType struct {
-}
+type TimestampNtzType struct{}
 
 func (t TimestampNtzType) TypeName() string {
 	return getDataTypeName(t)
 }
 
-type DateType struct {
-}
+type DateType struct{}
 
 func (t DateType) TypeName() string {
 	return getDataTypeName(t)

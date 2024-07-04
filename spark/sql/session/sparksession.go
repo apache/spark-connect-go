@@ -19,6 +19,7 @@ package session
 import (
 	"context"
 	"fmt"
+
 	"github.com/apache/spark-connect-go/v35/spark/client/channel"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
@@ -41,6 +42,7 @@ func NewSessionBuilder() *SparkSessionBuilder {
 
 type SparkSessionBuilder struct {
 	connectionString string
+	channelBuilder   channel.Builder
 }
 
 // Remote sets the connection string for remote connection
@@ -49,21 +51,27 @@ func (s *SparkSessionBuilder) Remote(connectionString string) *SparkSessionBuild
 	return s
 }
 
+func (s *SparkSessionBuilder) ChannelBuilder(cb channel.Builder) *SparkSessionBuilder {
+	s.channelBuilder = cb
+	return s
+}
+
 func (s *SparkSessionBuilder) Build(ctx context.Context) (SparkSession, error) {
-
-	cb, err := channel.NewBuilder(s.connectionString)
-	if err != nil {
-		return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w", s.connectionString, err), sparkerrors.ConnectionError)
+	if s.channelBuilder == nil {
+		cb, err := channel.NewBuilder(s.connectionString)
+		if err != nil {
+			return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w", s.connectionString, err), sparkerrors.ConnectionError)
+		}
+		s.channelBuilder = cb
 	}
-
-	conn, err := cb.Build(ctx)
+	conn, err := s.channelBuilder.Build(ctx)
 	if err != nil {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w", s.connectionString, err), sparkerrors.ConnectionError)
 	}
 
 	// Add metadata to the request.
 	meta := metadata.MD{}
-	for k, v := range cb.Headers {
+	for k, v := range s.channelBuilder.Headers() {
 		meta[k] = append(meta[k], v)
 	}
 

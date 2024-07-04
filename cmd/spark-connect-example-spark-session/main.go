@@ -19,16 +19,15 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/apache/spark-connect-go/v35/spark/sql/session"
 	"log"
+
+	"github.com/apache/spark-connect-go/v35/spark/sql/session"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql"
 )
 
-var (
-	remote = flag.String("remote", "sc://localhost:15002",
-		"the remote address of Spark Connect server to connect to")
-)
+var remote = flag.String("remote", "sc://localhost:15002",
+	"the remote address of Spark Connect server to connect to")
 
 func main() {
 	flag.Parse()

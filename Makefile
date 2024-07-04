@@ -21,7 +21,7 @@ GOFILES_NOVENDOR          := $(shell find . -name vendor -prune -o -type f -name
 GOFILES_BUILD             := $(shell find . -type f -name '*.go' -not -name '*_test.go')
 PROTOFILES                := $(shell find . -name vendor -prune -o -type f -name '*.proto' -print)
 
-ALLGOFILES				  			:= $(shell find . -type f -name '*.go')
+ALLGOFILES				  			:= $(shell find . -type f -name '*.go' -not -name '*.pb.go')
 DATE                      := $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" '+%FT%T%z' 2>/dev/null || date -u '+%FT%T%z')
 
 BUILDFLAGS_NOPIE		  :=
