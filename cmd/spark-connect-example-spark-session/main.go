@@ -19,9 +19,9 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/apache/spark-connect-go/v35/client/sql/session"
 	"log"
 
-	"github.com/apache/spark-connect-go/v35/client/session"
 	"github.com/apache/spark-connect-go/v35/client/sql"
 )
 

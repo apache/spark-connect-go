@@ -3,7 +3,7 @@ package mocks
 import (
 	"context"
 
-	proto "github.com/apache/spark-connect-go/v3.5/internal/generated"
+	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"google.golang.org/grpc/metadata"
 )
 
