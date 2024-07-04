@@ -19,11 +19,11 @@ package session
 import (
 	"context"
 	"fmt"
+	"github.com/apache/spark-connect-go/v35/spark/client/channel"
 
-	"github.com/apache/spark-connect-go/v35/client/channel"
-	"github.com/apache/spark-connect-go/v35/client/sparkerrors"
-	"github.com/apache/spark-connect-go/v35/client/sql"
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
+	"github.com/apache/spark-connect-go/v35/spark/sql"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"
 )
