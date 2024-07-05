@@ -31,12 +31,11 @@ import (
 var remote = flag.String("remote", "localhost:15002", "the remote address of Spark Connect server to connect to")
 
 func main() {
-	ctx := context.Background()
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
-	conn, err := grpc.DialContext(ctx, *remote, opts...)
+	conn, err := grpc.NewClient(*remote, opts...)
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}

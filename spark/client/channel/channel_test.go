@@ -58,6 +58,7 @@ func TestBasicChannelParsing(t *testing.T) {
 	assert.ErrorIs(t, err, sparkerrors.InvalidInputError)
 
 	cb, err = channel.NewBuilder(goodChannelURL)
+	assert.Nilf(t, err, "Should not have an error for a proper URL")
 	assert.Equal(t, "host", cb.Host())
 	assert.Equal(t, 15002, cb.Port())
 	assert.Len(t, cb.Headers(), 1)

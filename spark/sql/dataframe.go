@@ -78,8 +78,7 @@ func NewDataFrame(sparkExecutor SparkExecutor, relation *proto.Relation) DataFra
 	}
 }
 
-type consoleCollector struct {
-}
+type consoleCollector struct{}
 
 func (c consoleCollector) WriteRow(values []any) {
 	fmt.Println(values...)
