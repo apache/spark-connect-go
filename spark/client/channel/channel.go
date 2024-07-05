@@ -65,23 +65,23 @@ type BaseBuilder struct {
 	headers map[string]string
 }
 
-func (cb BaseBuilder) Host() string {
+func (cb *BaseBuilder) Host() string {
 	return cb.host
 }
 
-func (cb BaseBuilder) Port() int {
+func (cb *BaseBuilder) Port() int {
 	return cb.port
 }
 
-func (cb BaseBuilder) Token() string {
+func (cb *BaseBuilder) Token() string {
 	return cb.token
 }
 
-func (cb BaseBuilder) User() string {
+func (cb *BaseBuilder) User() string {
 	return cb.user
 }
 
-func (cb BaseBuilder) Headers() map[string]string {
+func (cb *BaseBuilder) Headers() map[string]string {
 	return cb.headers
 }
 

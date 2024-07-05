@@ -51,7 +51,7 @@ func (s *SparkSessionBuilder) Remote(connectionString string) *SparkSessionBuild
 	return s
 }
 
-func (s *SparkSessionBuilder) ChannelBuilder(cb channel.Builder) *SparkSessionBuilder {
+func (s *SparkSessionBuilder) WithChannelBuilder(cb channel.Builder) *SparkSessionBuilder {
 	s.channelBuilder = cb
 	return s
 }
