@@ -1,0 +1,15 @@
+.gitignore
+.gitmodules
+.gitattributes
+.project
+coverage*
+LICENSE
+NOTICE
+TAGS
+RELEASE
+.*md
+.rat-excludes
+sparksrc
+target
+generated.out
+go.sum
