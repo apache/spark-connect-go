@@ -66,15 +66,15 @@ type RangePartitionColumn struct {
 
 // dataFrameImpl is an implementation of DataFrame interface.
 type dataFrameImpl struct {
-	sparkExecutor SparkExecutor
-	relation      *proto.Relation // TODO change to proto.Plan?
+	session  *sparkSessionImpl
+	relation *proto.Relation // TODO change to proto.Plan?
 }
 
 // NewDataFrame creates a new DataFrame
-func NewDataFrame(sparkExecutor SparkExecutor, relation *proto.Relation) DataFrame {
+func NewDataFrame(session *sparkSessionImpl, relation *proto.Relation) DataFrame {
 	return &dataFrameImpl{
-		sparkExecutor: sparkExecutor,
-		relation:      relation,
+		session:  session,
+		relation: relation,
 	}
 }
 
@@ -114,7 +114,7 @@ func (df *dataFrameImpl) WriteResult(ctx context.Context, collector ResultCollec
 		},
 	}
 
-	responseClient, err := df.sparkExecutor.ExecutePlan(ctx, plan)
+	responseClient, err := df.session.client.ExecutePlan(ctx, plan)
 	if err != nil {
 		return sparkerrors.WithType(fmt.Errorf("failed to show dataframe: %w", err), sparkerrors.ExecutionError)
 	}
@@ -137,7 +137,7 @@ func (df *dataFrameImpl) WriteResult(ctx context.Context, collector ResultCollec
 }
 
 func (df *dataFrameImpl) Schema(ctx context.Context) (*StructType, error) {
-	response, err := df.sparkExecutor.AnalyzePlan(ctx, df.createPlan())
+	response, err := df.session.client.AnalyzePlan(ctx, df.createPlan())
 	if err != nil {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to analyze plan: %w", err), sparkerrors.ExecutionError)
 	}
@@ -147,7 +147,7 @@ func (df *dataFrameImpl) Schema(ctx context.Context) (*StructType, error) {
 }
 
 func (df *dataFrameImpl) Collect(ctx context.Context) ([]Row, error) {
-	responseClient, err := df.sparkExecutor.ExecutePlan(ctx, df.createPlan())
+	responseClient, err := df.session.client.ExecutePlan(ctx, df.createPlan())
 	if err != nil {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
 	}
@@ -196,7 +196,7 @@ func (df *dataFrameImpl) Write() DataFrameWriter {
 }
 
 func (df *dataFrameImpl) Writer() DataFrameWriter {
-	return newDataFrameWriter(df.sparkExecutor, df.relation)
+	return newDataFrameWriter(df.session, df.relation)
 }
 
 func (df *dataFrameImpl) CreateTempView(ctx context.Context, viewName string, replace bool, global bool) error {
@@ -215,12 +215,12 @@ func (df *dataFrameImpl) CreateTempView(ctx context.Context, viewName string, re
 		},
 	}
 
-	responseClient, err := df.sparkExecutor.ExecutePlan(ctx, plan)
+	responseClient, err := df.session.client.ExecutePlan(ctx, plan)
 	if err != nil {
 		return sparkerrors.WithType(fmt.Errorf("failed to create temp view %s: %w", viewName, err), sparkerrors.ExecutionError)
 	}
 
-	return responseClient.consumeAll()
+	return responseClient.ConsumeAll()
 }
 
 func (df *dataFrameImpl) Repartition(numPartitions int, columns []string) (DataFrame, error) {
@@ -303,7 +303,7 @@ func (df *dataFrameImpl) repartitionByExpressions(numPartitions int, partitionEx
 			},
 		},
 	}
-	return NewDataFrame(df.sparkExecutor, newRelation), nil
+	return NewDataFrame(df.session, newRelation), nil
 }
 
 func showArrowBatch(arrowBatch *proto.ExecutePlanResponse_ArrowBatch, collector ResultCollector) error {

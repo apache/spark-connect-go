@@ -3,16 +3,18 @@ package sql
 import (
 	"context"
 
+	client2 "github.com/apache/spark-connect-go/v35/spark/client"
+
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 )
 
 type testExecutor struct {
-	client   *ExecutePlanClient
+	client   *client2.ExecutePlanClient
 	response *proto.AnalyzePlanResponse
 	err      error
 }
 
-func (t *testExecutor) ExecutePlan(ctx context.Context, plan *proto.Plan) (*ExecutePlanClient, error) {
+func (t *testExecutor) ExecutePlan(ctx context.Context, plan *proto.Plan) (*client2.ExecutePlanClient, error) {
 	if t.err != nil {
 		return nil, t.err
 	}

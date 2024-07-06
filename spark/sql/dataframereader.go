@@ -1,6 +1,8 @@
 package sql
 
-import proto "github.com/apache/spark-connect-go/v35/internal/generated"
+import (
+	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+)
 
 // DataFrameReader supports reading data from storage and returning a data frame.
 // TODO needs to implement other methods like Option(), Schema(), and also "strong typed"
@@ -14,12 +16,12 @@ type DataFrameReader interface {
 
 // dataFrameReaderImpl is an implementation of DataFrameReader interface.
 type dataFrameReaderImpl struct {
-	sparkSession SparkExecutor
+	sparkSession *sparkSessionImpl
 	formatSource string
 }
 
 // NewDataframeReader creates a new DataFrameReader
-func NewDataframeReader(session SparkExecutor) DataFrameReader {
+func NewDataframeReader(session *sparkSessionImpl) DataFrameReader {
 	return &dataFrameReaderImpl{
 		sparkSession: session,
 	}

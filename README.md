@@ -50,37 +50,9 @@ See [Quick Start Guide](quick-start.md)
 
 ## High Level Design
 
-Following [diagram](https://textik.com/#ac299c8f32c4c342) shows main code in current prototype:
-
-```
-    +-------------------+                                                                              
-    |                   |                                                                              
-    |   dataFrameImpl   |                                                                              
-    |                   |                                                                              
-    +-------------------+                                                                              
-              |                                                                                        
-              |                                                                                        
-              +                                                                                        
-    +-------------------+                                                                              
-    |                   |                                                                              
-    | sparkSessionImpl  |                                                                              
-    |                   |                                                                              
-    +-------------------+                                                                              
-              |                                                                                        
-              |                                                                                        
-              +                                                                                        
-+---------------------------+               +----------------+                                         
-|                           |               |                |                                         
-| SparkConnectServiceClient |--------------+|  Spark Driver  |                                         
-|                           |               |                |                                         
-+---------------------------+               +----------------+
-```
-
-`SparkConnectServiceClient` is GRPC client which talks to Spark Driver. `sparkSessionImpl` generates `dataFrameImpl`
-instances. `dataFrameImpl` uses the GRPC client in `sparkSessionImpl` to communicate with Spark Driver.
-
-We will mimic the logic in Spark Connect Scala implementation, and adopt Go common practices, e.g. returning `error` object for
-error handling.
+The overall goal of the design is to find a good balance of principle of the least surprise for
+develoeprs that are familiar with the APIs of Apache Spark and idiomatic Go usage. The high-level
+structure of the packages follows roughly the PySpark giudance but with Go idioms.
 
 ## Contributing
 
