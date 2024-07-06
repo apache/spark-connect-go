@@ -16,10 +16,8 @@
 
 package utils
 
-import "fmt"
-
-func WarnOnError(f func() error) {
+func WarnOnError(f func() error, h func(e error)) {
 	if err := f(); err != nil {
-		fmt.Println("Received error:", err)
+		h(err)
 	}
 }

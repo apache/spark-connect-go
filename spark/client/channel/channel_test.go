@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/apache/spark-connect-go/v35/spark/client/channel"
-
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 	"github.com/stretchr/testify/assert"
 )
@@ -77,7 +76,7 @@ func TestBasicChannelParsing(t *testing.T) {
 func TestChannelBuildConnect(t *testing.T) {
 	ctx := context.Background()
 	cb, err := channel.NewBuilder("sc://localhost")
-	assert.Nil(t, err, "Should not have an error for a proper URL.")
+	assert.NoError(t, err, "Should not have an error for a proper URL.")
 	conn, err := cb.Build(ctx)
 	assert.Nil(t, err, "no error for proper connection")
 	assert.NotNil(t, conn)
