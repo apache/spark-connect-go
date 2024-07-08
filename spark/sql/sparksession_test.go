@@ -19,6 +19,7 @@ package sql
 import (
 	"bytes"
 	"context"
+	"io"
 	"testing"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -56,14 +57,31 @@ func TestSQLCallsExecutePlanWithSQLOnClient(t *testing.T) {
 		},
 	}
 
-	s := testutils.NewConnectServiceClientMock(request, &client.ExecutePlanClient{
-		SparkConnectService_ExecutePlanClient: &mocks.ProtoClient{
-			RecvResponse: &proto.ExecutePlanResponse{
+	// Create the responses:
+	responses := []*mocks.MockResponse{
+		{
+			Resp: &proto.ExecutePlanResponse{
 				ResponseType: &proto.ExecutePlanResponse_SqlCommandResult_{
 					SqlCommandResult: &proto.ExecutePlanResponse_SqlCommandResult{},
 				},
 			},
+			Err: nil,
 		},
+		{
+			Resp: &proto.ExecutePlanResponse{
+				ResponseType: &proto.ExecutePlanResponse_ResultComplete_{
+					ResultComplete: &proto.ExecutePlanResponse_ResultComplete{},
+				},
+			},
+			Err: nil,
+		},
+		{
+			Err: io.EOF,
+		},
+	}
+
+	s := testutils.NewConnectServiceClientMock(request, &mocks.ProtoClient{
+		RecvResponse: responses,
 	}, nil, nil, t)
 	c := client.NewSparkExecutorFromClient(s, nil, "")
 
@@ -119,24 +137,46 @@ func TestWriteResultStreamsArrowResultToCollector(t *testing.T) {
 
 	query := "select * from bla"
 
-	s := testutils.NewConnectServiceClientMock(nil, &client.ExecutePlanClient{
-		SparkConnectService_ExecutePlanClient: &mocks.ProtoClient{
-			RecvResponses: []*proto.ExecutePlanResponse{
-				{
-					ResponseType: &proto.ExecutePlanResponse_SqlCommandResult_{
-						SqlCommandResult: &proto.ExecutePlanResponse_SqlCommandResult{},
-					},
+	// Create the responses:
+	responses := []*mocks.MockResponse{
+		// The first stream of response is necessary for the SQL command.
+		{
+			Resp: &proto.ExecutePlanResponse{
+				ResponseType: &proto.ExecutePlanResponse_SqlCommandResult_{
+					SqlCommandResult: &proto.ExecutePlanResponse_SqlCommandResult{},
 				},
-				{
-					ResponseType: &proto.ExecutePlanResponse_ArrowBatch_{
-						ArrowBatch: &proto.ExecutePlanResponse_ArrowBatch{
-							RowCount: 1,
-							Data:     buf.Bytes(),
-						},
+			},
+			Err: nil,
+		},
+		{
+			Resp: &proto.ExecutePlanResponse{
+				ResponseType: &proto.ExecutePlanResponse_ResultComplete_{
+					ResultComplete: &proto.ExecutePlanResponse_ResultComplete{},
+				},
+			},
+			Err: nil,
+		},
+		{
+			Err: io.EOF,
+		},
+		// The second stream of responses is for the actual execution
+		{
+			Resp: &proto.ExecutePlanResponse{
+				ResponseType: &proto.ExecutePlanResponse_ArrowBatch_{
+					ArrowBatch: &proto.ExecutePlanResponse_ArrowBatch{
+						RowCount: 2,
+						Data:     buf.Bytes(),
 					},
 				},
 			},
 		},
+		{
+			Err: io.EOF,
+		},
+	}
+
+	s := testutils.NewConnectServiceClientMock(nil, &mocks.ProtoClient{
+		RecvResponse: responses,
 	}, nil, nil, t)
 	c := client.NewSparkExecutorFromClient(s, nil, "")
 
@@ -147,10 +187,11 @@ func TestWriteResultStreamsArrowResultToCollector(t *testing.T) {
 	resp, err := session.Sql(ctx, query)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	writer, err := resp.Repartition(1, []string{"1"})
+	df, err := resp.Repartition(1, []string{"1"})
 	assert.NoError(t, err)
-	collector := &testCollector{}
-	err = writer.WriteResult(ctx, collector, 1, false)
+	rows, err := df.Collect(ctx)
 	assert.NoError(t, err)
-	assert.Equal(t, []any{"str2"}, collector.row)
+	vals, err := rows[1].Values()
+	assert.NoError(t, err)
+	assert.Equal(t, []any{"str2"}, vals)
 }

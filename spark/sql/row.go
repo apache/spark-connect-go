@@ -16,10 +16,12 @@
 
 package sql
 
+import "github.com/apache/spark-connect-go/v35/spark/sql/types"
+
 // Row represents a row in a DataFrame.
 type Row interface {
 	// Schema returns the schema of the row.
-	Schema() (*StructType, error)
+	Schema() (*types.StructType, error)
 	// Values returns the values of the row.
 	Values() ([]any, error)
 }
@@ -27,17 +29,17 @@ type Row interface {
 // genericRowWithSchema represents a row in a DataFrame with schema.
 type genericRowWithSchema struct {
 	values []any
-	schema *StructType
+	schema *types.StructType
 }
 
-func NewRowWithSchema(values []any, schema *StructType) Row {
+func NewRowWithSchema(values []any, schema *types.StructType) Row {
 	return &genericRowWithSchema{
 		values: values,
 		schema: schema,
 	}
 }
 
-func (r *genericRowWithSchema) Schema() (*StructType, error) {
+func (r *genericRowWithSchema) Schema() (*types.StructType, error) {
 	return r.schema, nil
 }
 

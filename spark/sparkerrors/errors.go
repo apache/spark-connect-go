@@ -47,3 +47,20 @@ var (
 	ExecutionError    = errorType(errors.New("execution error"))
 	InvalidInputError = errorType(errors.New("invalid input"))
 )
+
+type UnsupportedResponseTypeError struct {
+	ResponseType interface{}
+}
+
+func (e UnsupportedResponseTypeError) Error() string {
+	return fmt.Sprintf("Received unsupported response type: %T", e.ResponseType)
+}
+
+type InvalidServerSideSessionError struct {
+	OwnSessionId      string
+	ReceivedSessionId string
+}
+
+func (e InvalidServerSideSessionError) Error() string {
+	return fmt.Sprintf("Received invalid session id %s, expected %s", e.ReceivedSessionId, e.OwnSessionId)
+}

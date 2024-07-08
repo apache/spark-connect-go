@@ -5,6 +5,8 @@ import (
 	"io"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/apache/spark-connect-go/v35/spark/client"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
@@ -42,11 +44,16 @@ func TestSaveExecutesWriteOperationUntilEOF(t *testing.T) {
 	relation := &proto.Relation{}
 	executor := &testExecutor{
 		client: client.NewExecutePlanClient(&mocks.ProtoClient{
-			Err: io.EOF,
-		}),
+			RecvResponse: []*mocks.MockResponse{
+				{
+					Err: io.EOF,
+				},
+			},
+		}, uuid.NewString()),
 	}
 	session := &sparkSessionImpl{
-		client: executor,
+		client:    executor,
+		sessionId: uuid.NewString(),
 	}
 	ctx := context.Background()
 	path := "path"
@@ -62,11 +69,16 @@ func TestSaveFailsIfAnotherErrorHappensWhenReadingStream(t *testing.T) {
 	relation := &proto.Relation{}
 	executor := &testExecutor{
 		client: client.NewExecutePlanClient(&mocks.ProtoClient{
-			Err: assert.AnError,
-		}),
+			RecvResponse: []*mocks.MockResponse{
+				{
+					Err: assert.AnError,
+				},
+			},
+		}, uuid.NewString()),
 	}
 	session := &sparkSessionImpl{
-		client: executor,
+		client:    executor,
+		sessionId: uuid.NewString(),
 	}
 	ctx := context.Background()
 	path := "path"
@@ -81,7 +93,7 @@ func TestSaveFailsIfAnotherErrorHappensWhenReadingStream(t *testing.T) {
 func TestSaveFailsIfAnotherErrorHappensWhenExecuting(t *testing.T) {
 	relation := &proto.Relation{}
 	executor := &testExecutor{
-		client: client.NewExecutePlanClient(&mocks.ProtoClient{}),
+		client: client.NewExecutePlanClient(&mocks.ProtoClient{}, uuid.NewString()),
 		err:    assert.AnError,
 	}
 	session := &sparkSessionImpl{

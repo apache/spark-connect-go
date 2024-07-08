@@ -90,7 +90,12 @@ func (s *sparkSessionImpl) Read() DataFrameReader {
 	return NewDataframeReader(s)
 }
 
+// Sql executes a sql query and returns the result as a DataFrame
 func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, error) {
+	// Due to the nature of Spark, we have to first submit the SQL query immediately as a command
+	// to make sure that all side effects have been executed properly. If no side effects are present,
+	// then simply prepare this as a SQL relation.
+
 	plan := &proto.Plan{
 		OpType: &proto.Plan_Command{
 			Command: &proto.Command{
@@ -102,20 +107,25 @@ func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, er
 			},
 		},
 	}
-	responseClient, err := s.client.ExecutePlan(ctx, plan)
+	// We need an execute command here.
+	_, _, properties, err := s.client.ExecuteCommand(ctx, plan)
 	if err != nil {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to execute sql: %s: %w", query, err), sparkerrors.ExecutionError)
 	}
-	for {
-		response, err := responseClient.Recv()
-		if err != nil {
-			return nil, sparkerrors.WithType(fmt.Errorf("failed to receive ExecutePlan response: %w", err), sparkerrors.ReadError)
+
+	val, ok := properties["sql_command_result"]
+	if !ok {
+		plan := &proto.Relation{
+			RelType: &proto.Relation_Sql{
+				Sql: &proto.SQL{
+					Query: query,
+				},
+			},
 		}
-		sqlCommandResult := response.GetSqlCommandResult()
-		if sqlCommandResult == nil {
-			continue
-		}
-		return NewDataFrame(s, sqlCommandResult.GetRelation()), nil
+		return NewDataFrame(s, plan), nil
+	} else {
+		rel := val.(*proto.Relation)
+		return NewDataFrame(s, rel), nil
 	}
 }
 

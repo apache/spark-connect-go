@@ -40,7 +40,7 @@ func (w *dataFrameReaderImpl) Load(path string) (DataFrame, error) {
 	return NewDataFrame(w.sparkSession, toRelation(path, format)), nil
 }
 
-func toRelation(path string, format string) *proto.Relation {
+func toRelation(path, format string) *proto.Relation {
 	return &proto.Relation{
 		RelType: &proto.Relation_Read{
 			Read: &proto.Read{

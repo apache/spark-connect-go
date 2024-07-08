@@ -20,16 +20,16 @@ import (
 	"testing"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/client"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 )
 
+// connectServiceClient is a mock implementation of the SparkConnectServiceClient interface.
 type connectServiceClient struct {
 	t *testing.T
 
 	analysePlanResponse        *proto.AnalyzePlanResponse
-	executePlanClient          *client.ExecutePlanClient
+	executePlanClient          proto.SparkConnectService_ExecutePlanClient
 	expectedExecutePlanRequest *proto.ExecutePlanRequest
 
 	err error
@@ -70,7 +70,7 @@ func (c *connectServiceClient) ReleaseExecute(ctx context.Context, in *proto.Rel
 	return nil, c.err
 }
 
-func NewConnectServiceClientMock(epr *proto.ExecutePlanRequest, epc *client.ExecutePlanClient, apc *proto.AnalyzePlanResponse, err error, t *testing.T) proto.SparkConnectServiceClient {
+func NewConnectServiceClientMock(epr *proto.ExecutePlanRequest, epc proto.SparkConnectService_ExecutePlanClient, apc *proto.AnalyzePlanResponse, err error, t *testing.T) proto.SparkConnectServiceClient {
 	return &connectServiceClient{
 		t:                          t,
 		expectedExecutePlanRequest: epr,
