@@ -14,27 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sql
+package utils
 
-import (
-	"context"
-
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
-)
-
-type testExecutor struct {
-	client   *ExecutePlanClient
-	response *proto.AnalyzePlanResponse
-	err      error
-}
-
-func (t *testExecutor) ExecutePlan(ctx context.Context, plan *proto.Plan) (*ExecutePlanClient, error) {
-	if t.err != nil {
-		return nil, t.err
+func WarnOnError(f func() error, h func(e error)) {
+	if err := f(); err != nil {
+		h(err)
 	}
-	return t.client, nil
-}
-
-func (t *testExecutor) AnalyzePlan(ctx context.Context, plan *proto.Plan) (*proto.AnalyzePlanResponse, error) {
-	return t.response, nil
 }

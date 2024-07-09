@@ -198,14 +198,16 @@ func TestReadArrowRecord(t *testing.T) {
 		float16.New(10000.1), float32(100000.1), 1000000.1,
 		decimal128.FromI64(10000000), decimal256.FromI64(100000000),
 		"str1", []byte("bytes1"),
-		arrow.Timestamp(1686981953115000), arrow.Date64(1686981953117000)},
+		arrow.Timestamp(1686981953115000), arrow.Date64(1686981953117000),
+	},
 		values[0])
 	assert.Equal(t, []any{
 		true, int8(2), int16(20), int32(200), int64(2000),
 		float16.New(20000.1), float32(200000.1), 2000000.1,
 		decimal128.FromI64(20000000), decimal256.FromI64(200000000),
 		"str2", []byte("bytes2"),
-		arrow.Timestamp(1686981953116000), arrow.Date64(1686981953118000)},
+		arrow.Timestamp(1686981953116000), arrow.Date64(1686981953118000),
+	},
 		values[1])
 }
 
