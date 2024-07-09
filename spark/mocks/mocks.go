@@ -18,28 +18,50 @@ package mocks
 
 import (
 	"context"
+	"io"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"google.golang.org/grpc/metadata"
 )
 
-type ProtoClient struct {
-	RecvResponse  *proto.ExecutePlanResponse
-	RecvResponses []*proto.ExecutePlanResponse
+type MockResponse struct {
+	Resp *proto.ExecutePlanResponse
+	Err  error
+}
 
-	Err error
+type ProtoClient struct {
+	// The stream of responses to return.
+	RecvResponse []*MockResponse
+	sent         int
+}
+
+// MockResponseDone is a response that indicates the plan execution is done.
+var ExecutePlanResponseDone = MockResponse{
+	Resp: &proto.ExecutePlanResponse{
+		ResponseType: &proto.ExecutePlanResponse_ResultComplete_{
+			ResultComplete: &proto.ExecutePlanResponse_ResultComplete{},
+		},
+	},
+	Err: nil,
+}
+
+var ExecutePlanResponseEOF = MockResponse{
+	Err: io.EOF,
+}
+
+// NewProtoClientMock creates a new mock client that returns the given responses.
+func NewProtoClientMock(responses ...*MockResponse) *ProtoClient {
+	return &ProtoClient{RecvResponse: responses}
 }
 
 func (p *ProtoClient) Recv() (*proto.ExecutePlanResponse, error) {
-	if len(p.RecvResponses) != 0 {
-		p.RecvResponse = p.RecvResponses[0]
-		p.RecvResponses = p.RecvResponses[1:]
-	}
-	return p.RecvResponse, p.Err
+	val := p.RecvResponse[p.sent]
+	p.sent += 1
+	return val.Resp, val.Err
 }
 
 func (p *ProtoClient) Header() (metadata.MD, error) {
-	return nil, p.Err
+	return nil, p.RecvResponse[p.sent].Err
 }
 
 func (p *ProtoClient) Trailer() metadata.MD {
@@ -47,7 +69,7 @@ func (p *ProtoClient) Trailer() metadata.MD {
 }
 
 func (p *ProtoClient) CloseSend() error {
-	return p.Err
+	return p.RecvResponse[p.sent].Err
 }
 
 func (p *ProtoClient) Context() context.Context {
@@ -55,9 +77,23 @@ func (p *ProtoClient) Context() context.Context {
 }
 
 func (p *ProtoClient) SendMsg(m interface{}) error {
-	return p.Err
+	return p.RecvResponse[p.sent].Err
 }
 
 func (p *ProtoClient) RecvMsg(m interface{}) error {
-	return p.Err
+	return p.RecvResponse[p.sent].Err
+}
+
+func NewSqlCommand(sql string) *proto.Plan {
+	return &proto.Plan{
+		OpType: &proto.Plan_Command{
+			Command: &proto.Command{
+				CommandType: &proto.Command_SqlCommand{
+					SqlCommand: &proto.SqlCommand{
+						Sql: sql,
+					},
+				},
+			},
+		},
+	}
 }

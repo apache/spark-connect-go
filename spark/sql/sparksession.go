@@ -14,24 +14,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package session
+package sql
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/apache/spark-connect-go/v35/spark/client/channel"
-
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+	"github.com/apache/spark-connect-go/v35/spark/client"
+	"github.com/apache/spark-connect-go/v35/spark/client/channel"
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
-	"github.com/apache/spark-connect-go/v35/spark/sql"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"
 )
 
 type SparkSession interface {
-	Read() sql.DataFrameReader
-	Sql(ctx context.Context, query string) (sql.DataFrame, error)
+	Read() DataFrameReader
+	Sql(ctx context.Context, query string) (DataFrame, error)
 	Stop() error
 }
 
@@ -75,25 +74,28 @@ func (s *SparkSessionBuilder) Build(ctx context.Context) (SparkSession, error) {
 		meta[k] = append(meta[k], v)
 	}
 
-	client := proto.NewSparkConnectServiceClient(conn)
+	sessionId := uuid.NewString()
 	return &sparkSessionImpl{
-		sessionId: uuid.NewString(),
-		client:    client,
-		metadata:  meta,
+		sessionId: sessionId,
+		client:    client.NewSparkExecutor(conn, meta, sessionId),
 	}, nil
 }
 
 type sparkSessionImpl struct {
 	sessionId string
-	client    proto.SparkConnectServiceClient
-	metadata  metadata.MD
+	client    client.SparkExecutor
 }
 
-func (s *sparkSessionImpl) Read() sql.DataFrameReader {
-	return sql.NewDataframeReader(s)
+func (s *sparkSessionImpl) Read() DataFrameReader {
+	return NewDataframeReader(s)
 }
 
-func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (sql.DataFrame, error) {
+// Sql executes a sql query and returns the result as a DataFrame
+func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, error) {
+	// Due to the nature of Spark, we have to first submit the SQL query immediately as a command
+	// to make sure that all side effects have been executed properly. If no side effects are present,
+	// then simply prepare this as a SQL relation.
+
 	plan := &proto.Plan{
 		OpType: &proto.Plan_Command{
 			Command: &proto.Command{
@@ -105,62 +107,28 @@ func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (sql.DataFrame
 			},
 		},
 	}
-	responseClient, err := s.ExecutePlan(ctx, plan)
+	// We need an execute command here.
+	_, _, properties, err := s.client.ExecuteCommand(ctx, plan)
 	if err != nil {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to execute sql: %s: %w", query, err), sparkerrors.ExecutionError)
 	}
-	for {
-		response, err := responseClient.Recv()
-		if err != nil {
-			return nil, sparkerrors.WithType(fmt.Errorf("failed to receive ExecutePlan response: %w", err), sparkerrors.ReadError)
+
+	val, ok := properties["sql_command_result"]
+	if !ok {
+		plan := &proto.Relation{
+			RelType: &proto.Relation_Sql{
+				Sql: &proto.SQL{
+					Query: query,
+				},
+			},
 		}
-		sqlCommandResult := response.GetSqlCommandResult()
-		if sqlCommandResult == nil {
-			continue
-		}
-		return sql.NewDataFrame(s, sqlCommandResult.GetRelation()), nil
+		return NewDataFrame(s, plan), nil
+	} else {
+		rel := val.(*proto.Relation)
+		return NewDataFrame(s, rel), nil
 	}
 }
 
 func (s *sparkSessionImpl) Stop() error {
 	return nil
-}
-
-func (s *sparkSessionImpl) ExecutePlan(ctx context.Context, plan *proto.Plan) (*sql.ExecutePlanClient, error) {
-	request := proto.ExecutePlanRequest{
-		SessionId: s.sessionId,
-		Plan:      plan,
-		UserContext: &proto.UserContext{
-			UserId: "na",
-		},
-	}
-	// Append the other items to the request.
-	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
-	client, err := s.client.ExecutePlan(ctx, &request)
-	if err != nil {
-		return nil, sparkerrors.WithType(fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
-	}
-	return sql.NewExecutePlanClient(client), nil
-}
-
-func (s *sparkSessionImpl) AnalyzePlan(ctx context.Context, plan *proto.Plan) (*proto.AnalyzePlanResponse, error) {
-	request := proto.AnalyzePlanRequest{
-		SessionId: s.sessionId,
-		Analyze: &proto.AnalyzePlanRequest_Schema_{
-			Schema: &proto.AnalyzePlanRequest_Schema{
-				Plan: plan,
-			},
-		},
-		UserContext: &proto.UserContext{
-			UserId: "na",
-		},
-	}
-	// Append the other items to the request.
-	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
-
-	response, err := s.client.AnalyzePlan(ctx, &request)
-	if err != nil {
-		return nil, sparkerrors.WithType(fmt.Errorf("failed to call AnalyzePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
-	}
-	return response, nil
 }

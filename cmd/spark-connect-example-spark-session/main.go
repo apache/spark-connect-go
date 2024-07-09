@@ -22,7 +22,6 @@ import (
 	"log"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql"
-	"github.com/apache/spark-connect-go/v35/spark/sql/session"
 	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
 )
 
@@ -32,7 +31,7 @@ var remote = flag.String("remote", "sc://localhost:15002",
 func main() {
 	flag.Parse()
 	ctx := context.Background()
-	spark, err := session.NewSessionBuilder().Remote(*remote).Build(ctx)
+	spark, err := sql.NewSessionBuilder().Remote(*remote).Build(ctx)
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}

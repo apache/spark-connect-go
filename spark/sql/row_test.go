@@ -19,12 +19,14 @@ package sql
 import (
 	"testing"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSchema(t *testing.T) {
 	values := []any{1}
-	schema := &StructType{}
+	schema := &types.StructType{}
 	row := NewRowWithSchema(values, schema)
 	schema2, err := row.Schema()
 	assert.NoError(t, err)
@@ -33,7 +35,7 @@ func TestSchema(t *testing.T) {
 
 func TestValues(t *testing.T) {
 	values := []any{1}
-	schema := &StructType{}
+	schema := &types.StructType{}
 	row := NewRowWithSchema(values, schema)
 	values2, err := row.Values()
 	assert.NoError(t, err)
