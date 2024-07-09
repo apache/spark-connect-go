@@ -57,6 +57,11 @@ func (s *SparkExecutorImpl) ExecuteCommand(ctx context.Context, plan *proto.Plan
 		},
 	}
 
+	// Check that the supplied plan is actually a command.
+	if plan.GetCommand() == nil {
+		return nil, nil, nil, sparkerrors.WithType(fmt.Errorf("the supplied plan does not contain a command"), sparkerrors.ExecutionError)
+	}
+
 	// Append the other items to the request.
 	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
 	c, err := s.client.ExecutePlan(ctx, &request)

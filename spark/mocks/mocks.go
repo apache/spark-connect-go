@@ -18,6 +18,7 @@ package mocks
 
 import (
 	"context"
+	"io"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"google.golang.org/grpc/metadata"
@@ -32,6 +33,25 @@ type ProtoClient struct {
 	// The stream of responses to return.
 	RecvResponse []*MockResponse
 	sent         int
+}
+
+// MockResponseDone is a response that indicates the plan execution is done.
+var ExecutePlanResponseDone = MockResponse{
+	Resp: &proto.ExecutePlanResponse{
+		ResponseType: &proto.ExecutePlanResponse_ResultComplete_{
+			ResultComplete: &proto.ExecutePlanResponse_ResultComplete{},
+		},
+	},
+	Err: nil,
+}
+
+var ExecutePlanResponseEOF = MockResponse{
+	Err: io.EOF,
+}
+
+// NewProtoClientMock creates a new mock client that returns the given responses.
+func NewProtoClientMock(responses ...*MockResponse) *ProtoClient {
+	return &ProtoClient{RecvResponse: responses}
 }
 
 func (p *ProtoClient) Recv() (*proto.ExecutePlanResponse, error) {
@@ -62,4 +82,18 @@ func (p *ProtoClient) SendMsg(m interface{}) error {
 
 func (p *ProtoClient) RecvMsg(m interface{}) error {
 	return p.RecvResponse[p.sent].Err
+}
+
+func NewSqlCommand(sql string) *proto.Plan {
+	return &proto.Plan{
+		OpType: &proto.Plan_Command{
+			Command: &proto.Command{
+				CommandType: &proto.Command_SqlCommand{
+					SqlCommand: &proto.SqlCommand{
+						Sql: sql,
+					},
+				},
+			},
+		},
+	}
 }
