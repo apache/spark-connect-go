@@ -22,7 +22,6 @@ import (
 	"log"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql"
-	"github.com/apache/spark-connect-go/v35/spark/sql/session"
 	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
 )
 

@@ -119,8 +119,7 @@ func (df *dataFrameImpl) WriteResult(ctx context.Context, collector ResultCollec
 		return err
 	}
 
-	var rows []Row
-	rows = make([]Row, table.NumRows())
+	rows := make([]Row, table.NumRows())
 
 	values, err := types.ReadArrowTable(table)
 	if err != nil {
@@ -164,8 +163,7 @@ func (df *dataFrameImpl) Collect(ctx context.Context) ([]Row, error) {
 		return nil, err
 	}
 
-	var rows []Row
-	rows = make([]Row, table.NumRows())
+	rows := make([]Row, table.NumRows())
 
 	values, err := types.ReadArrowTable(table)
 	if err != nil {
