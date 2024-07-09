@@ -72,6 +72,6 @@ func TestConvertProtoStructToGoStruct(t *testing.T) {
 
 	// Check for input type that is not a struct type and it returns an error.
 	protoType = &proto.DataType{Kind: &proto.DataType_Integer_{}}
-	structType, err = types.ConvertProtoDataTypeToStructType(protoType)
+	_, err = types.ConvertProtoDataTypeToStructType(protoType)
 	assert.Error(t, err)
 }
