@@ -22,6 +22,8 @@ import (
 	"log"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql"
+	"github.com/apache/spark-connect-go/v35/spark/sql/session"
+	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
 )
 
 var remote = flag.String("remote", "sc://localhost:15002",
@@ -34,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}
-	defer spark.Stop()
+	defer utils.WarnOnError(spark.Stop, func(err error) {})
 
 	df, err := spark.Sql(ctx, "select 'apple' as word, 123 as count union all select 'orange' as word, 456 as count")
 	if err != nil {

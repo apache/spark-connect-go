@@ -14,3 +14,19 @@ license the work to the project under the project's open source license. Whether
 state this explicitly, by submitting any copyrighted material via pull request, email, or
 other means you agree to license the material under the project's open source license and
 warrant that you have the legal authority to do so.
+
+
+### Code Style and Checks
+
+When submitting code we use a number of checks in our continous integration system to ensure
+a consitent style and adherence to license rules. You can run these checks locally by running:
+
+```bash
+make check
+```
+
+This requires the following tools to be present in your PATH:
+
+1. Java for checking license headers
+2. `gofumpt` for formatting Go code
+3. `golangci-lint` for linting Go code

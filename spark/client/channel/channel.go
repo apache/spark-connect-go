@@ -36,9 +36,6 @@ import (
 	"google.golang.org/grpc/credentials/oauth"
 )
 
-// Reserved header parameters that must not be injected as variables.
-var reservedParams = []string{"user_id", "token", "use_ssl"}
-
 // Builder is the interface that is used to implement different patterns that
 // create the GRPC connection.
 //
@@ -65,23 +62,23 @@ type BaseBuilder struct {
 	headers map[string]string
 }
 
-func (cb BaseBuilder) Host() string {
+func (cb *BaseBuilder) Host() string {
 	return cb.host
 }
 
-func (cb BaseBuilder) Port() int {
+func (cb *BaseBuilder) Port() int {
 	return cb.port
 }
 
-func (cb BaseBuilder) Token() string {
+func (cb *BaseBuilder) Token() string {
 	return cb.token
 }
 
-func (cb BaseBuilder) User() string {
+func (cb *BaseBuilder) User() string {
 	return cb.user
 }
 
-func (cb BaseBuilder) Headers() map[string]string {
+func (cb *BaseBuilder) Headers() map[string]string {
 	return cb.headers
 }
 
@@ -113,7 +110,7 @@ func (cb *BaseBuilder) Build(ctx context.Context) (*grpc.ClientConn, error) {
 	}
 
 	remote := fmt.Sprintf("%v:%v", cb.host, cb.port)
-	conn, err := grpc.DialContext(ctx, remote, opts...)
+	conn, err := grpc.NewClient(remote, opts...)
 	if err != nil {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w", remote, err), sparkerrors.ConnectionError)
 	}
@@ -122,6 +119,9 @@ func (cb *BaseBuilder) Build(ctx context.Context) (*grpc.ClientConn, error) {
 
 // NewBuilder creates a new instance of the BaseBuilder. This constructor effectively
 // parses the connection string and extracts the relevant parameters directly.
+//
+// The following parameters to the connection string are reserved: user_id, session_id, use_ssl,
+// and token. These parameters are not allowed to be injected as headers.
 func NewBuilder(connection string) (Builder, error) {
 	u, err := url.Parse(connection)
 	if err != nil {

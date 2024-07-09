@@ -79,7 +79,7 @@ lint: $(BUILD_OUTPUT)
 	@golangci-lint run
 
 fmt:
-	@gofumpt -extra -w $(ALLGOFILES)
+	@gofumpt -l -w $(ALLGOFILES)
 
 test: $(BUILD_OUTPUT)
 	@echo ">> TEST, \"verbose\""
@@ -95,6 +95,13 @@ fulltest: $(BUILD_OUTPUT)
 		go test -run '(Test|Example)' $(BUILDFLAGS) $(TESTFLAGS) -coverprofile=coverage.out -covermode=atomic $(pkg) || exit 1;\
 		tail -n +2 coverage.out >> coverage-all.out;)
 	@$(GO) tool cover -html=coverage-all.out -o coverage-all.html
+
+
+check:
+	@echo -n ">> CHECK"
+	./dev/check-license
+	@echo -n ">> glongci-lint: "
+	golangci-lint run
 
 
 clean:
