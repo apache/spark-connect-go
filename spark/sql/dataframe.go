@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/column"
+	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
@@ -53,6 +56,10 @@ type DataFrame interface {
 	Repartition(numPartitions int, columns []string) (DataFrame, error)
 	// RepartitionByRange re-partitions a data frame by range partition.
 	RepartitionByRange(numPartitions int, columns []RangePartitionColumn) (DataFrame, error)
+
+	Filter(condition column.Column) (DataFrame, error)
+	FilterByString(condition string) (DataFrame, error)
+	Col(name string) (column.Column, error)
 }
 
 type RangePartitionColumn struct {
@@ -261,12 +268,7 @@ func (df *dataFrameImpl) RepartitionByRange(numPartitions int, columns []RangePa
 func (df *dataFrameImpl) createPlan() *proto.Plan {
 	return &proto.Plan{
 		OpType: &proto.Plan_Root{
-			Root: &proto.Relation{
-				Common: &proto.RelationCommon{
-					PlanId: newPlanId(),
-				},
-				RelType: df.relation.RelType,
-			},
+			Root: df.relation,
 		},
 	}
 }
@@ -291,4 +293,33 @@ func (df *dataFrameImpl) repartitionByExpressions(numPartitions int, partitionEx
 		},
 	}
 	return NewDataFrame(df.session, newRelation), nil
+}
+
+func (df *dataFrameImpl) Filter(condition column.Column) (DataFrame, error) {
+	cnd, err := condition.ToPlan()
+	if err != nil {
+		return nil, err
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Filter{
+			Filter: &proto.Filter{
+				Input:     df.relation,
+				Condition: cnd,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) FilterByString(condition string) (DataFrame, error) {
+	return df.Filter(functions.Expr(condition))
+}
+
+func (df *dataFrameImpl) Col(name string) (column.Column, error) {
+	planId := df.relation.Common.GetPlanId()
+	return column.NewColumn(column.NewColumnReferenceWithPlanId(name, planId)), nil
 }

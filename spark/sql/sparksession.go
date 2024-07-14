@@ -32,6 +32,7 @@ type SparkSession interface {
 	Read() DataFrameReader
 	Sql(ctx context.Context, query string) (DataFrame, error)
 	Stop() error
+	Table(name string) (DataFrame, error)
 }
 
 // NewSessionBuilder creates a new session builder for starting a new spark session
@@ -131,4 +132,8 @@ func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, er
 
 func (s *sparkSessionImpl) Stop() error {
 	return nil
+}
+
+func (s *sparkSessionImpl) Table(name string) (DataFrame, error) {
+	return s.Read().Table(name)
 }

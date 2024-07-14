@@ -37,6 +37,7 @@ type connectServiceClient struct {
 
 func (c *connectServiceClient) ExecutePlan(ctx context.Context, in *proto.ExecutePlanRequest, opts ...grpc.CallOption) (proto.SparkConnectService_ExecutePlanClient, error) {
 	if c.expectedExecutePlanRequest != nil {
+		// Check that the plans in both requests are identical
 		assert.Equal(c.t, c.expectedExecutePlanRequest, in)
 	}
 	return c.executePlanClient, c.err

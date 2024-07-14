@@ -13,29 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sql
+package functions
 
-import (
-	"testing"
+import "github.com/apache/spark-connect-go/v35/spark/sql/column"
 
-	"github.com/stretchr/testify/assert"
-)
-
-func TestLoadCreatesADataFrame(t *testing.T) {
-	reader := NewDataframeReader(nil)
-	source := "source"
-	path := "path"
-	reader.Format(source)
-	frame, err := reader.Load(path)
-	assert.NoError(t, err)
-	assert.NotNil(t, frame)
+func Expr(expr string) column.Column {
+	return column.NewColumn(column.NewSQLExpression(expr))
 }
 
-func TestRelationContainsPathAndFormat(t *testing.T) {
-	formatSource := "source"
-	path := "path"
-	relation := newReadWithFormatAndPath(path, formatSource)
-	assert.NotNil(t, relation)
-	assert.Equal(t, &formatSource, relation.GetRead().GetDataSource().Format)
-	assert.Equal(t, path, relation.GetRead().GetDataSource().Paths[0])
+func Col(name string) column.Column {
+	return column.NewColumn(column.NewColumnReference(name))
+}
+
+func Lit(value any) column.Column {
+	return column.NewColumn(column.NewLiteral(value))
 }

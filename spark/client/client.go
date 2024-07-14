@@ -200,10 +200,7 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 		case *proto.ExecutePlanResponse_ResultComplete_:
 			c.done = true
 		default:
-			fmt.Printf("Received unsupported response ")
-			//return nil, nil, &sparkerrors.UnsupportedResponseTypeError{
-			//	ResponseType: x,
-			//}
+			// Explicitly ignore messages that we cannot process at the moment.
 		}
 	}
 
