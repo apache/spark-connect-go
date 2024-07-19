@@ -117,6 +117,9 @@ func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, er
 	val, ok := properties["sql_command_result"]
 	if !ok {
 		plan := &proto.Relation{
+			Common: &proto.RelationCommon{
+				PlanId: newPlanId(),
+			},
 			RelType: &proto.Relation_Sql{
 				Sql: &proto.SQL{
 					Query: query,
@@ -126,6 +129,9 @@ func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, er
 		return NewDataFrame(s, plan), nil
 	} else {
 		rel := val.(*proto.Relation)
+		rel.Common = &proto.RelationCommon{
+			PlanId: newPlanId(),
+		}
 		return NewDataFrame(s, rel), nil
 	}
 }
