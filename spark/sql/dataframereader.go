@@ -16,10 +16,6 @@
 
 package sql
 
-import (
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
-)
-
 // DataFrameReader supports reading data from storage and returning a data frame.
 // TODO needs to implement other methods like Option(), Schema(), and also "strong typed"
 // reading (e.g. Parquet(), Orc(), Csv(), etc.
@@ -28,6 +24,8 @@ type DataFrameReader interface {
 	Format(source string) DataFrameReader
 	// Load reads the underlying data and returns a data frame.
 	Load(path string) (DataFrame, error)
+	// Reads a table from the underlying data source.
+	Table(name string) (DataFrame, error)
 }
 
 // dataFrameReaderImpl is an implementation of DataFrameReader interface.
@@ -43,6 +41,10 @@ func NewDataframeReader(session *sparkSessionImpl) DataFrameReader {
 	}
 }
 
+func (w *dataFrameReaderImpl) Table(name string) (DataFrame, error) {
+	return NewDataFrame(w.sparkSession, newReadTableRelation(name)), nil
+}
+
 func (w *dataFrameReaderImpl) Format(source string) DataFrameReader {
 	w.formatSource = source
 	return w
@@ -53,20 +55,5 @@ func (w *dataFrameReaderImpl) Load(path string) (DataFrame, error) {
 	if w.formatSource != "" {
 		format = w.formatSource
 	}
-	return NewDataFrame(w.sparkSession, toRelation(path, format)), nil
-}
-
-func toRelation(path, format string) *proto.Relation {
-	return &proto.Relation{
-		RelType: &proto.Relation_Read{
-			Read: &proto.Read{
-				ReadType: &proto.Read_DataSource_{
-					DataSource: &proto.Read_DataSource{
-						Format: &format,
-						Paths:  []string{path},
-					},
-				},
-			},
-		},
-	}
+	return NewDataFrame(w.sparkSession, newReadWithFormatAndPath(path, format)), nil
 }

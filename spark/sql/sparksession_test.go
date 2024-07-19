@@ -35,6 +35,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestSparkSessionTable(t *testing.T) {
+	resetPlanIdForTesting()
+	plan := newReadTableRelation("table")
+	resetPlanIdForTesting()
+	s := testutils.NewConnectServiceClientMock(nil, nil, nil, nil, t)
+	c := client.NewSparkExecutorFromClient(s, nil, "")
+	session := &sparkSessionImpl{client: c}
+	df, err := session.Table("table")
+	df_plan := df.(*dataFrameImpl).relation
+	assert.Equal(t, plan, df_plan)
+	assert.NoError(t, err)
+}
+
 func TestSQLCallsExecutePlanWithSQLOnClient(t *testing.T) {
 	ctx := context.Background()
 

@@ -46,6 +46,7 @@ var (
 	ReadError         = errorType(errors.New("read error"))
 	ExecutionError    = errorType(errors.New("execution error"))
 	InvalidInputError = errorType(errors.New("invalid input"))
+	InvalidPlanError  = errorType(errors.New("invalid plan"))
 )
 
 type UnsupportedResponseTypeError struct {

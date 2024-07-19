@@ -21,6 +21,8 @@ import (
 	"flag"
 	"log"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql"
 	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
 )
@@ -37,7 +39,39 @@ func main() {
 	}
 	defer utils.WarnOnError(spark.Stop, func(err error) {})
 
-	df, err := spark.Sql(ctx, "select 'apple' as word, 123 as count union all select 'orange' as word, 456 as count")
+	//df, err := spark.Sql(ctx, "select * from range(100)")
+	//if err != nil {
+	//	log.Fatalf("Failed: %s", err)
+	//}
+	//
+	//df, _ = df.FilterByString("id < 10")
+	//err = df.Show(ctx, 100, false)
+	//if err != nil {
+	//	log.Fatalf("Failed: %s", err)
+	//}
+	//
+	//df, err = spark.Sql(ctx, "select * from range(100)")
+	//if err != nil {
+	//	log.Fatalf("Failed: %s", err)
+	//}
+	//
+	//df, _ = df.Filter(functions.Col("id").Lt(functions.Expr("10")))
+	//err = df.Show(ctx, 100, false)
+	//if err != nil {
+	//	log.Fatalf("Failed: %s", err)
+	//}
+
+	df, _ := spark.Sql(ctx, "select * from range(100)")
+	df, err = df.Filter(functions.Col("id").Lt(functions.Lit(20)))
+	if err != nil {
+		log.Fatalf("Failed: %s", err)
+	}
+	err = df.Show(ctx, 100, false)
+	if err != nil {
+		log.Fatalf("Failed: %s", err)
+	}
+
+	df, err = spark.Sql(ctx, "select 'apple' as word, 123 as count union all select 'orange' as word, 456 as count")
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}
