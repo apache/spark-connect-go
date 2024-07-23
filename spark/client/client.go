@@ -111,8 +111,8 @@ func (s *SparkExecutorImpl) AnalyzePlan(ctx context.Context, plan *proto.Plan) (
 	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
 
 	response, err := s.client.AnalyzePlan(ctx, &request)
-	if err != nil {
-		return nil, sparkerrors.WithType(fmt.Errorf("failed to call AnalyzePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
+	if se := sparkerrors.FromRPCError(err); se != nil {
+		return nil, sparkerrors.WithType(se, sparkerrors.ExecutionError)
 	}
 	return response, nil
 }
