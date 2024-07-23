@@ -126,6 +126,8 @@ func NewSparkExecutor(conn *grpc.ClientConn, md metadata.MD, sessionId string) S
 	}
 }
 
+// NewSparkExecutorFromClient creates a new SparkExecutor from an existing client and is mostly
+// used in testing.
 func NewSparkExecutorFromClient(client proto.SparkConnectServiceClient, md metadata.MD, sessionId string) SparkExecutor {
 	return &SparkExecutorImpl{
 		client:    client,
@@ -156,11 +158,15 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 
 	for {
 		resp, err := c.responseStream.Recv()
+		// EOF is received when the last message has been processed and the stream
+		// finished normally.
 		if err == io.EOF {
 			break
 		}
-		if err != nil {
-			return nil, nil, sparkerrors.WithType(fmt.Errorf("failed to receive plan execution response: %w", err), sparkerrors.ReadError)
+
+		// If the error was not EOF, there might be another error.
+		if se := sparkerrors.FromRPCError(err); se != nil {
+			return nil, nil, sparkerrors.WithType(se, sparkerrors.ExecutionError)
 		}
 
 		// Process the message
