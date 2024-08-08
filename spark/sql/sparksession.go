@@ -20,6 +20,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/apache/spark-connect-go/v35/spark/client/base"
+
+	"github.com/apache/spark-connect-go/v35/spark/client/options"
+
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/apache/spark-connect-go/v35/spark/client"
 	"github.com/apache/spark-connect-go/v35/spark/client/channel"
@@ -78,13 +82,13 @@ func (s *SparkSessionBuilder) Build(ctx context.Context) (SparkSession, error) {
 	sessionId := uuid.NewString()
 	return &sparkSessionImpl{
 		sessionId: sessionId,
-		client:    client.NewSparkExecutor(conn, meta, sessionId),
+		client:    client.NewSparkExecutor(conn, meta, sessionId, options.DefaultSparkClientOptions),
 	}, nil
 }
 
 type sparkSessionImpl struct {
 	sessionId string
-	client    client.SparkExecutor
+	client    base.SparkConnectClient
 }
 
 func (s *sparkSessionImpl) Read() DataFrameReader {

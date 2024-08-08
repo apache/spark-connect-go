@@ -40,7 +40,7 @@ func TestSparkSessionTable(t *testing.T) {
 	resetPlanIdForTesting()
 	plan := newReadTableRelation("table")
 	resetPlanIdForTesting()
-	s := testutils.NewConnectServiceClientMock(nil, nil, nil, nil, t)
+	s := testutils.NewConnectServiceClientMock(nil, nil, nil, t)
 	c := client.NewSparkExecutorFromClient(s, nil, "")
 	session := &sparkSessionImpl{client: c}
 	df, err := session.Table("table")
@@ -53,24 +53,6 @@ func TestSQLCallsExecutePlanWithSQLOnClient(t *testing.T) {
 	ctx := context.Background()
 
 	query := "select * from bla"
-	plan := &proto.Plan{
-		OpType: &proto.Plan_Command{
-			Command: &proto.Command{
-				CommandType: &proto.Command_SqlCommand{
-					SqlCommand: &proto.SqlCommand{
-						Sql: query,
-					},
-				},
-			},
-		},
-	}
-	request := &proto.ExecutePlanRequest{
-		Plan: plan,
-		UserContext: &proto.UserContext{
-			UserId: "na",
-		},
-	}
-
 	// Create the responses:
 	responses := []*mocks.MockResponse{
 		{
@@ -94,7 +76,7 @@ func TestSQLCallsExecutePlanWithSQLOnClient(t *testing.T) {
 		},
 	}
 
-	s := testutils.NewConnectServiceClientMock(request, &mocks.ProtoClient{
+	s := testutils.NewConnectServiceClientMock(&mocks.ProtoClient{
 		RecvResponse: responses,
 	}, nil, nil, t)
 	c := client.NewSparkExecutorFromClient(s, nil, "")
@@ -189,7 +171,7 @@ func TestWriteResultStreamsArrowResultToCollector(t *testing.T) {
 		},
 	}
 
-	s := testutils.NewConnectServiceClientMock(nil, &mocks.ProtoClient{
+	s := testutils.NewConnectServiceClientMock(&mocks.ProtoClient{
 		RecvResponse: responses,
 	}, nil, nil, t)
 	c := client.NewSparkExecutorFromClient(s, nil, "")

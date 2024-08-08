@@ -90,7 +90,8 @@ func (w *dataFrameWriterImpl) Save(ctx context.Context, path string) error {
 		return err
 	}
 
-	return responseClient.ConsumeAll()
+	_, _, err = responseClient.ToTable()
+	return err
 }
 
 func getSaveMode(mode string) (proto.WriteOperation_SaveMode, error) {

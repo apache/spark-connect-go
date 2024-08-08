@@ -47,11 +47,13 @@ func WithType(err error, errType errorType) error {
 type errorType error
 
 var (
-	ConnectionError   = errorType(errors.New("connection error"))
-	ReadError         = errorType(errors.New("read error"))
-	ExecutionError    = errorType(errors.New("execution error"))
-	InvalidInputError = errorType(errors.New("invalid input"))
-	InvalidPlanError  = errorType(errors.New("invalid plan"))
+	ConnectionError               = errorType(errors.New("connection error"))
+	ReadError                     = errorType(errors.New("read error"))
+	ExecutionError                = errorType(errors.New("execution error"))
+	InvalidInputError             = errorType(errors.New("invalid input"))
+	InvalidPlanError              = errorType(errors.New("invalid plan"))
+	RetriesExceeded               = errorType(errors.New("retries exceeded"))
+	InvalidServerSideSessionError = errorType(errors.New("invalid server side session"))
 )
 
 type UnsupportedResponseTypeError struct {
@@ -62,12 +64,12 @@ func (e UnsupportedResponseTypeError) Error() string {
 	return fmt.Sprintf("Received unsupported response type: %T", e.ResponseType)
 }
 
-type InvalidServerSideSessionError struct {
+type InvalidServerSideSessionDetailsError struct {
 	OwnSessionId      string
 	ReceivedSessionId string
 }
 
-func (e InvalidServerSideSessionError) Error() string {
+func (e InvalidServerSideSessionDetailsError) Error() string {
 	return fmt.Sprintf("Received invalid session id %s, expected %s", e.ReceivedSessionId, e.OwnSessionId)
 }
 
