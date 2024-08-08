@@ -186,11 +186,12 @@ type rpcType interface {
 // retriableSparkConnectClient wraps the SparkConnectServiceClient implementation to
 // transparently handle retries.
 type retriableSparkConnectClient struct {
-	client              base.SparkConnectRPCClient
-	sessionId           string
-	serverSideSessionId string
-	retryPolicies       []RetryPolicy
-	options             options.SparkClientOptions
+	client    base.SparkConnectRPCClient
+	sessionId string
+	// Not yet used.
+	// serverSideSessionId string
+	retryPolicies []RetryPolicy
+	options       options.SparkClientOptions
 }
 
 func (r *retriableSparkConnectClient) ExecutePlan(ctx context.Context, in *proto.ExecutePlanRequest, opts ...grpc.CallOption) (proto.SparkConnectService_ExecutePlanClient, error) {
@@ -225,7 +226,7 @@ func (r *retriableSparkConnectClient) ExecutePlan(ctx context.Context, in *proto
 				retryContext: &retryContext{
 					stream:         response,
 					client:         r.client,
-					request:        *in,
+					request:        in,
 					resultComplete: false,
 					retryPolicies:  r.retryPolicies,
 				},
@@ -337,7 +338,7 @@ func (r *retriableSparkConnectClient) ReleaseExecute(ctx context.Context, in *pr
 type retryContext struct {
 	stream         proto.SparkConnectService_ExecutePlanClient
 	client         base.SparkConnectRPCClient
-	request        proto.ExecutePlanRequest
+	request        *proto.ExecutePlanRequest
 	lastResponseId *string
 	resultComplete bool
 	retryPolicies  []RetryPolicy
@@ -366,7 +367,7 @@ func (r retriableExecutePlanClient) Recv() (*proto.ExecutePlanResponse, error) {
 		// we will send a reattach request with the same operation ID and the last response ID.
 		if r.retryContext.lastResponseId == nil {
 			// Send the request again.
-			rs, err := r.retryContext.client.ExecutePlan(ctx2, &r.retryContext.request)
+			rs, err := r.retryContext.client.ExecutePlan(ctx2, r.retryContext.request)
 			if err != nil {
 				return nil, err
 			}
