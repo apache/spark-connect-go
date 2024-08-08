@@ -18,9 +18,10 @@ package client
 import (
 	"context"
 	"fmt"
+	"io"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"io"
 
 	"github.com/apache/spark-connect-go/v35/spark/client/base"
 	"github.com/apache/spark-connect-go/v35/spark/mocks"
