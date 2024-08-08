@@ -18,6 +18,8 @@ package client
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"io"
 
 	"github.com/apache/spark-connect-go/v35/spark/client/base"
@@ -27,15 +29,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
 	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 
 	"github.com/apache/spark-connect-go/v35/internal/generated"
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 type sparkConnectClientImpl struct {

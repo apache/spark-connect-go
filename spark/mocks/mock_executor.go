@@ -20,7 +20,7 @@ import (
 
 	"github.com/apache/spark-connect-go/v35/spark/client/base"
 
-	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 )

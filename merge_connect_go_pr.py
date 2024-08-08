@@ -52,6 +52,8 @@ PUSH_REMOTE_NAME = os.environ.get("PUSH_REMOTE_NAME", "apache")
 JIRA_USERNAME = os.environ.get("JIRA_USERNAME", "")
 # ASF JIRA password
 JIRA_PASSWORD = os.environ.get("JIRA_PASSWORD", "")
+# ASF JIRA Token
+JIRA_ACCESS_TOKEN = os.environ.get("JIRA_ACCESS_TOKEN")
 # OAuth key used for issuing requests against the GitHub API. If this is not defined, then requests
 # will be unauthenticated. You should only need to configure this if you find yourself regularly
 # exceeding your IP's unauthenticated request rate limit. You can create an OAuth key at
@@ -66,6 +68,8 @@ JIRA_API_BASE = "https://issues.apache.org/jira"
 # Prefix added to temporary branches
 BRANCH_PREFIX = "PR_TOOL"
 
+
+asf_jira = None
 
 def get_json(url):
     try:
@@ -247,9 +251,7 @@ def fix_version_from_branch(branch, versions):
 
 
 def resolve_jira_issue(merge_branches, comment, default_jira_id=""):
-    asf_jira = jira.client.JIRA(
-        {"server": JIRA_API_BASE}, basic_auth=(JIRA_USERNAME, JIRA_PASSWORD)
-    )
+    global asf_jira
 
     jira_id = input("Enter a JIRA id [%s]: " % default_jira_id)
     if jira_id == "":
@@ -465,15 +467,47 @@ def get_current_ref():
         return ref
 
 
+def initialize_jira():
+    global asf_jira
+    jira_server = {"server": JIRA_API_BASE}
+
+    if not JIRA_IMPORTED:
+        print_error("ERROR finding jira library. Run 'pip3 install jira' to install.")
+        continue_maybe("Continue without jira?")
+    elif JIRA_ACCESS_TOKEN:
+        client = jira.client.JIRA(jira_server, token_auth=JIRA_ACCESS_TOKEN)
+        try:
+            # Eagerly check if the token is valid to align with the behavior of username/password
+            # authn
+            client.current_user()
+            asf_jira = client
+        except Exception as e:
+            if e.__class__.__name__ == "JIRAError" and getattr(e, "status_code", None) == 401:
+                msg = (
+                    "ASF JIRA could not authenticate with the invalid or expired token '%s'"
+                    % JIRA_ACCESS_TOKEN
+                )
+                fail(msg)
+            else:
+                raise e
+    elif JIRA_USERNAME and JIRA_PASSWORD:
+        print("You can use JIRA_ACCESS_TOKEN instead of JIRA_USERNAME/JIRA_PASSWORD.")
+        print("Visit https://issues.apache.org/jira/secure/ViewProfile.jspa ")
+        print("and click 'Personal Access Tokens' menu to manage your own tokens.")
+        asf_jira = jira.client.JIRA(jira_server, basic_auth=(JIRA_USERNAME, JIRA_PASSWORD))
+    else:
+        print("Neither JIRA_ACCESS_TOKEN nor JIRA_USERNAME/JIRA_PASSWORD are set.")
+        continue_maybe("Continue without jira?")
+
+
 def main():
     global original_head
+    global asf_jira
+
+    initialize_jira()
 
     os.chdir(SPARK_CONNECT_GO_HOME)
     original_head = get_current_ref()
-
-    # Check this up front to avoid failing the JIRA update at the very end
-    if not JIRA_USERNAME or not JIRA_PASSWORD:
-        continue_maybe("The env-vars JIRA_USERNAME and/or JIRA_PASSWORD are not set. Continue?")
 
     branches = get_json("%s/branches" % GITHUB_API_BASE)
     branch_names = list(filter(lambda x: x.startswith("branch-"), [x["name"] for x in branches]))
@@ -577,7 +611,7 @@ def main():
         merged_refs = merged_refs + [cherry_pick(pr_num, merge_hash, latest_branch)]
 
     if JIRA_IMPORTED:
-        if JIRA_USERNAME and JIRA_PASSWORD:
+        if asf_jira is not None:
             continue_maybe("Would you like to update an associated JIRA?")
             jira_comment = "Issue resolved by pull request %s\n[%s/%s]" % (
                 pr_num,
