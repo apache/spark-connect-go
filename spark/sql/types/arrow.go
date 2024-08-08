@@ -20,9 +20,10 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/ipc"
+
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 )
 

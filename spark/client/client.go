@@ -21,15 +21,15 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/apache/spark-connect-go/v35/internal/generated"
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 )
 
 // SparkExecutor is the interface for executing a plan in Spark.
