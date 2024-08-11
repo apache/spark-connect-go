@@ -42,7 +42,7 @@ func StartSparkConnect() (int64, error) {
 		return -1, sparkerrors.WithType(sparkerrors.TestSetupError, err)
 	}
 
-	timeout := time.After(180 * time.Second)
+	timeout := time.After(60 * time.Second)
 	tick := time.NewTicker(1 * time.Second)
 
 	for {
