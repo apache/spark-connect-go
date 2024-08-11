@@ -19,6 +19,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
+
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/apache/spark-connect-go/v35/spark/client"
 	"github.com/apache/spark-connect-go/v35/spark/client/testutils"
@@ -30,7 +32,8 @@ import (
 func TestAnalyzePlanCallsAnalyzePlanOnClient(t *testing.T) {
 	ctx := context.Background()
 	response := &proto.AnalyzePlanResponse{}
-	c := client.NewSparkExecutorFromClient(testutils.NewConnectServiceClientMock(nil, nil, response, nil, nil), nil, "")
+	c := client.NewSparkExecutorFromClient(
+		testutils.NewConnectServiceClientMock(nil, response, nil, nil), nil, mocks.MockSessionId)
 	resp, err := c.AnalyzePlan(ctx, &proto.Plan{})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
@@ -38,7 +41,8 @@ func TestAnalyzePlanCallsAnalyzePlanOnClient(t *testing.T) {
 
 func TestAnalyzePlanFailsIfClientFails(t *testing.T) {
 	ctx := context.Background()
-	c := client.NewSparkExecutorFromClient(testutils.NewConnectServiceClientMock(nil, nil, nil, assert.AnError, nil), nil, "")
+	c := client.NewSparkExecutorFromClient(
+		testutils.NewConnectServiceClientMock(nil, nil, assert.AnError, nil), nil, mocks.MockSessionId)
 	resp, err := c.AnalyzePlan(ctx, &proto.Plan{})
 	assert.Nil(t, resp)
 	assert.Error(t, err)
@@ -47,17 +51,12 @@ func TestAnalyzePlanFailsIfClientFails(t *testing.T) {
 func TestExecutePlanCallsExecutePlanOnClient(t *testing.T) {
 	ctx := context.Background()
 	plan := &proto.Plan{}
-	request := &proto.ExecutePlanRequest{
-		Plan: plan,
-		UserContext: &proto.UserContext{
-			UserId: "na",
-		},
-	}
 
 	// Generate a mock client
 	responseStream := mocks.NewProtoClientMock(&mocks.ExecutePlanResponseDone)
 
-	c := client.NewSparkExecutorFromClient(testutils.NewConnectServiceClientMock(request, responseStream, nil, nil, t), nil, "")
+	c := client.NewSparkExecutorFromClient(
+		testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, mocks.MockSessionId)
 	resp, err := c.ExecutePlan(ctx, plan)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
@@ -66,25 +65,46 @@ func TestExecutePlanCallsExecutePlanOnClient(t *testing.T) {
 func TestExecutePlanCallsExecuteCommandOnClient(t *testing.T) {
 	ctx := context.Background()
 	plan := &proto.Plan{}
-	request := &proto.ExecutePlanRequest{
-		Plan: plan,
-		UserContext: &proto.UserContext{
-			UserId: "na",
-		},
-	}
 
 	// Generate a mock client
 	responseStream := mocks.NewProtoClientMock(&mocks.ExecutePlanResponseDone, &mocks.ExecutePlanResponseEOF)
 
 	// Check that the execution fails if no command is supplied.
-	c := client.NewSparkExecutorFromClient(testutils.NewConnectServiceClientMock(request, responseStream, nil, nil, t), nil, "")
+	c := client.NewSparkExecutorFromClient(
+		testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, mocks.MockSessionId)
 	_, _, _, err := c.ExecuteCommand(ctx, plan)
 	assert.ErrorIs(t, err, sparkerrors.ExecutionError)
 
 	// Generate a command and the execution should succeed.
 	sqlCommand := mocks.NewSqlCommand("select range(10)")
-	request.Plan = sqlCommand
-	c = client.NewSparkExecutorFromClient(testutils.NewConnectServiceClientMock(request, responseStream, nil, nil, t), nil, "")
+	c = client.NewSparkExecutorFromClient(testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, mocks.MockSessionId)
 	_, _, _, err = c.ExecuteCommand(ctx, sqlCommand)
 	assert.NoError(t, err)
+}
+
+func Test_ExecuteWithWrongSession(t *testing.T) {
+	ctx := context.Background()
+	sqlCommand := mocks.NewSqlCommand("select range(10)")
+
+	// Generate a mock client
+	responseStream := mocks.NewProtoClientMock(&mocks.ExecutePlanResponseDone, &mocks.ExecutePlanResponseEOF)
+
+	// Check that the execution fails if no command is supplied.
+	c := client.NewSparkExecutorFromClient(
+		testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, uuid.NewString())
+	_, _, _, err := c.ExecuteCommand(ctx, sqlCommand)
+	assert.ErrorIs(t, err, sparkerrors.InvalidServerSideSessionError)
+}
+
+func Test_Execute_SchemaParsingFails(t *testing.T) {
+	ctx := context.Background()
+	sqlCommand := mocks.NewSqlCommand("select range(10)")
+	responseStream := mocks.NewProtoClientMock(
+		&mocks.ExecutePlanResponseBrokenSchema,
+		&mocks.ExecutePlanResponseDone,
+		&mocks.ExecutePlanResponseEOF)
+	c := client.NewSparkExecutorFromClient(
+		testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, mocks.MockSessionId)
+	_, _, _, err := c.ExecuteCommand(ctx, sqlCommand)
+	assert.ErrorIs(t, err, sparkerrors.ExecutionError)
 }

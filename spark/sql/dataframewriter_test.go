@@ -17,10 +17,7 @@ package sql
 
 import (
 	"context"
-	"io"
 	"testing"
-
-	"github.com/google/uuid"
 
 	"github.com/apache/spark-connect-go/v35/spark/client"
 
@@ -57,18 +54,11 @@ func TestGetSaveMode(t *testing.T) {
 
 func TestSaveExecutesWriteOperationUntilEOF(t *testing.T) {
 	relation := &proto.Relation{}
-	executor := &testExecutor{
-		client: client.NewExecutePlanClient(&mocks.ProtoClient{
-			RecvResponse: []*mocks.MockResponse{
-				{
-					Err: io.EOF,
-				},
-			},
-		}, uuid.NewString()),
-	}
+	executor := client.NewTestConnectClientFromResponses(mocks.MockSessionId,
+		&mocks.ExecutePlanResponseDone, &mocks.ExecutePlanResponseEOF)
 	session := &sparkSessionImpl{
 		client:    executor,
-		sessionId: uuid.NewString(),
+		sessionId: mocks.MockSessionId,
 	}
 	ctx := context.Background()
 	path := "path"
@@ -82,18 +72,12 @@ func TestSaveExecutesWriteOperationUntilEOF(t *testing.T) {
 
 func TestSaveFailsIfAnotherErrorHappensWhenReadingStream(t *testing.T) {
 	relation := &proto.Relation{}
-	executor := &testExecutor{
-		client: client.NewExecutePlanClient(&mocks.ProtoClient{
-			RecvResponse: []*mocks.MockResponse{
-				{
-					Err: assert.AnError,
-				},
-			},
-		}, uuid.NewString()),
-	}
+	executor := client.NewTestConnectClientFromResponses(mocks.MockSessionId, &mocks.MockResponse{
+		Err: assert.AnError,
+	})
 	session := &sparkSessionImpl{
 		client:    executor,
-		sessionId: uuid.NewString(),
+		sessionId: mocks.MockSessionId,
 	}
 	ctx := context.Background()
 	path := "path"
@@ -107,10 +91,7 @@ func TestSaveFailsIfAnotherErrorHappensWhenReadingStream(t *testing.T) {
 
 func TestSaveFailsIfAnotherErrorHappensWhenExecuting(t *testing.T) {
 	relation := &proto.Relation{}
-	executor := &testExecutor{
-		client: client.NewExecutePlanClient(&mocks.ProtoClient{}, uuid.NewString()),
-		err:    assert.AnError,
-	}
+	executor := client.NewTestConnectClientWithImmediateError(mocks.MockSessionId, assert.AnError)
 	session := &sparkSessionImpl{
 		client: executor,
 	}

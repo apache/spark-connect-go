@@ -51,7 +51,8 @@ func NewCaseWhenExpression(branches []*caseWhenBranch, elseExpr Expression) Expr
 func (c *caseWhenExpression) DebugString() string {
 	branches := make([]string, 0)
 	for _, branch := range c.branches {
-		branches = append(branches, fmt.Sprintf("WHEN %s THEN %s", branch.condition.DebugString(), branch.value.DebugString()))
+		branches = append(branches, fmt.Sprintf("WHEN %s THEN %s",
+			branch.condition.DebugString(), branch.value.DebugString()))
 	}
 
 	elseExpr := ""

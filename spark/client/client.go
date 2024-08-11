@@ -21,81 +21,93 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+
+	"github.com/apache/spark-connect-go/v35/spark/client/base"
+	"github.com/apache/spark-connect-go/v35/spark/mocks"
+
+	"github.com/apache/spark-connect-go/v35/spark/client/options"
+
+	"github.com/google/uuid"
+
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 
 	"github.com/apache/spark-connect-go/v35/internal/generated"
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 )
 
-// SparkExecutor is the interface for executing a plan in Spark.
-//
-// This interface does not deal with the public Spark API abstractions but roughly deals on the
-// RPC API level and the necessary translation of Arrow to Row objects.
-type SparkExecutor interface {
-	ExecutePlan(ctx context.Context, plan *generated.Plan) (*ExecutePlanClient, error)
-	ExecuteCommand(ctx context.Context, plan *generated.Plan) (arrow.Table, *types.StructType, map[string]any, error)
-	AnalyzePlan(ctx context.Context, plan *generated.Plan) (*generated.AnalyzePlanResponse, error)
-}
-
-type SparkExecutorImpl struct {
-	client    proto.SparkConnectServiceClient
+type sparkConnectClientImpl struct {
+	client    base.SparkConnectRPCClient
 	metadata  metadata.MD
 	sessionId string
+	opts      options.SparkClientOptions
 }
 
-func (s *SparkExecutorImpl) ExecuteCommand(ctx context.Context, plan *proto.Plan) (arrow.Table, *types.StructType, map[string]any, error) {
-	request := proto.ExecutePlanRequest{
+func (s *sparkConnectClientImpl) newExecutePlanRequest(plan *proto.Plan) *proto.ExecutePlanRequest {
+	// Every new executin needs to get a new operation ID.
+	operationId := uuid.NewString()
+	return &proto.ExecutePlanRequest{
 		SessionId: s.sessionId,
 		Plan:      plan,
 		UserContext: &proto.UserContext{
 			UserId: "na",
 		},
+		// Operation ID is needed for being able to reattach.
+		OperationId: &operationId,
+		RequestOptions: []*proto.ExecutePlanRequest_RequestOption{
+			{
+				RequestOption: &proto.ExecutePlanRequest_RequestOption_ReattachOptions{
+					ReattachOptions: &proto.ReattachOptions{
+						Reattachable: s.opts.ReattachExecution,
+					},
+				},
+			},
+		},
 	}
+}
+
+func (s *sparkConnectClientImpl) ExecuteCommand(ctx context.Context, plan *proto.Plan) (arrow.Table, *types.StructType, map[string]any, error) {
+	request := s.newExecutePlanRequest(plan)
 
 	// Check that the supplied plan is actually a command.
 	if plan.GetCommand() == nil {
-		return nil, nil, nil, sparkerrors.WithType(fmt.Errorf("the supplied plan does not contain a command"), sparkerrors.ExecutionError)
+		return nil, nil, nil, sparkerrors.WithType(
+			fmt.Errorf("the supplied plan does not contain a command"), sparkerrors.ExecutionError)
 	}
 
 	// Append the other items to the request.
 	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
-	c, err := s.client.ExecutePlan(ctx, &request)
+	c, err := s.client.ExecutePlan(ctx, request)
 	if err != nil {
-		return nil, nil, nil, sparkerrors.WithType(fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
+		return nil, nil, nil, sparkerrors.WithType(
+			fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
-
-	respHandler := NewExecutePlanClient(c, s.sessionId)
+	respHandler := NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts)
 	schema, table, err := respHandler.ToTable()
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return table, schema, respHandler.properties, nil
+	return table, schema, respHandler.Properties(), nil
 }
 
-func (s *SparkExecutorImpl) ExecutePlan(ctx context.Context, plan *proto.Plan) (*ExecutePlanClient, error) {
-	request := proto.ExecutePlanRequest{
-		SessionId: s.sessionId,
-		Plan:      plan,
-		UserContext: &proto.UserContext{
-			UserId: "na",
-		},
-	}
+func (s *sparkConnectClientImpl) ExecutePlan(ctx context.Context, plan *proto.Plan) (base.ExecuteResponseStream, error) {
+	request := s.newExecutePlanRequest(plan)
 
 	// Append the other items to the request.
 	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
-	c, err := s.client.ExecutePlan(ctx, &request)
+	c, err := s.client.ExecutePlan(ctx, request)
 	if err != nil {
-		return nil, sparkerrors.WithType(fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
+		return nil, sparkerrors.WithType(fmt.Errorf(
+			"failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
-	return NewExecutePlanClient(c, s.sessionId), nil
+	return NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts), nil
 }
 
-func (s *SparkExecutorImpl) AnalyzePlan(ctx context.Context, plan *proto.Plan) (*proto.AnalyzePlanResponse, error) {
+func (s *sparkConnectClientImpl) AnalyzePlan(ctx context.Context, plan *proto.Plan) (*proto.AnalyzePlanResponse, error) {
 	request := proto.AnalyzePlanRequest{
 		SessionId: s.sessionId,
 		Analyze: &proto.AnalyzePlanRequest_Schema_{
@@ -117,22 +129,29 @@ func (s *SparkExecutorImpl) AnalyzePlan(ctx context.Context, plan *proto.Plan) (
 	return response, nil
 }
 
-func NewSparkExecutor(conn *grpc.ClientConn, md metadata.MD, sessionId string) SparkExecutor {
-	client := proto.NewSparkConnectServiceClient(conn)
-	return &SparkExecutorImpl{
+func NewSparkExecutor(conn *grpc.ClientConn, md metadata.MD, sessionId string, opts options.SparkClientOptions) base.SparkConnectClient {
+	var client base.SparkConnectRPCClient
+	if opts.ReattachExecution {
+		client = NewRetriableSparkConnectClient(conn, sessionId, opts)
+	} else {
+		client = generated.NewSparkConnectServiceClient(conn)
+	}
+	return &sparkConnectClientImpl{
 		client:    client,
 		metadata:  md,
 		sessionId: sessionId,
+		opts:      opts,
 	}
 }
 
-// NewSparkExecutorFromClient creates a new SparkExecutor from an existing client and is mostly
+// NewSparkExecutorFromClient creates a new SparkConnectClient from an existing client and is mostly
 // used in testing.
-func NewSparkExecutorFromClient(client proto.SparkConnectServiceClient, md metadata.MD, sessionId string) SparkExecutor {
-	return &SparkExecutorImpl{
+func NewSparkExecutorFromClient(client base.SparkConnectRPCClient, md metadata.MD, sessionId string) base.SparkConnectClient {
+	return &sparkConnectClientImpl{
 		client:    client,
 		metadata:  md,
 		sessionId: sessionId,
+		opts:      options.DefaultSparkClientOptions,
 	}
 }
 
@@ -147,20 +166,26 @@ type ExecutePlanClient struct {
 	sessionId  string
 	done       bool
 	properties map[string]any
+	opts       options.SparkClientOptions
 }
 
-// In PySpark we have a generic toTable method that fetches all of the
-// data and converts it to the desired format.
+func (c *ExecutePlanClient) Properties() map[string]any {
+	return c.properties
+}
+
+// ToTable converts the result of the execution of a query plan to an Arrow Table.
 func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 	var recordBatches []arrow.Record
 	var arrowSchema *arrow.Schema
 	recordBatches = make([]arrow.Record, 0)
 
+	// Explicitly needed when tracking re-attachble execution.
+	c.done = false
 	for {
 		resp, err := c.responseStream.Recv()
 		// EOF is received when the last message has been processed and the stream
 		// finished normally.
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 
@@ -174,10 +199,10 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 		// Check that the server returned the session ID that we were expecting
 		// and that it has not changed.
 		if resp.GetSessionId() != c.sessionId {
-			return c.schema, nil, sparkerrors.InvalidServerSideSessionError{
+			return c.schema, nil, sparkerrors.WithType(&sparkerrors.InvalidServerSideSessionDetailsError{
 				OwnSessionId:      c.sessionId,
 				ReceivedSessionId: resp.GetSessionId(),
-			}
+			}, sparkerrors.InvalidServerSideSessionError)
 		}
 
 		// Check if the response has already the schema set and if yes, convert
@@ -185,7 +210,7 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 		if resp.Schema != nil {
 			c.schema, err = types.ConvertProtoDataTypeToStructType(resp.Schema)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, sparkerrors.WithType(err, sparkerrors.ExecutionError)
 			}
 		}
 
@@ -211,11 +236,11 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 	}
 
 	// Check that the result is logically complete. The result might not be complete
-	// because after 2 minutes the server will interrupt the connection and we have to
+	// because after 2 minutes the server will interrupt the connection, and we have to
 	// send a ReAttach execute request.
-	//if !c.done {
-	//	return nil, nil, sparkerrors.WithType(fmt.Errorf("the result is not complete"), sparkerrors.ExecutionError)
-	//}
+	if c.opts.ReattachExecution && !c.done {
+		return nil, nil, sparkerrors.WithType(fmt.Errorf("the result is not complete"), sparkerrors.ExecutionError)
+	}
 	// Return the schema and table.
 	if arrowSchema == nil {
 		return c.schema, nil, nil
@@ -224,31 +249,33 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 	}
 }
 
-func NewExecutePlanClient(
+func NewExecuteResponseStream(
 	responseClient proto.SparkConnectService_ExecutePlanClient,
 	sessionId string,
-) *ExecutePlanClient {
+	operationId string,
+	opts options.SparkClientOptions,
+) base.ExecuteResponseStream {
 	return &ExecutePlanClient{
 		responseStream: responseClient,
 		sessionId:      sessionId,
 		done:           false,
 		properties:     make(map[string]any),
+		opts:           opts,
 	}
 }
 
-// consumeAll reads through the returned GRPC stream from Spark Connect Driver. It will
-// discard the returned data if there is no error. This is necessary for handling GRPC response for
-// saving data frame, since such consuming will trigger Spark Connect Driver really saving data frame.
-// If we do not consume the returned GRPC stream, Spark Connect Driver will not really save data frame.
-func (c *ExecutePlanClient) ConsumeAll() error {
-	for {
-		_, err := c.responseStream.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			} else {
-				return sparkerrors.WithType(fmt.Errorf("failed to receive plan execution response: %w", err), sparkerrors.ReadError)
-			}
-		}
+func NewTestConnectClientFromResponses(sessionId string, r ...*mocks.MockResponse) base.SparkConnectClient {
+	protoClient := mocks.NewProtoClientMock(r...)
+	stream := NewExecuteResponseStream(protoClient, sessionId, uuid.NewString(), options.DefaultSparkClientOptions)
+	return &mocks.TestExecutor{
+		Client: stream,
+	}
+}
+
+func NewTestConnectClientWithImmediateError(sessionId string, err error) base.SparkConnectClient {
+	stream := NewExecuteResponseStream(nil, sessionId, uuid.NewString(), options.DefaultSparkClientOptions)
+	return &mocks.TestExecutor{
+		Client: stream,
+		Err:    err,
 	}
 }
