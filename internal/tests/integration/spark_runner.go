@@ -17,6 +17,7 @@ package integration
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -37,18 +38,18 @@ func StartSparkConnect() (int64, error) {
 		"spark.log.structuredLogging.enabled=false")
 	cmd.Dir = sparkHome
 
-	err := cmd.Start()
-	if err != nil {
+	stdout, _ := cmd.StdoutPipe()
+	if err := cmd.Start(); err != nil {
 		return -1, sparkerrors.WithType(sparkerrors.TestSetupError, err)
 	}
 
-	timeout := time.After(60 * time.Second)
+	timeout := time.After(1 * time.Second)
 	tick := time.NewTicker(1 * time.Second)
 
 	for {
 		select {
 		case <-timeout:
-			out, _ := cmd.Output()
+			out, _ := io.ReadAll(stdout)
 			fmt.Printf("Output: %v\n", string(out))
 			return -1, sparkerrors.WithString(sparkerrors.TestSetupError,
 				"timeout waiting for Spark Connect to start")
