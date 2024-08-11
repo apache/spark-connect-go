@@ -16,16 +16,15 @@
 #
 
 FIRST_GOPATH              := $(firstword $(subst :, ,$(GOPATH)))
-PKGS                      := $(shell go list ./... | grep -v /tests | grep -v /xcpb | grep -v /gpb)
+PKGS                      := $(shell go list ./... | grep -v /tests | grep -v /xcpb | grep -v /gpb | grep -v /generated)
 GOFILES_NOVENDOR          := $(shell find . -name vendor -prune -o -type f -name '*.go' -not -name '*.pb.go' -print)
 GOFILES_BUILD             := $(shell find . -type f -name '*.go' -not -name '*_test.go')
 PROTOFILES                := $(shell find . -name vendor -prune -o -type f -name '*.proto' -print)
 
-ALLGOFILES				  			:= $(shell find . -type f -name '*.go')
+ALLGOFILES				  			:= $(shell find . -type f -name '*.go' -not -name '*.pb.go')
 DATE                      := $(shell date -u -d "@$(SOURCE_DATE_EPOCH)" '+%FT%T%z' 2>/dev/null || date -u '+%FT%T%z')
 
 BUILDFLAGS_NOPIE		  :=
-#BUILDFLAGS_NOPIE          := -trimpath -ldflags="-s -w -X main.version=$(GOPASS_VERSION) -X main.commit=$(GOPASS_REVISION) -X main.date=$(DATE)" -gcflags="-trimpath=$(GOPATH)" -asmflags="-trimpath=$(GOPATH)"
 BUILDFLAGS                ?= $(BUILDFLAGS_NOPIE) -buildmode=pie
 TESTFLAGS                 ?=
 PWD                       := $(shell pwd)
@@ -83,7 +82,7 @@ lint: $(BUILD_OUTPUT)
 	@golangci-lint run
 
 fmt:
-	@gofumpt -extra -w $(ALLGOFILES)
+	@gofumpt -l -w $(ALLGOFILES)
 
 test: $(BUILD_OUTPUT)
 	@echo ">> TEST, \"verbose\""
@@ -99,6 +98,13 @@ fulltest: $(BUILD_OUTPUT)
 		go test -run '(Test|Example)' $(BUILDFLAGS) $(TESTFLAGS) -coverprofile=coverage.out -covermode=atomic $(pkg) || exit 1;\
 		tail -n +2 coverage.out >> coverage-all.out;)
 	@$(GO) tool cover -html=coverage-all.out -o coverage-all.html
+
+
+check:
+	@echo -n ">> CHECK"
+	./dev/check-license
+	@echo -n ">> glongci-lint: "
+	golangci-lint run
 
 
 clean:

@@ -19,26 +19,25 @@ package main
 import (
 	"context"
 	"flag"
-	proto "github.com/apache/spark-connect-go/v34/internal/generated"
+	"log"
+	"time"
+
+	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
-	"time"
 )
 
-var (
-	remote = flag.String("remote", "localhost:15002", "the remote address of Spark Connect server to connect to")
-)
+var remote = flag.String("remote", "localhost:15002", "the remote address of Spark Connect server to connect to")
 
 func main() {
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
-	conn, err := grpc.Dial(*remote, opts...)
+	conn, err := grpc.NewClient(*remote, opts...)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 	defer conn.Close()
 
@@ -57,7 +56,7 @@ func main() {
 	}
 	configResponse, err := client.Config(ctx, &configRequest)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	log.Printf("configResponse: %v", configResponse)

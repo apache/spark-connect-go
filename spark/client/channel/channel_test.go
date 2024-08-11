@@ -17,10 +17,12 @@
 package channel_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
-	"github.com/apache/spark-connect-go/v34/client/channel"
+	"github.com/apache/spark-connect-go/v35/spark/client/channel"
+	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,12 +37,14 @@ func TestBasicChannelBuilder(t *testing.T) {
 
 func TestBasicChannelParsing(t *testing.T) {
 	_, err := channel.NewBuilder("abc://asdada:1333")
-
 	assert.False(t, strings.Contains(err.Error(), "scheme"), "Channel build should fail with wrong scheme")
-	cb, err := channel.NewBuilder("sc://empty")
 
+	_, err = channel.NewBuilder("sc://:1333")
+	assert.False(t, strings.Contains(err.Error(), "scheme"), "Should not have an error for a proper URL")
+
+	cb, err := channel.NewBuilder("sc://empty")
 	assert.Nilf(t, err, "Valid path should not fail: %v", err)
-	assert.Equalf(t, 15002, cb.Port, "Default port must be set, but got %v", cb.Port)
+	assert.Equalf(t, 15002, cb.Port(), "Default port must be set, but got %v", cb.Port)
 
 	_, err = channel.NewBuilder("sc://empty:port")
 	assert.NotNilf(t, err, "Port must be a valid integer %v", err)
@@ -49,34 +53,37 @@ func TestBasicChannelParsing(t *testing.T) {
 	assert.Nilf(t, err, "Port must be a valid number %v", err)
 
 	_, err = channel.NewBuilder("sc://abcd/this")
-	assert.True(t, strings.Contains(err.Error(), "The URL path"), "URL path elements are not allowed")
+	assert.True(t, strings.Contains(err.Error(), "URL path"), "URL path elements are not allowed")
+	assert.ErrorIs(t, err, sparkerrors.InvalidInputError)
 
 	cb, err = channel.NewBuilder(goodChannelURL)
-	assert.Equal(t, "host", cb.Host)
-	assert.Equal(t, 15002, cb.Port)
-	assert.Len(t, cb.Headers, 1)
-	assert.Equal(t, "c", cb.Headers["x-other-header"])
-	assert.Equal(t, "a", cb.User)
-	assert.Equal(t, "b", cb.Token)
+	assert.Nilf(t, err, "Should not have an error for a proper URL")
+	assert.Equal(t, "host", cb.Host())
+	assert.Equal(t, 15002, cb.Port())
+	assert.Len(t, cb.Headers(), 1)
+	assert.Equal(t, "c", cb.Headers()["x-other-header"])
+	assert.Equal(t, "a", cb.User())
+	assert.Equal(t, "b", cb.Token())
 
 	cb, err = channel.NewBuilder("sc://localhost:443/;token=token;user_id=user_id;cluster_id=a")
-	assert.Nilf(t, err, "Unexpected error: %v", err)
-	assert.Equal(t, 443, cb.Port)
-	assert.Equal(t, "localhost", cb.Host)
-	assert.Equal(t, "token", cb.Token)
-	assert.Equal(t, "user_id", cb.User)
+	assert.NoError(t, err)
+	assert.Equal(t, 443, cb.Port())
+	assert.Equal(t, "localhost", cb.Host())
+	assert.Equal(t, "token", cb.Token())
+	assert.Equal(t, "user_id", cb.User())
 }
 
 func TestChannelBuildConnect(t *testing.T) {
+	ctx := context.Background()
 	cb, err := channel.NewBuilder("sc://localhost")
-	assert.Nil(t, err, "Should not have an error for a proper URL.")
-	conn, err := cb.Build()
+	assert.NoError(t, err, "Should not have an error for a proper URL.")
+	conn, err := cb.Build(ctx)
 	assert.Nil(t, err, "no error for proper connection")
 	assert.NotNil(t, conn)
 
 	cb, err = channel.NewBuilder("sc://localhost:443/;token=abcd;user_id=a")
 	assert.Nil(t, err, "Should not have an error for a proper URL.")
-	conn, err = cb.Build()
+	conn, err = cb.Build(ctx)
 	assert.Nil(t, err, "no error for proper connection")
 	assert.NotNil(t, conn)
 }

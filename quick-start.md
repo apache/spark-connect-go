@@ -5,7 +5,7 @@
 In your Go project `go.mod` file, add `spark-connect-go` library:
 ```
 require (
-	github.com/apache/spark-connect-go/v34 master
+	github.com/apache/spark-connect-go/v35 master
 )
 ```
 
@@ -18,10 +18,11 @@ Create `main.go` file with following code:
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 
-	"github.com/apache/spark-connect-go/v34/client/sql"
+	"github.com/apache/spark-connect-go/v35/client/sql"
 )
 
 var (
@@ -31,56 +32,78 @@ var (
 
 func main() {
 	flag.Parse()
-	spark, err := sql.SparkSession.Builder.Remote(*remote).Build()
+	ctx := context.Background()
+	spark, err := sql.NewSessionBuilder().Remote(*remote).Build(ctx)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 	defer spark.Stop()
 
-	df, err := spark.Sql("select 'apple' as word, 123 as count union all select 'orange' as word, 456 as count")
+	df, err := spark.Sql(ctx, "select 'apple' as word, 123 as count union all select 'orange' as word, 456 as count")
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	log.Printf("DataFrame from sql: select 'apple' as word, 123 as count union all select 'orange' as word, 456 as count")
-	err = df.Show(100, false)
+	err = df.Show(ctx, 100, false)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
-	rows, err := df.Collect()
+	schema, err := df.Schema(ctx)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
+	}
+
+	for _, f := range schema.Fields {
+		log.Printf("Field in dataframe schema: %s - %s", f.Name, f.DataType.TypeName())
+	}
+
+	rows, err := df.Collect(ctx)
+	if err != nil {
+		log.Fatalf("Failed: %s", err)
+	}
+
+	schema, err = rows[0].Schema()
+	if err != nil {
+		log.Fatalf("Failed: %s", err)
+	}
+
+	for _, f := range schema.Fields {
+		log.Printf("Field in row: %s - %s", f.Name, f.DataType.TypeName())
 	}
 
 	for _, row := range rows {
 		log.Printf("Row: %v", row)
 	}
 
-	err = df.Write().Mode("overwrite").
+	err = df.Writer().Mode("overwrite").
 		Format("parquet").
-		Save("file:///tmp/spark-connect-write-example-output.parquet")
+		Save(ctx, "file:///tmp/spark-connect-write-example-output.parquet")
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	df, err = spark.Read().Format("parquet").
 		Load("file:///tmp/spark-connect-write-example-output.parquet")
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
 	log.Printf("DataFrame from reading parquet")
-	df.Show(100, false)
-
-	err = df.CreateTempView("view1", true, false)
+	err = df.Show(ctx, 100, false)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
 	}
 
-	df, err = spark.Sql("select count, word from view1 order by count")
+	err = df.CreateTempView(ctx, "view1", true, false)
 	if err != nil {
-		log.Fatalf("Failed: %s", err.Error())
+		log.Fatalf("Failed: %s", err)
+	}
+
+	df, err = spark.Sql(ctx, "select count, word from view1 order by count")
+	if err != nil {
+		log.Fatalf("Failed: %s", err)
 	}
 
 	log.Printf("DataFrame from sql: select count, word from view1 order by count")
@@ -90,9 +113,9 @@ func main() {
 
 ## Start Spark Connect Server (Driver)
 
-Download a Spark distribution (3.4.0+), unzip the folder, run command:
+Download a Spark distribution (3.5.0+), unzip the folder, run command:
 ```
-sbin/start-connect-server.sh --packages org.apache.spark:spark-connect_2.12:3.4.0
+sbin/start-connect-server.sh --packages org.apache.spark:spark-connect_2.12:3.5.0
 ```
 
 ## Run Spark Connect Client Application

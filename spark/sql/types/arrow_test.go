@@ -14,21 +14,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sql
+package types_test
 
 import (
 	"bytes"
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/float16"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	proto "github.com/apache/spark-connect-go/v34/internal/generated"
+	"testing"
+
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/decimal128"
+	"github.com/apache/arrow/go/v17/arrow/decimal256"
+	"github.com/apache/arrow/go/v17/arrow/float16"
+	"github.com/apache/arrow/go/v17/arrow/ipc"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
+
+	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 )
 
 func TestShowArrowBatchData(t *testing.T) {
@@ -56,8 +59,16 @@ func TestShowArrowBatchData(t *testing.T) {
 	err := arrowWriter.Write(record)
 	require.Nil(t, err)
 
-	err = showArrowBatchData(buf.Bytes())
-	assert.Nil(t, err)
+	// Convert the data
+	record, err = types.ReadArrowBatchToRecord(buf.Bytes(), nil)
+	require.NoError(t, err)
+
+	table := array.NewTableFromRecords(arrowSchema, []arrow.Record{record})
+	values, err := types.ReadArrowTable(table)
+	require.Nil(t, err)
+	assert.Equal(t, 2, len(values))
+	assert.Equal(t, []any{"str1a\nstr1b"}, values[0])
+	assert.Equal(t, []any{"str2"}, values[1])
 }
 
 func TestReadArrowRecord(t *testing.T) {
@@ -187,7 +198,8 @@ func TestReadArrowRecord(t *testing.T) {
 	record := recordBuilder.NewRecord()
 	defer record.Release()
 
-	values, err := readArrowRecord(record)
+	table := array.NewTableFromRecords(arrowSchema, []arrow.Record{record})
+	values, err := types.ReadArrowTable(table)
 	require.Nil(t, err)
 	assert.Equal(t, 2, len(values))
 	assert.Equal(t, []any{
@@ -195,14 +207,16 @@ func TestReadArrowRecord(t *testing.T) {
 		float16.New(10000.1), float32(100000.1), 1000000.1,
 		decimal128.FromI64(10000000), decimal256.FromI64(100000000),
 		"str1", []byte("bytes1"),
-		arrow.Timestamp(1686981953115000), arrow.Date64(1686981953117000)},
+		arrow.Timestamp(1686981953115000), arrow.Date64(1686981953117000),
+	},
 		values[0])
 	assert.Equal(t, []any{
 		true, int8(2), int16(20), int32(200), int64(2000),
 		float16.New(20000.1), float32(200000.1), 2000000.1,
 		decimal128.FromI64(20000000), decimal256.FromI64(200000000),
 		"str2", []byte("bytes2"),
-		arrow.Timestamp(1686981953116000), arrow.Date64(1686981953118000)},
+		arrow.Timestamp(1686981953116000), arrow.Date64(1686981953118000),
+	},
 		values[1])
 }
 
@@ -227,7 +241,8 @@ func TestReadArrowRecord_UnsupportedType(t *testing.T) {
 	record := recordBuilder.NewRecord()
 	defer record.Release()
 
-	_, err := readArrowRecord(record)
+	table := array.NewTableFromRecords(arrowSchema, []arrow.Record{record})
+	_, err := types.ReadArrowTable(table)
 	require.NotNil(t, err)
 }
 
@@ -235,72 +250,72 @@ func TestConvertProtoDataTypeToDataType(t *testing.T) {
 	booleanDataType := &proto.DataType{
 		Kind: &proto.DataType_Boolean_{},
 	}
-	assert.Equal(t, "Boolean", convertProtoDataTypeToDataType(booleanDataType).TypeName())
+	assert.Equal(t, "Boolean", types.ConvertProtoDataTypeToDataType(booleanDataType).TypeName())
 
 	byteDataType := &proto.DataType{
 		Kind: &proto.DataType_Byte_{},
 	}
-	assert.Equal(t, "Byte", convertProtoDataTypeToDataType(byteDataType).TypeName())
+	assert.Equal(t, "Byte", types.ConvertProtoDataTypeToDataType(byteDataType).TypeName())
 
 	shortDataType := &proto.DataType{
 		Kind: &proto.DataType_Short_{},
 	}
-	assert.Equal(t, "Short", convertProtoDataTypeToDataType(shortDataType).TypeName())
+	assert.Equal(t, "Short", types.ConvertProtoDataTypeToDataType(shortDataType).TypeName())
 
 	integerDataType := &proto.DataType{
 		Kind: &proto.DataType_Integer_{},
 	}
-	assert.Equal(t, "Integer", convertProtoDataTypeToDataType(integerDataType).TypeName())
+	assert.Equal(t, "Integer", types.ConvertProtoDataTypeToDataType(integerDataType).TypeName())
 
 	longDataType := &proto.DataType{
 		Kind: &proto.DataType_Long_{},
 	}
-	assert.Equal(t, "Long", convertProtoDataTypeToDataType(longDataType).TypeName())
+	assert.Equal(t, "Long", types.ConvertProtoDataTypeToDataType(longDataType).TypeName())
 
 	floatDataType := &proto.DataType{
 		Kind: &proto.DataType_Float_{},
 	}
-	assert.Equal(t, "Float", convertProtoDataTypeToDataType(floatDataType).TypeName())
+	assert.Equal(t, "Float", types.ConvertProtoDataTypeToDataType(floatDataType).TypeName())
 
 	doubleDataType := &proto.DataType{
 		Kind: &proto.DataType_Double_{},
 	}
-	assert.Equal(t, "Double", convertProtoDataTypeToDataType(doubleDataType).TypeName())
+	assert.Equal(t, "Double", types.ConvertProtoDataTypeToDataType(doubleDataType).TypeName())
 
 	decimalDataType := &proto.DataType{
 		Kind: &proto.DataType_Decimal_{},
 	}
-	assert.Equal(t, "Decimal", convertProtoDataTypeToDataType(decimalDataType).TypeName())
+	assert.Equal(t, "Decimal", types.ConvertProtoDataTypeToDataType(decimalDataType).TypeName())
 
 	stringDataType := &proto.DataType{
 		Kind: &proto.DataType_String_{},
 	}
-	assert.Equal(t, "String", convertProtoDataTypeToDataType(stringDataType).TypeName())
+	assert.Equal(t, "String", types.ConvertProtoDataTypeToDataType(stringDataType).TypeName())
 
 	binaryDataType := &proto.DataType{
 		Kind: &proto.DataType_Binary_{},
 	}
-	assert.Equal(t, "Binary", convertProtoDataTypeToDataType(binaryDataType).TypeName())
+	assert.Equal(t, "Binary", types.ConvertProtoDataTypeToDataType(binaryDataType).TypeName())
 
 	timestampDataType := &proto.DataType{
 		Kind: &proto.DataType_Timestamp_{},
 	}
-	assert.Equal(t, "Timestamp", convertProtoDataTypeToDataType(timestampDataType).TypeName())
+	assert.Equal(t, "Timestamp", types.ConvertProtoDataTypeToDataType(timestampDataType).TypeName())
 
 	timestampNtzDataType := &proto.DataType{
 		Kind: &proto.DataType_TimestampNtz{},
 	}
-	assert.Equal(t, "TimestampNtz", convertProtoDataTypeToDataType(timestampNtzDataType).TypeName())
+	assert.Equal(t, "TimestampNtz", types.ConvertProtoDataTypeToDataType(timestampNtzDataType).TypeName())
 
 	dateDataType := &proto.DataType{
 		Kind: &proto.DataType_Date_{},
 	}
-	assert.Equal(t, "Date", convertProtoDataTypeToDataType(dateDataType).TypeName())
+	assert.Equal(t, "Date", types.ConvertProtoDataTypeToDataType(dateDataType).TypeName())
 }
 
 func TestConvertProtoDataTypeToDataType_UnsupportedType(t *testing.T) {
 	unsupportedDataType := &proto.DataType{
 		Kind: &proto.DataType_YearMonthInterval_{},
 	}
-	assert.Equal(t, "Unsupported", convertProtoDataTypeToDataType(unsupportedDataType).TypeName())
+	assert.Equal(t, "Unsupported", types.ConvertProtoDataTypeToDataType(unsupportedDataType).TypeName())
 }
