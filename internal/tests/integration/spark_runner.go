@@ -16,11 +16,12 @@
 package integration
 
 import (
-	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 	"net"
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 )
 
 func StartSparkConnect() (int64, error) {
@@ -29,7 +30,8 @@ func StartSparkConnect() (int64, error) {
 		return -1, sparkerrors.WithString(sparkerrors.TestSetupError, "SPARK_HOME not set")
 	}
 
-	cmd := exec.Command("./sbin/start-connect-server.sh", "--wait", "--conf", "spark.log.structuredLogging.enabled=false")
+	cmd := exec.Command("./sbin/start-connect-server.sh", "--wait", "--conf",
+		"spark.log.structuredLogging.enabled=false")
 	cmd.Dir = sparkHome
 
 	err := cmd.Start()
@@ -38,13 +40,14 @@ func StartSparkConnect() (int64, error) {
 	}
 
 	timeout := time.After(60 * time.Second)
-	tick := time.Tick(1 * time.Second)
+	tick := time.NewTicker(1 * time.Second)
 
 	for {
 		select {
 		case <-timeout:
-			return -1, sparkerrors.WithString(sparkerrors.TestSetupError, "timeout waiting for Spark Connect to start")
-		case <-tick:
+			return -1, sparkerrors.WithString(sparkerrors.TestSetupError,
+				"timeout waiting for Spark Connect to start")
+		case <-tick.C:
 			if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
 				return -1, sparkerrors.WithString(sparkerrors.TestSetupError, "Spark Connect exited")
 			}
