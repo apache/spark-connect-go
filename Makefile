@@ -30,12 +30,15 @@ TESTFLAGS                 ?=
 PWD                       := $(shell pwd)
 PREFIX                    ?= $(GOPATH)
 BINDIR                    ?= $(PREFIX)/bin
-GO                        := GO111MODULE=on go
+GO                        := go
 GOOS                      ?= $(shell go version | cut -d' ' -f4 | cut -d'/' -f1)
 GOARCH                    ?= $(shell go version | cut -d' ' -f4 | cut -d'/' -f2)
 TAGS                      ?= netgo
 SHELL = bash
 GOFUMPT_SPLIT_LONG_LINES  := on
+
+## Build tools
+BUF                       := $(GO) run github.com/bufbuild/buf/cmd/buf@v1.26.1
 
 BINARIES				  := cmd/spark-connect-example-spark-session cmd/spark-connect-example-raw-grpc-client
 
@@ -63,7 +66,7 @@ cmd/spark-connect-example-spark-session: $(GOFILES_BUILD)
 
 internal/generated.out:
 	@echo -n ">> BUILD, output = $@"
-	buf generate --debug -vvv
+	$(BUF) generate --debug -vvv
 	@touch internal/generated.out
 	@printf '%s\n' '$(OK)'
 
