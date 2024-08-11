@@ -99,6 +99,13 @@ jobs:
         run: |
           # make integration
           make gen && make && make integration
+      - name: Run Code Coverage
+        run: |
+          make coverage
+      - uses: PaloAltoNetworks/cov@3.0.0
+        with:
+          cov_mode: coverage
+          main_branch: master
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:

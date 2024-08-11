@@ -20,6 +20,7 @@ internal/generated.out
 
 # Ignore Coverage Files
 coverage*
+cov.report
 
 # Ignore IDE files
 .idea/

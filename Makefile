@@ -92,10 +92,10 @@ test: $(BUILD_OUTPUT)
 	    @echo -n "     ";\
 		$(GO) test -v -run '(Test|Example)' $(BUILDFLAGS) $(TESTFLAGS) $(pkg) || exit 1)
 
-fulltest: $(BUILD_OUTPUT)
+coverage: $(BUILD_OUTPUT)
 	@echo ">> TEST, \"coverage\""
 	@$(GO) test -cover -coverprofile=coverage.out -covermode=atomic -coverpkg=./spark/...,./internal/tests/... ./spark/... ./internal/tests/...
-	@$(GO) tool cover -html=coverage.out -o coverage-all.html
+	@$(GO) tool cover -html=coverage.out -o coverage.html
 
 integration: $(BUILD_OUTPUT)
 	@echo ">> TEST, \"integration\""
