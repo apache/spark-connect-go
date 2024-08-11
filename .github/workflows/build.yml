@@ -68,8 +68,8 @@ jobs:
 
       - name: Cache Spark Installation
         uses: actions/cache@v2
-        key: spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
         with:
+          key: spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
           path: |
             ${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
 
