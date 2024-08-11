@@ -71,20 +71,20 @@ jobs:
         with:
           key: spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
           path: |
-            ${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
+            $GITHUB_WORKSPACE/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
 
       - name: Setup Apache Spark
         run: |
-          if [ -d ${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }} ]; then
+          if [ -d $GITHUB_WORKSPACE/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }} ]; then
             echo "Apache Spark is already installed"
-            export SPARK_HOME=${{ env.GITHUB_WORKSPACE }}/../spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
+            export SPARK_HOME=$GITHUB_WORKSPACE/../spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
             exit 0
           fi
           
           echo "Apache Spark is not installed"
           # Access the directory.
-          mkdir -p ${{ env.GITHUB_WORKSPACE }}/deps/
-          cd ${{ env.GITHUB_WORKSPACE }}/deps/
+          mkdir -p $GITHUB_WORKSPACE/deps/
+          cd $GITHUB_WORKSPACE/deps/
           wget https://dlcdn.apache.org/spark/spark-${{ env.SPARK_VERSION }}/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
           tar -xzf spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
           # Delete the old file
@@ -92,7 +92,7 @@ jobs:
           
           # Setup the Environment Variables
           echo "Apache Spark is ready to use"
-          export SPARK_HOME=${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
+          export SPARK_HOME=$GITHUB_WORKSPACE/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
 
       - name: Run Build & Test
         run: |
