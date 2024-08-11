@@ -106,6 +106,7 @@ jobs:
         with:
           cov_mode: coverage
           main_branch: master
+          cov_threshold: 60
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
