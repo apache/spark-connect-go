@@ -141,7 +141,8 @@ func (df *dataFrameImpl) WriteResult(ctx context.Context, collector ResultCollec
 	for _, row := range rows {
 		values, err := row.Values()
 		if err != nil {
-			return sparkerrors.WithType(fmt.Errorf("failed to get values in the row: %w", err), sparkerrors.ReadError)
+			return sparkerrors.WithType(fmt.Errorf(
+				"failed to get values in the row: %w", err), sparkerrors.ReadError)
 		}
 		collector.WriteRow(values)
 	}
@@ -210,7 +211,8 @@ func (df *dataFrameImpl) CreateTempView(ctx context.Context, viewName string, re
 
 	responseClient, err := df.session.client.ExecutePlan(ctx, plan)
 	if err != nil {
-		return sparkerrors.WithType(fmt.Errorf("failed to create temp view %s: %w", viewName, err), sparkerrors.ExecutionError)
+		return sparkerrors.WithType(fmt.Errorf("failed to create temp view %s: %w",
+			viewName, err), sparkerrors.ExecutionError)
 	}
 
 	_, _, err = responseClient.ToTable()
@@ -273,7 +275,9 @@ func (df *dataFrameImpl) createPlan() *proto.Plan {
 	}
 }
 
-func (df *dataFrameImpl) repartitionByExpressions(numPartitions int, partitionExpressions []*proto.Expression) (DataFrame, error) {
+func (df *dataFrameImpl) repartitionByExpressions(numPartitions int,
+	partitionExpressions []*proto.Expression,
+) (DataFrame, error) {
 	var numPartitionsPointerValue *int32
 	if numPartitions != 0 {
 		int32Value := int32(numPartitions)

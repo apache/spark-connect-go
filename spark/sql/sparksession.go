@@ -64,13 +64,15 @@ func (s *SparkSessionBuilder) Build(ctx context.Context) (SparkSession, error) {
 	if s.channelBuilder == nil {
 		cb, err := channel.NewBuilder(s.connectionString)
 		if err != nil {
-			return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w", s.connectionString, err), sparkerrors.ConnectionError)
+			return nil, sparkerrors.WithType(fmt.Errorf(
+				"failed to connect to remote %s: %w", s.connectionString, err), sparkerrors.ConnectionError)
 		}
 		s.channelBuilder = cb
 	}
 	conn, err := s.channelBuilder.Build(ctx)
 	if err != nil {
-		return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w", s.connectionString, err), sparkerrors.ConnectionError)
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w",
+			s.connectionString, err), sparkerrors.ConnectionError)
 	}
 
 	// Add metadata to the request.

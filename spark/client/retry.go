@@ -17,6 +17,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"io"
 	"math/rand"
 	"strings"
@@ -106,6 +107,9 @@ type retryState struct {
 	nextWait   time.Duration
 }
 
+// nextAttempt calculates the next wait time for the next retry attempt. The function returns
+// nil if the maximum number of retries has been exceeded, otherwise it returns the amount
+// of time the caller should wait.
 func (rs *retryState) nextAttempt(p RetryPolicy) *time.Duration {
 	if rs.retryCount >= p.MaxRetries {
 		return nil
@@ -132,7 +136,9 @@ func (rs *retryState) nextAttempt(p RetryPolicy) *time.Duration {
 	return &wait
 }
 
-func NewRetriableSparkConnectClient(conn *grpc.ClientConn, sessionId string, opts options.SparkClientOptions) base.SparkConnectRPCClient {
+func NewRetriableSparkConnectClient(conn *grpc.ClientConn, sessionId string,
+	opts options.SparkClientOptions,
+) base.SparkConnectRPCClient {
 	innerClient := proto.NewSparkConnectServiceClient(conn)
 	return &retriableSparkConnectClient{
 		client:        innerClient,
@@ -147,6 +153,7 @@ func NewRetriableSparkConnectClient(conn *grpc.ClientConn, sessionId string, opt
 // retries are exceeded.
 func wrapRetriableCall[Res rpcType](ctx context.Context, retryPolicies []RetryPolicy, in func(context.Context) (Res, error)) (Res, error) {
 	var lastErr error
+	var response Res
 	// Create the retry state for this wrapped call. The retry state captures the information about
 	// the wait time and how many retries to perform.
 	state := retryState{}
@@ -155,7 +162,7 @@ func wrapRetriableCall[Res rpcType](ctx context.Context, retryPolicies []RetryPo
 	for canRetry {
 		// Every loop iteration starts with being non-retriable.
 		canRetry = false
-		response, lastErr := in(ctx)
+		response, lastErr = in(ctx)
 		if lastErr != nil {
 			for _, h := range retryPolicies {
 				if h.Handler(lastErr) {
@@ -176,11 +183,13 @@ func wrapRetriableCall[Res rpcType](ctx context.Context, retryPolicies []RetryPo
 			return response, nil
 		}
 	}
+	// TODO: Should this simoly return the original error?
 	return nil, sparkerrors.WithType(lastErr, sparkerrors.RetriesExceeded)
 }
 
 type rpcType interface {
-	*proto.AnalyzePlanResponse | *proto.ConfigResponse | *proto.ArtifactStatusesResponse | *proto.InterruptResponse | *proto.ReleaseExecuteResponse | *proto.ExecutePlanResponse
+	*proto.AnalyzePlanResponse | *proto.ConfigResponse | *proto.ArtifactStatusesResponse |
+		*proto.InterruptResponse | *proto.ReleaseExecuteResponse | *proto.ExecutePlanResponse
 }
 
 // retriableSparkConnectClient wraps the SparkConnectServiceClient implementation to
@@ -194,7 +203,9 @@ type retriableSparkConnectClient struct {
 	options       options.SparkClientOptions
 }
 
-func (r *retriableSparkConnectClient) ExecutePlan(ctx context.Context, in *proto.ExecutePlanRequest, opts ...grpc.CallOption) (proto.SparkConnectService_ExecutePlanClient, error) {
+func (r *retriableSparkConnectClient) ExecutePlan(ctx context.Context, in *proto.ExecutePlanRequest,
+	opts ...grpc.CallOption,
+) (proto.SparkConnectService_ExecutePlanClient, error) {
 	var lastErr error
 	// Create the retry state for this wrapped call. The retry state captures the information about
 	// the wait time and how many retries to perform.
@@ -223,9 +234,10 @@ func (r *retriableSparkConnectClient) ExecutePlan(ctx context.Context, in *proto
 		} else {
 			// Exit loop if no error has been received.
 			rc := retriableExecutePlanClient{
+				context: ctx,
 				retryContext: &retryContext{
 					stream:         response,
-					client:         r.client,
+					client:         r,
 					request:        in,
 					resultComplete: false,
 					retryPolicies:  r.retryPolicies,
@@ -237,7 +249,9 @@ func (r *retriableSparkConnectClient) ExecutePlan(ctx context.Context, in *proto
 	return nil, sparkerrors.WithType(lastErr, sparkerrors.RetriesExceeded)
 }
 
-func (r *retriableSparkConnectClient) AnalyzePlan(ctx context.Context, in *proto.AnalyzePlanRequest, opts ...grpc.CallOption) (*proto.AnalyzePlanResponse, error) {
+func (r *retriableSparkConnectClient) AnalyzePlan(ctx context.Context, in *proto.AnalyzePlanRequest,
+	opts ...grpc.CallOption,
+) (*proto.AnalyzePlanResponse, error) {
 	return wrapRetriableCall(ctx, r.retryPolicies, func(ctx2 context.Context) (*proto.AnalyzePlanResponse, error) {
 		return r.client.AnalyzePlan(ctx2, in, opts...)
 	})
@@ -283,19 +297,27 @@ func (r *retriableSparkConnectClient) AddArtifacts(ctx context.Context, opts ...
 	return nil, sparkerrors.WithType(lastErr, sparkerrors.RetriesExceeded)
 }
 
-func (r *retriableSparkConnectClient) ArtifactStatus(ctx context.Context, in *proto.ArtifactStatusesRequest, opts ...grpc.CallOption) (*proto.ArtifactStatusesResponse, error) {
-	return wrapRetriableCall(ctx, r.retryPolicies, func(ctx2 context.Context) (*proto.ArtifactStatusesResponse, error) {
+func (r *retriableSparkConnectClient) ArtifactStatus(ctx context.Context,
+	in *proto.ArtifactStatusesRequest, opts ...grpc.CallOption,
+) (*proto.ArtifactStatusesResponse, error) {
+	return wrapRetriableCall(ctx, r.retryPolicies, func(ctx2 context.Context) (
+		*proto.ArtifactStatusesResponse, error,
+	) {
 		return r.client.ArtifactStatus(ctx2, in, opts...)
 	})
 }
 
-func (r *retriableSparkConnectClient) Interrupt(ctx context.Context, in *proto.InterruptRequest, opts ...grpc.CallOption) (*proto.InterruptResponse, error) {
+func (r *retriableSparkConnectClient) Interrupt(ctx context.Context, in *proto.InterruptRequest,
+	opts ...grpc.CallOption,
+) (*proto.InterruptResponse, error) {
 	return wrapRetriableCall(ctx, r.retryPolicies, func(ctx2 context.Context) (*proto.InterruptResponse, error) {
 		return r.client.Interrupt(ctx2, in, opts...)
 	})
 }
 
-func (r *retriableSparkConnectClient) ReattachExecute(ctx context.Context, in *proto.ReattachExecuteRequest, opts ...grpc.CallOption) (proto.SparkConnectService_ReattachExecuteClient, error) {
+func (r *retriableSparkConnectClient) ReattachExecute(ctx context.Context,
+	in *proto.ReattachExecuteRequest, opts ...grpc.CallOption,
+) (proto.SparkConnectService_ReattachExecuteClient, error) {
 	var lastErr error
 	// Create the retry state for this wrapped call. The retry state captures the information about
 	// the wait time and how many retries to perform.
@@ -323,13 +345,16 @@ func (r *retriableSparkConnectClient) ReattachExecute(ctx context.Context, in *p
 			}
 		} else {
 			// Exit loop if no error has been received.
+			// TODO: Re-attaching needs to be retriable as well.
 			return response, nil
 		}
 	}
 	return nil, sparkerrors.WithType(lastErr, sparkerrors.RetriesExceeded)
 }
 
-func (r *retriableSparkConnectClient) ReleaseExecute(ctx context.Context, in *proto.ReleaseExecuteRequest, opts ...grpc.CallOption) (*proto.ReleaseExecuteResponse, error) {
+func (r *retriableSparkConnectClient) ReleaseExecute(ctx context.Context,
+	in *proto.ReleaseExecuteRequest, opts ...grpc.CallOption,
+) (*proto.ReleaseExecuteResponse, error) {
 	return wrapRetriableCall(ctx, r.retryPolicies, func(ctx2 context.Context) (*proto.ReleaseExecuteResponse, error) {
 		return r.client.ReleaseExecute(ctx2, in, opts...)
 	})
@@ -344,32 +369,40 @@ type retryContext struct {
 	retryPolicies  []RetryPolicy
 }
 
+// retriableExecutePlanClient is a wrapper around the ExecutePlanClient that handles retries
+// transparently. Since the interface has to follow the ExecutePlanClient interface, we have to
+// implement all methods of the interface and follow their method receiver pattern. As the main
+// methods do not implement a pointer receiver we're wrapping the variable part of the retry
+// behahivor in a separate struct.
+//
+// In addition, we capture the original Context of the caller that is passed to the interface. While
+// this is typically not a desired pattern it is the only way to make sure the same context is used
+// across the retrying and underlying struct.
 type retriableExecutePlanClient struct {
 	retryContext *retryContext
+	context      context.Context
 }
 
 func (r retriableExecutePlanClient) Recv() (*proto.ExecutePlanResponse, error) {
-	resp, err := r.retryContext.stream.Recv()
-	// Success, simply return the result.
-	if err == nil {
-		r.retryContext.lastResponseId = &resp.ResponseId
-		return resp, nil
-	}
-
-	// Ignore successful closure.
-	if err == io.EOF {
-		return nil, err
-	}
-	ctx := r.retryContext.stream.Context()
-	return wrapRetriableCall(ctx, r.retryContext.retryPolicies, func(ctx2 context.Context) (*proto.ExecutePlanResponse, error) {
+	return wrapRetriableCall(r.context, r.retryContext.retryPolicies, func(ctx2 context.Context) (*proto.ExecutePlanResponse, error) {
+		resp, err := r.retryContext.stream.Recv()
+		// Success, simply return the result.
+		if err == nil {
+			r.retryContext.lastResponseId = &resp.ResponseId
+			return resp, nil
+		}
+		// Ignore successful closure.
+		if errors.Is(err, io.EOF) {
+			return nil, err
+		}
 		// Now we have to assume that the request has failed, and we distinguish two cases: First, we have
 		// never received a result and in this case we simply execute the same request again. Second,
 		// we will send a reattach request with the same operation ID and the last response ID.
 		if r.retryContext.lastResponseId == nil {
 			// Send the request again.
-			rs, err := r.retryContext.client.ExecutePlan(ctx2, r.retryContext.request)
-			if err != nil {
-				return nil, err
+			rs, execErr := r.retryContext.client.ExecutePlan(ctx2, r.retryContext.request)
+			if execErr != nil {
+				return nil, execErr
 			}
 			switch stream := rs.(type) {
 			case retriableExecutePlanClient:
@@ -377,7 +410,7 @@ func (r retriableExecutePlanClient) Recv() (*proto.ExecutePlanResponse, error) {
 			default:
 				r.retryContext.stream = stream
 			}
-			return r.retryContext.stream.Recv()
+			return nil, err
 		} else {
 			// Send a reattach
 			req := &proto.ReattachExecuteRequest{
@@ -386,9 +419,9 @@ func (r retriableExecutePlanClient) Recv() (*proto.ExecutePlanResponse, error) {
 				OperationId:    *r.retryContext.request.OperationId,
 				LastResponseId: r.retryContext.lastResponseId,
 			}
-			re, err := r.retryContext.client.ReattachExecute(ctx2, req)
-			if err != nil {
-				return nil, err
+			re, execErr := r.retryContext.client.ReattachExecute(ctx2, req)
+			if execErr != nil {
+				return nil, execErr
 			}
 			switch stream := re.(type) {
 			case retriableExecutePlanClient:
@@ -396,7 +429,7 @@ func (r retriableExecutePlanClient) Recv() (*proto.ExecutePlanResponse, error) {
 			default:
 				r.retryContext.stream = stream
 			}
-			return r.retryContext.stream.Recv()
+			return nil, err
 		}
 	})
 }

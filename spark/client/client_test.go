@@ -32,7 +32,8 @@ import (
 func TestAnalyzePlanCallsAnalyzePlanOnClient(t *testing.T) {
 	ctx := context.Background()
 	response := &proto.AnalyzePlanResponse{}
-	c := client.NewSparkExecutorFromClient(testutils.NewConnectServiceClientMock(nil, response, nil, nil), nil, mocks.MockSessionId)
+	c := client.NewSparkExecutorFromClient(
+		testutils.NewConnectServiceClientMock(nil, response, nil, nil), nil, mocks.MockSessionId)
 	resp, err := c.AnalyzePlan(ctx, &proto.Plan{})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
@@ -40,7 +41,8 @@ func TestAnalyzePlanCallsAnalyzePlanOnClient(t *testing.T) {
 
 func TestAnalyzePlanFailsIfClientFails(t *testing.T) {
 	ctx := context.Background()
-	c := client.NewSparkExecutorFromClient(testutils.NewConnectServiceClientMock(nil, nil, assert.AnError, nil), nil, mocks.MockSessionId)
+	c := client.NewSparkExecutorFromClient(
+		testutils.NewConnectServiceClientMock(nil, nil, assert.AnError, nil), nil, mocks.MockSessionId)
 	resp, err := c.AnalyzePlan(ctx, &proto.Plan{})
 	assert.Nil(t, resp)
 	assert.Error(t, err)
@@ -53,7 +55,8 @@ func TestExecutePlanCallsExecutePlanOnClient(t *testing.T) {
 	// Generate a mock client
 	responseStream := mocks.NewProtoClientMock(&mocks.ExecutePlanResponseDone)
 
-	c := client.NewSparkExecutorFromClient(testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, mocks.MockSessionId)
+	c := client.NewSparkExecutorFromClient(
+		testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, mocks.MockSessionId)
 	resp, err := c.ExecutePlan(ctx, plan)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
@@ -67,7 +70,8 @@ func TestExecutePlanCallsExecuteCommandOnClient(t *testing.T) {
 	responseStream := mocks.NewProtoClientMock(&mocks.ExecutePlanResponseDone, &mocks.ExecutePlanResponseEOF)
 
 	// Check that the execution fails if no command is supplied.
-	c := client.NewSparkExecutorFromClient(testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, mocks.MockSessionId)
+	c := client.NewSparkExecutorFromClient(
+		testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, mocks.MockSessionId)
 	_, _, _, err := c.ExecuteCommand(ctx, plan)
 	assert.ErrorIs(t, err, sparkerrors.ExecutionError)
 
@@ -86,7 +90,8 @@ func Test_ExecuteWithWrongSession(t *testing.T) {
 	responseStream := mocks.NewProtoClientMock(&mocks.ExecutePlanResponseDone, &mocks.ExecutePlanResponseEOF)
 
 	// Check that the execution fails if no command is supplied.
-	c := client.NewSparkExecutorFromClient(testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, uuid.NewString())
+	c := client.NewSparkExecutorFromClient(
+		testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, uuid.NewString())
 	_, _, _, err := c.ExecuteCommand(ctx, sqlCommand)
 	assert.ErrorIs(t, err, sparkerrors.InvalidServerSideSessionError)
 }
@@ -98,7 +103,8 @@ func Test_Execute_SchemaParsingFails(t *testing.T) {
 		&mocks.ExecutePlanResponseBrokenSchema,
 		&mocks.ExecutePlanResponseDone,
 		&mocks.ExecutePlanResponseEOF)
-	c := client.NewSparkExecutorFromClient(testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, mocks.MockSessionId)
+	c := client.NewSparkExecutorFromClient(
+		testutils.NewConnectServiceClientMock(responseStream, nil, nil, t), nil, mocks.MockSessionId)
 	_, _, _, err := c.ExecuteCommand(ctx, sqlCommand)
 	assert.ErrorIs(t, err, sparkerrors.ExecutionError)
 }

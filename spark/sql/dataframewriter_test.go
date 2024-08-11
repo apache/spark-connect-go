@@ -54,7 +54,8 @@ func TestGetSaveMode(t *testing.T) {
 
 func TestSaveExecutesWriteOperationUntilEOF(t *testing.T) {
 	relation := &proto.Relation{}
-	executor := client.NewTestConnectClientFromResponses(mocks.MockSessionId, &mocks.ExecutePlanResponseDone, &mocks.ExecutePlanResponseEOF)
+	executor := client.NewTestConnectClientFromResponses(mocks.MockSessionId,
+		&mocks.ExecutePlanResponseDone, &mocks.ExecutePlanResponseEOF)
 	session := &sparkSessionImpl{
 		client:    executor,
 		sessionId: mocks.MockSessionId,
@@ -71,7 +72,9 @@ func TestSaveExecutesWriteOperationUntilEOF(t *testing.T) {
 
 func TestSaveFailsIfAnotherErrorHappensWhenReadingStream(t *testing.T) {
 	relation := &proto.Relation{}
-	executor := client.NewTestConnectClientFromResponses(mocks.MockSessionId, &mocks.MockResponse{Err: assert.AnError})
+	executor := client.NewTestConnectClientFromResponses(mocks.MockSessionId, &mocks.MockResponse{
+		Err: assert.AnError,
+	})
 	session := &sparkSessionImpl{
 		client:    executor,
 		sessionId: mocks.MockSessionId,

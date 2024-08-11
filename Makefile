@@ -80,7 +80,8 @@ lint: $(BUILD_OUTPUT)
 	@golangci-lint run
 
 fmt:
-	@gofumpt -l -w $(ALLGOFILES)
+	@echo ">> FMT"
+	@GOFUMPT_SPLIT_LONG_LINES=$(GOFUMPT_SPLIT_LONG_LINES) gofumpt -l -w $(ALLGOFILES)
 
 test: $(BUILD_OUTPUT)
 	@echo ">> TEST, \"verbose\""
@@ -102,7 +103,11 @@ check:
 	@echo -n ">> CHECK"
 	./dev/check-license
 	@echo -n ">> glongci-lint: "
-	golangci-lint run
+	env GOFUMPT_SPLIT_LONG_LINES=$(GOFUMPT_SPLIT_LONG_LINES) golangci-lint run
+
+fix:
+	@echo -n ">> glongci-lint: fix"
+	env GOFUMPT_SPLIT_LONG_LINES=$(GOFUMPT_SPLIT_LONG_LINES) golangci-lint run --fix
 
 
 clean:

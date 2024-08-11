@@ -17,6 +17,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -40,10 +41,10 @@ import (
 )
 
 type sparkConnectClientImpl struct {
-	client              base.SparkConnectRPCClient
-	metadata            metadata.MD
-	sessionId           string
-	reattachableRequest bool
+	client    base.SparkConnectRPCClient
+	metadata  metadata.MD
+	sessionId string
+	opts      options.SparkClientOptions
 }
 
 func (s *sparkConnectClientImpl) newExecutePlanRequest(plan *proto.Plan) *proto.ExecutePlanRequest {
@@ -61,7 +62,7 @@ func (s *sparkConnectClientImpl) newExecutePlanRequest(plan *proto.Plan) *proto.
 			{
 				RequestOption: &proto.ExecutePlanRequest_RequestOption_ReattachOptions{
 					ReattachOptions: &proto.ReattachOptions{
-						Reattachable: s.reattachableRequest,
+						Reattachable: s.opts.ReattachExecution,
 					},
 				},
 			},
@@ -74,16 +75,18 @@ func (s *sparkConnectClientImpl) ExecuteCommand(ctx context.Context, plan *proto
 
 	// Check that the supplied plan is actually a command.
 	if plan.GetCommand() == nil {
-		return nil, nil, nil, sparkerrors.WithType(fmt.Errorf("the supplied plan does not contain a command"), sparkerrors.ExecutionError)
+		return nil, nil, nil, sparkerrors.WithType(
+			fmt.Errorf("the supplied plan does not contain a command"), sparkerrors.ExecutionError)
 	}
 
 	// Append the other items to the request.
 	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
 	c, err := s.client.ExecutePlan(ctx, request)
 	if err != nil {
-		return nil, nil, nil, sparkerrors.WithType(fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
+		return nil, nil, nil, sparkerrors.WithType(
+			fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
-	respHandler := NewExecuteResponseStream(c, s.sessionId, *request.OperationId)
+	respHandler := NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts)
 	schema, table, err := respHandler.ToTable()
 	if err != nil {
 		return nil, nil, nil, err
@@ -98,9 +101,10 @@ func (s *sparkConnectClientImpl) ExecutePlan(ctx context.Context, plan *proto.Pl
 	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
 	c, err := s.client.ExecutePlan(ctx, request)
 	if err != nil {
-		return nil, sparkerrors.WithType(fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
+		return nil, sparkerrors.WithType(fmt.Errorf(
+			"failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
-	return NewExecuteResponseStream(c, s.sessionId, *request.OperationId), nil
+	return NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts), nil
 }
 
 func (s *sparkConnectClientImpl) AnalyzePlan(ctx context.Context, plan *proto.Plan) (*proto.AnalyzePlanResponse, error) {
@@ -133,10 +137,10 @@ func NewSparkExecutor(conn *grpc.ClientConn, md metadata.MD, sessionId string, o
 		client = generated.NewSparkConnectServiceClient(conn)
 	}
 	return &sparkConnectClientImpl{
-		client:              client,
-		metadata:            md,
-		sessionId:           sessionId,
-		reattachableRequest: opts.ReattachExecution,
+		client:    client,
+		metadata:  md,
+		sessionId: sessionId,
+		opts:      opts,
 	}
 }
 
@@ -144,10 +148,10 @@ func NewSparkExecutor(conn *grpc.ClientConn, md metadata.MD, sessionId string, o
 // used in testing.
 func NewSparkExecutorFromClient(client base.SparkConnectRPCClient, md metadata.MD, sessionId string) base.SparkConnectClient {
 	return &sparkConnectClientImpl{
-		client:              client,
-		metadata:            md,
-		sessionId:           sessionId,
-		reattachableRequest: options.DefaultSparkClientOptions.ReattachExecution,
+		client:    client,
+		metadata:  md,
+		sessionId: sessionId,
+		opts:      options.DefaultSparkClientOptions,
 	}
 }
 
@@ -162,6 +166,7 @@ type ExecutePlanClient struct {
 	sessionId  string
 	done       bool
 	properties map[string]any
+	opts       options.SparkClientOptions
 }
 
 func (c *ExecutePlanClient) Properties() map[string]any {
@@ -174,11 +179,13 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 	var arrowSchema *arrow.Schema
 	recordBatches = make([]arrow.Record, 0)
 
+	// Explicitly needed when tracking re-attachble execution.
+	c.done = false
 	for {
 		resp, err := c.responseStream.Recv()
 		// EOF is received when the last message has been processed and the stream
 		// finished normally.
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 
@@ -229,11 +236,11 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 	}
 
 	// Check that the result is logically complete. The result might not be complete
-	// because after 2 minutes the server will interrupt the connection and we have to
+	// because after 2 minutes the server will interrupt the connection, and we have to
 	// send a ReAttach execute request.
-	//if !c.done {
-	//	return nil, nil, sparkerrors.WithType(fmt.Errorf("the result is not complete"), sparkerrors.ExecutionError)
-	//}
+	if c.opts.ReattachExecution && !c.done {
+		return nil, nil, sparkerrors.WithType(fmt.Errorf("the result is not complete"), sparkerrors.ExecutionError)
+	}
 	// Return the schema and table.
 	if arrowSchema == nil {
 		return c.schema, nil, nil
@@ -246,25 +253,27 @@ func NewExecuteResponseStream(
 	responseClient proto.SparkConnectService_ExecutePlanClient,
 	sessionId string,
 	operationId string,
+	opts options.SparkClientOptions,
 ) base.ExecuteResponseStream {
 	return &ExecutePlanClient{
 		responseStream: responseClient,
 		sessionId:      sessionId,
 		done:           false,
 		properties:     make(map[string]any),
+		opts:           opts,
 	}
 }
 
 func NewTestConnectClientFromResponses(sessionId string, r ...*mocks.MockResponse) base.SparkConnectClient {
 	protoClient := mocks.NewProtoClientMock(r...)
-	stream := NewExecuteResponseStream(protoClient, sessionId, uuid.NewString())
+	stream := NewExecuteResponseStream(protoClient, sessionId, uuid.NewString(), options.DefaultSparkClientOptions)
 	return &mocks.TestExecutor{
 		Client: stream,
 	}
 }
 
 func NewTestConnectClientWithImmediateError(sessionId string, err error) base.SparkConnectClient {
-	stream := NewExecuteResponseStream(nil, sessionId, uuid.NewString())
+	stream := NewExecuteResponseStream(nil, sessionId, uuid.NewString(), options.DefaultSparkClientOptions)
 	return &mocks.TestExecutor{
 		Client: stream,
 		Err:    err,

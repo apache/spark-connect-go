@@ -112,7 +112,8 @@ func Test_retryState_nextAttempt(t *testing.T) {
 				nextWait:   tt.fields.nextWait,
 			}
 			if tt.exceeded {
-				assert.Nilf(t, rs.nextAttempt(tt.args.p), "Expecting retries to be exceeded (%v, %v)", rs, tt.args.p)
+				assert.Nilf(t, rs.nextAttempt(tt.args.p),
+					"Expecting retries to be exceeded (%v, %v)", rs, tt.args.p)
 			} else {
 				val := *rs.nextAttempt(tt.args.p)
 				if tt.wantUpper > 0 {
@@ -145,7 +146,8 @@ func Test_retryMaxBackOff_applied(t *testing.T) {
 
 	wait := state.nextAttempt(basePolicy)
 	assert.LessOrEqualf(t, 30*time.Second, *wait, " nowWait: nextAttempt(%v, %v)", state, basePolicy)
-	assert.GreaterOrEqualf(t, 30*time.Second+basePolicy.Jitter, *wait, " nowWait: nextAttempt(%v, %v)", state, basePolicy)
+	assert.GreaterOrEqualf(t, 30*time.Second+basePolicy.Jitter, *wait,
+		" nowWait: nextAttempt(%v, %v)", state, basePolicy)
 	assert.Equalf(t, 60*time.Second, state.nextWait, " nextWait: nextAttempt(%v, %v)", state, basePolicy)
 }
 
@@ -162,13 +164,15 @@ func Test_defaultRetryPolicyBehavior(t *testing.T) {
 	// Check the next iterations until failure
 	w = state.nextAttempt(DefaultRetryPolicy)
 	assert.NotNil(t, w)
-	expected := time.Duration(int64(float32(DefaultRetryPolicy.InitialBackoff.Milliseconds())*DefaultRetryPolicy.BackoffMultiplier)) * time.Millisecond
+	expected := time.Duration(int64(float32(DefaultRetryPolicy.InitialBackoff.Milliseconds())*
+		DefaultRetryPolicy.BackoffMultiplier)) * time.Millisecond
 	assert.GreaterOrEqual(t, expected, *w)
 
 	for i := int32(2); i < DefaultRetryPolicy.MaxRetries; i++ {
 		w = state.nextAttempt(DefaultRetryPolicy)
 		assert.NotNil(t, w)
-		assert.LessOrEqualf(t, *w, 60*time.Second+DefaultRetryPolicy.Jitter, "nextAttempt(%v, %v)", state, DefaultRetryPolicy)
+		assert.LessOrEqualf(t, *w, 60*time.Second+DefaultRetryPolicy.Jitter,
+			"nextAttempt(%v, %v)", state, DefaultRetryPolicy)
 	}
 	// Check that the next attempt is nil
 	w = state.nextAttempt(DefaultRetryPolicy)
@@ -185,7 +189,30 @@ func Test_default_retryHandler(t *testing.T) {
 	s = status.New(codes.Internal, "ANALYSIS EXCEPTION")
 	assert.Falsef(t, DefaultRetryPolicy.Handler(s.Err()), "Must not retry Internal")
 	s = status.New(codes.Internal, "Error: INVALID_CURSOR.DISCONNECTED")
-	assert.Truef(t, DefaultRetryPolicy.Handler(s.Err()), "Must retry Internal with INVALID_CURSOR.DISCONNECTED")
+	assert.Truef(t, DefaultRetryPolicy.Handler(s.Err()),
+		"Must retry Internal with INVALID_CURSOR.DISCONNECTED")
+}
+
+func Test_retriable_success(t *testing.T) {
+	toRetry := mocks.NewProtoClientMock(
+		&mocks.ExecutePlanResponseUnavailable,
+		&mocks.ExecutePlanResponseUnavailable,
+	)
+	responseStream := mocks.NewProtoClientMock(
+		&mocks.ExecutePlanResponseDone,
+		&mocks.ExecutePlanResponseEOF)
+
+	c := testutils.NewConnectServiceClientMock(responseStream, nil, nil, t)
+	stream := retriableExecutePlanClient{
+		context: context.Background(),
+		retryContext: &retryContext{
+			stream:        toRetry,
+			client:        c,
+			retryPolicies: []RetryPolicy{TestingRetryPolicy},
+		},
+	}
+	_, err := stream.Recv()
+	assert.NoError(t, err)
 }
 
 func Test_retriable_client(t *testing.T) {
@@ -206,6 +233,7 @@ func Test_retriable_client(t *testing.T) {
 
 	c := testutils.NewConnectServiceClientMock(responseStream, nil, nil, t)
 	stream := retriableExecutePlanClient{
+		context: context.Background(),
 		retryContext: &retryContext{
 			stream: toRetry,
 			client: c,
@@ -213,10 +241,11 @@ func Test_retriable_client(t *testing.T) {
 	}
 
 	_, err := stream.Recv()
-	assert.NoError(t, err)
+	assert.ErrorIs(t, err, sparkerrors.RetriesExceeded)
 
 	c = testutils.NewConnectServiceClientMock(toRetry, nil, nil, t)
 	stream = retriableExecutePlanClient{
+		context: context.Background(),
 		retryContext: &retryContext{
 			stream:        toRetry,
 			client:        c,
@@ -244,10 +273,18 @@ func Test_retriable_with_reattach(t *testing.T) {
 		&mocks.ExecutePlanResponseEOF)
 
 	c := testutils.NewConnectServiceClientMock(responseStream, nil, nil, t)
+	client := retriableSparkConnectClient{
+		client:        c,
+		sessionId:     mocks.MockSessionId,
+		retryPolicies: []RetryPolicy{TestingRetryPolicy},
+		options:       options.DefaultSparkClientOptions,
+	}
+
 	stream := retriableExecutePlanClient{
+		context: context.Background(),
 		retryContext: &retryContext{
 			stream:        toRetry,
-			client:        c,
+			client:        &client,
 			request:       &mocks.ExecutePlanRequestSql,
 			retryPolicies: []RetryPolicy{TestingRetryPolicy},
 		},
