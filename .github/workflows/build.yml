@@ -74,26 +74,20 @@ jobs:
             $GITHUB_WORKSPACE/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
 
       - name: Setup Apache Spark
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          if [ -d $GITHUB_WORKSPACE/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }} ]; then
-            echo "Apache Spark is already installed"
-            export SPARK_HOME=$GITHUB_WORKSPACE/../spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
-            exit 0
-          fi
-          
           echo "Apache Spark is not installed"
           # Access the directory.
           mkdir -p $GITHUB_WORKSPACE/deps/
           cd $GITHUB_WORKSPACE/deps/
-          wget https://dlcdn.apache.org/spark/spark-${{ env.SPARK_VERSION }}/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
+          wget -q https://dlcdn.apache.org/spark/spark-${{ env.SPARK_VERSION }}/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
           tar -xzf spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
           # Delete the old file
           rm spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
           
           # Setup the Environment Variables
           echo "Apache Spark is ready to use"
-          export SPARK_HOME=$GITHUB_WORKSPACE/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
-
+          echo "{SPARK_HOME}={$GITHUB_WORKSPACE/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}}" >> "$GITHUB_ENV"
       - name: Run Build & Test
         run: |
           go mod download -x
