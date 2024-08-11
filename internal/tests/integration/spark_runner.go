@@ -48,6 +48,8 @@ func StartSparkConnect() (int64, error) {
 	for {
 		select {
 		case <-timeout:
+			out, _ := cmd.Output()
+			fmt.Printf("Output: %v\n", string(out))
 			return -1, sparkerrors.WithString(sparkerrors.TestSetupError,
 				"timeout waiting for Spark Connect to start")
 		case <-tick.C:
