@@ -16,6 +16,7 @@
 package integration
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -29,6 +30,8 @@ func StartSparkConnect() (int64, error) {
 	if sparkHome == "" {
 		return -1, sparkerrors.WithString(sparkerrors.TestSetupError, "SPARK_HOME not set")
 	}
+
+	fmt.Printf("Starting Spark Connect Server in: %v\n", os.Getenv("SPARK_HOME"))
 
 	cmd := exec.Command("./sbin/start-connect-server.sh", "--wait", "--conf",
 		"spark.log.structuredLogging.enabled=false")
