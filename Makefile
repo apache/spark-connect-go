@@ -80,8 +80,8 @@ lint: $(BUILD_OUTPUT)
 	@golangci-lint run
 
 fmt:
-	@echo ">> FMT"
-	@GOFUMPT_SPLIT_LONG_LINES=$(GOFUMPT_SPLIT_LONG_LINES) gofumpt -l -w $(ALLGOFILES)
+	@echo -n ">> glongci-lint: fix"
+	env GOFUMPT_SPLIT_LONG_LINES=$(GOFUMPT_SPLIT_LONG_LINES) golangci-lint run --fix
 
 test: $(BUILD_OUTPUT)
 	@echo ">> TEST, \"verbose\""
@@ -98,17 +98,11 @@ fulltest: $(BUILD_OUTPUT)
 		tail -n +2 coverage.out >> coverage-all.out;)
 	@$(GO) tool cover -html=coverage-all.out -o coverage-all.html
 
-
 check:
 	@echo -n ">> CHECK"
 	./dev/check-license
 	@echo -n ">> glongci-lint: "
 	env GOFUMPT_SPLIT_LONG_LINES=$(GOFUMPT_SPLIT_LONG_LINES) golangci-lint run
-
-fix:
-	@echo -n ">> glongci-lint: fix"
-	env GOFUMPT_SPLIT_LONG_LINES=$(GOFUMPT_SPLIT_LONG_LINES) golangci-lint run --fix
-
 
 clean:
 	@echo -n ">> CLEAN"
