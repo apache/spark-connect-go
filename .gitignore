@@ -30,3 +30,5 @@ cmd/spark-connect-example-spark-session/spark-connect-example-spark-session
 
 target
 lib
+
+deps

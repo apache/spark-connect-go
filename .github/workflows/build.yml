@@ -31,6 +31,10 @@ on:
     branches:
       - master
 
+env:
+  SPARK_VERSION: '3.5.1'
+  HADOOP_VERSION: '3'
+
 permissions:
   # Required: allow read access to the content for analysis.
   contents: read
@@ -62,10 +66,33 @@ jobs:
           java-version: '17'
           distribution: zulu
 
-      - uses: vemonet/setup-spark@v1
+      - name: Cache Spark Installation
+        uses: actions/cache@v2
+        key: spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}
         with:
-          spark-version: '3.5.1'
-          hadoop-version: '3'
+          path: |
+            ${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}
+
+      - name: Setup Apache Spark
+        run: |
+          if [ -d ${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }} ]; then
+            echo "Apache Spark is already installed"
+            export SPARK_HOME=${{ env.GITHUB_WORKSPACE }}/../spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}
+            exit 0
+          fi
+          
+          echo "Apache Spark is not installed"
+          # Access the directory.
+          mkdir -p ${{ env.GITHUB_WORKSPACE }}/deps/
+          cd ${{ env.GITHUB_WORKSPACE }}/deps/
+          wget https://dlcdn.apache.org/spark/spark-${{ SPARK_VERSION }}/spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}.tgz
+          tar -xzf spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}.tgz
+          # Delete the old file
+          rm spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}.tgz
+          
+          # Setup the Environment Variables
+          echo "Apache Spark is ready to use"
+          export SPARK_HOME=${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}
 
       - name: Run Build & Test
         run: |
@@ -80,3 +107,4 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.59
+

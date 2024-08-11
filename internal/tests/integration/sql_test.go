@@ -44,7 +44,7 @@ func TestIntegration_RunSQLCommand(t *testing.T) {
 	df, err = df.Filter(col.Lt(functions.Lit(10)))
 	assert.NoError(t, err)
 	res, err = df.Collect(ctx)
-	assert.NoError(t, err)
+	assert.NoErrorf(t, err, "Must be able to collect the rows.")
 	assert.Equal(t, 10, len(res))
 }
 
