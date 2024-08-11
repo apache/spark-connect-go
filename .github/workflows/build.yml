@@ -71,13 +71,13 @@ jobs:
         key: spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}
         with:
           path: |
-            ${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}
+            ${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
 
       - name: Setup Apache Spark
         run: |
-          if [ -d ${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }} ]; then
+          if [ -d ${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }} ]; then
             echo "Apache Spark is already installed"
-            export SPARK_HOME=${{ env.GITHUB_WORKSPACE }}/../spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}
+            export SPARK_HOME=${{ env.GITHUB_WORKSPACE }}/../spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
             exit 0
           fi
           
@@ -85,14 +85,14 @@ jobs:
           # Access the directory.
           mkdir -p ${{ env.GITHUB_WORKSPACE }}/deps/
           cd ${{ env.GITHUB_WORKSPACE }}/deps/
-          wget https://dlcdn.apache.org/spark/spark-${{ SPARK_VERSION }}/spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}.tgz
-          tar -xzf spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}.tgz
+          wget https://dlcdn.apache.org/spark/spark-${{ env.SPARK_VERSION }}/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
+          tar -xzf spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
           # Delete the old file
-          rm spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}.tgz
+          rm spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
           
           # Setup the Environment Variables
           echo "Apache Spark is ready to use"
-          export SPARK_HOME=${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ SPARK_VERSION }}-bin-hadoop${{ HADOOP_VERSION }}
+          export SPARK_HOME=${{ env.GITHUB_WORKSPACE }}/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
 
       - name: Run Build & Test
         run: |
