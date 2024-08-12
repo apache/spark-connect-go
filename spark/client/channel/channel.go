@@ -112,7 +112,8 @@ func (cb *BaseBuilder) Build(ctx context.Context) (*grpc.ClientConn, error) {
 	remote := fmt.Sprintf("%v:%v", cb.host, cb.port)
 	conn, err := grpc.NewClient(remote, opts...)
 	if err != nil {
-		return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w", remote, err), sparkerrors.ConnectionError)
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to connect to remote %s: %w",
+			remote, err), sparkerrors.ConnectionError)
 	}
 	return conn, nil
 }

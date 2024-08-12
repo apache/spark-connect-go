@@ -31,6 +31,28 @@ This requires the following tools to be present in your PATH:
 2. `gofumpt` for formatting Go code
 3. `golangci-lint` for linting Go code
 
+### Running Tests
+
+To run the tests locally, you can run:
+
+```bash
+make test
+```
+
+This will run the unit tests. If you want to run the integration tests, you can run:
+
+```bash
+make integration
+```
+
+Lastly, if you want to run all tests and generate the coverage analysis, you can run:
+
+```bash
+make fulltest
+```
+
+The output of the coverage analysis will be in the `coverage.out` file. An HTML version of
+the coverage report is generated and accessible at `coverage.html`.
 
 ### How to write tests
 

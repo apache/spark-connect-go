@@ -44,6 +44,10 @@ func WithType(err error, errType errorType) error {
 	return &wrappedError{cause: err, errorType: errType}
 }
 
+func WithString(err error, errMsg string) error {
+	return &wrappedError{cause: err, errorType: errors.New(errMsg)}
+}
+
 type errorType error
 
 var (
@@ -54,6 +58,7 @@ var (
 	InvalidPlanError              = errorType(errors.New("invalid plan"))
 	RetriesExceeded               = errorType(errors.New("retries exceeded"))
 	InvalidServerSideSessionError = errorType(errors.New("invalid server side session"))
+	TestSetupError                = errorType(errors.New("test setup error"))
 )
 
 type UnsupportedResponseTypeError struct {

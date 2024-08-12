@@ -92,14 +92,14 @@ test: $(BUILD_OUTPUT)
 	    @echo -n "     ";\
 		$(GO) test -v -run '(Test|Example)' $(BUILDFLAGS) $(TESTFLAGS) $(pkg) || exit 1)
 
-fulltest: $(BUILD_OUTPUT)
+coverage: $(BUILD_OUTPUT)
 	@echo ">> TEST, \"coverage\""
-	@echo "mode: atomic" > coverage-all.out
-	@$(foreach pkg, $(PKGS),\
-	    echo -n "     ";\
-		go test -run '(Test|Example)' $(BUILDFLAGS) $(TESTFLAGS) -coverprofile=coverage.out -covermode=atomic $(pkg) || exit 1;\
-		tail -n +2 coverage.out >> coverage-all.out;)
-	@$(GO) tool cover -html=coverage-all.out -o coverage-all.html
+	@$(GO) test -cover -coverprofile=coverage.out -covermode=atomic -coverpkg=./spark/...,./internal/tests/... ./spark/... ./internal/tests/...
+	@$(GO) tool cover -html=coverage.out -o coverage.html
+
+integration: $(BUILD_OUTPUT)
+	@echo ">> TEST, \"integration\""
+	@$(GO) test ./internal/tests/...
 
 check:
 	@echo -n ">> CHECK"
