@@ -176,6 +176,15 @@ func ReadArrowRecordColumn(record arrow.Table, columnIndex int, values [][]any) 
 				rowIndex += 1
 			}
 		}
+	case arrow.LIST:
+		rowIndex := 0
+		for _, columnData := range chunkedColumn.Chunks() {
+			vector := array.NewListData(columnData.Data())
+			for i := 0; i < columnData.Len(); i++ {
+				values[rowIndex][columnIndex] = vector.ListValues()
+				rowIndex += 1
+			}
+		}
 	default:
 		return fmt.Errorf("unsupported arrow data type %s in column %d", dataTypeId.String(), columnIndex)
 	}
