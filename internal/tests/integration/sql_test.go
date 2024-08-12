@@ -47,6 +47,16 @@ func TestIntegration_RunSQLCommand(t *testing.T) {
 	res, err = df.Collect(ctx)
 	assert.NoErrorf(t, err, "Must be able to collect the rows.")
 	assert.Equal(t, 10, len(res))
+
+	df, err = spark.Sql(ctx, "select * from range(100)")
+	assert.NoError(t, err)
+	col, err = df.Col("id")
+	assert.NoError(t, err)
+	df, err = df.Filter(col.Gt(functions.Lit(100)))
+	assert.NoError(t, err)
+	res, err = df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(res))
 }
 
 func TestMain(m *testing.M) {
