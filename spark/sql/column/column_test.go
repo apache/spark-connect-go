@@ -77,7 +77,7 @@ func TestColumnFunctions(t *testing.T) {
 			got, err := tt.arg.ToPlan()
 			assert.NoError(t, err)
 			expected := tt.want
-			assert.Equalf(t, expected, got, "Input: %v", tt.arg.expr.DebugString())
+			assert.Equalf(t, expected, got, "Input: %v", tt.arg.Expr.DebugString())
 		})
 	}
 }

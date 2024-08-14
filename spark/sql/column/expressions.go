@@ -126,6 +126,14 @@ func NewUnresolvedFunction(name string, args []Expression, isDistinct bool) Expr
 	return &unresolvedFunction{name: name, args: args, isDistinct: isDistinct}
 }
 
+func NewUnresolvedFunctionWithColumns(name string, cols ...Column) Expression {
+	exprs := make([]Expression, 0)
+	for _, col := range cols {
+		exprs = append(exprs, col.Expr)
+	}
+	return NewUnresolvedFunction(name, exprs, false)
+}
+
 type columnAlias struct {
 	alias    []string
 	expr     Expression
