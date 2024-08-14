@@ -1418,7 +1418,9 @@ func Right(str column.Column, len column.Column) column.Column {
 }
 
 // Mask is the Golang equivalent of mask: (col: 'ColumnOrName', upperChar: Optional[ForwardRef('ColumnOrName')] = None, lowerChar: Optional[ForwardRef('ColumnOrName')] = None, digitChar: Optional[ForwardRef('ColumnOrName')] = None, otherChar: Optional[ForwardRef('ColumnOrName')] = None) -> pyspark.sql.connect.column.Column
-func Mask(col column.Column, upperChar column.Column, lowerChar column.Column, digitChar column.Column, otherChar column.Column) column.Column {
+func Mask(col column.Column, upperChar column.Column, lowerChar column.Column,
+	digitChar column.Column, otherChar column.Column,
+) column.Column {
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("mask", col, upperChar, lowerChar, digitChar, otherChar))
 }
 
@@ -1722,7 +1724,8 @@ func Window(timeColumn column.Column, windowDuration string, slideDuration strin
 	lit_windowDuration := Lit(windowDuration)
 	lit_slideDuration := Lit(slideDuration)
 	lit_startTime := Lit(startTime)
-	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("window", timeColumn, lit_windowDuration, lit_slideDuration, lit_startTime))
+	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("window", timeColumn,
+		lit_windowDuration, lit_slideDuration, lit_startTime))
 }
 
 // WindowTime is the Golang equivalent of window_time: (windowColumn: 'ColumnOrName') -> pyspark.sql.connect.column.Column
@@ -1777,22 +1780,33 @@ func MakeDtInterval(days column.Column, hours column.Column, mins column.Column,
 }
 
 // MakeInterval is the Golang equivalent of make_interval: (years: Optional[ForwardRef('ColumnOrName')] = None, months: Optional[ForwardRef('ColumnOrName')] = None, weeks: Optional[ForwardRef('ColumnOrName')] = None, days: Optional[ForwardRef('ColumnOrName')] = None, hours: Optional[ForwardRef('ColumnOrName')] = None, mins: Optional[ForwardRef('ColumnOrName')] = None, secs: Optional[ForwardRef('ColumnOrName')] = None) -> pyspark.sql.connect.column.Column
-func MakeInterval(years column.Column, months column.Column, weeks column.Column, days column.Column, hours column.Column, mins column.Column, secs column.Column) column.Column {
-	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("make_interval", years, months, weeks, days, hours, mins, secs))
+func MakeInterval(years column.Column, months column.Column, weeks column.Column,
+	days column.Column, hours column.Column, mins column.Column, secs column.Column,
+) column.Column {
+	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("make_interval", years,
+		months, weeks, days, hours, mins, secs))
 }
 
 // MakeTimestamp is the Golang equivalent of make_timestamp: (years: 'ColumnOrName', months: 'ColumnOrName', days: 'ColumnOrName', hours: 'ColumnOrName', mins: 'ColumnOrName', secs: 'ColumnOrName', timezone: Optional[ForwardRef('ColumnOrName')] = None) -> pyspark.sql.connect.column.Column
-func MakeTimestamp(years column.Column, months column.Column, days column.Column, hours column.Column, mins column.Column, secs column.Column, timezone column.Column) column.Column {
-	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("make_timestamp", years, months, days, hours, mins, secs, timezone))
+func MakeTimestamp(years column.Column, months column.Column, days column.Column,
+	hours column.Column, mins column.Column, secs column.Column, timezone column.Column,
+) column.Column {
+	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("make_timestamp", years,
+		months, days, hours, mins, secs, timezone))
 }
 
 // MakeTimestampLtz is the Golang equivalent of make_timestamp_ltz: (years: 'ColumnOrName', months: 'ColumnOrName', days: 'ColumnOrName', hours: 'ColumnOrName', mins: 'ColumnOrName', secs: 'ColumnOrName', timezone: Optional[ForwardRef('ColumnOrName')] = None) -> pyspark.sql.connect.column.Column
-func MakeTimestampLtz(years column.Column, months column.Column, days column.Column, hours column.Column, mins column.Column, secs column.Column, timezone column.Column) column.Column {
-	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("make_timestamp_ltz", years, months, days, hours, mins, secs, timezone))
+func MakeTimestampLtz(years column.Column, months column.Column, days column.Column,
+	hours column.Column, mins column.Column, secs column.Column, timezone column.Column,
+) column.Column {
+	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("make_timestamp_ltz", years,
+		months, days, hours, mins, secs, timezone))
 }
 
 // MakeTimestampNtz is the Golang equivalent of make_timestamp_ntz: (years: 'ColumnOrName', months: 'ColumnOrName', days: 'ColumnOrName', hours: 'ColumnOrName', mins: 'ColumnOrName', secs: 'ColumnOrName') -> pyspark.sql.connect.column.Column
-func MakeTimestampNtz(years column.Column, months column.Column, days column.Column, hours column.Column, mins column.Column, secs column.Column) column.Column {
+func MakeTimestampNtz(years column.Column, months column.Column, days column.Column,
+	hours column.Column, mins column.Column, secs column.Column,
+) column.Column {
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("make_timestamp_ntz", years, months, days, hours, mins, secs))
 }
 

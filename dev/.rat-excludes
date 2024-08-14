@@ -13,3 +13,5 @@ sparksrc
 target
 generated.out
 go.sum
+deps
+cov.report
