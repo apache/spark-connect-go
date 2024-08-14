@@ -141,6 +141,16 @@ for fun in F.__dict__:
         print()
     else:
         name = normalize(fun)
+        # Generate the doc string
+        if F.__dict__[fun].__doc__ is not None:
+            lines = list(map(str.lstrip, F.__dict__[fun].__doc__.split("\n")))
+            pos = list(map(lambda x: x.startswith("..") or x.startswith("Parameters"), lines)).index(True)
+
+            lines = "\n".join(lines[:pos]).strip().split("\n")
+            lines[0] = name + " - " + lines[0]
+            lines = ["// " + l for l in lines]
+            doc = "\n".join(lines) + "\n//"
+            print(doc)
         print(f"// {name} is the Golang equivalent of {fun}: {sig}")
         print(f"func {name}({', '.join(res_params)}) column.Column {{")
         for c in conversions:
