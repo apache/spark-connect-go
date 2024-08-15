@@ -68,18 +68,19 @@ jobs:
 
       - name: Cache Spark Installation
         uses: actions/cache@v2
+        id: cache
         with:
           key: spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
           path: |
-            $GITHUB_WORKSPACE/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
+            ~/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
 
       - name: Setup Apache Spark
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           echo "Apache Spark is not installed"
           # Access the directory.
-          mkdir -p $GITHUB_WORKSPACE/deps/
-          cd $GITHUB_WORKSPACE/deps/
+          mkdir -p ~/deps/
+          pushd ~/deps/
           wget -q https://dlcdn.apache.org/spark/spark-${{ env.SPARK_VERSION }}/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
           tar -xzf spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
           # Delete the old file
@@ -88,7 +89,7 @@ jobs:
           # Setup the Environment Variables
           echo "Apache Spark is ready to use"
           echo "SPARK_HOME=${GITHUB_WORKSPACE}/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}" >> "$GITHUB_ENV"
-          cd $GITHUB_WORKSPACE
+          popd
       - name: Run Build & Test
         run: |
           go mod download -x
