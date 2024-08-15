@@ -66,30 +66,28 @@ jobs:
           java-version: '17'
           distribution: zulu
 
-      - name: Cache Spark Installation
-        uses: actions/cache@v2
-        id: cache
-        with:
-          key: v2-spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
-          path: |
-            ~/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
+#      - name: Cache Spark Installation
+#        uses: actions/cache@v2
+#        id: cache
+#        with:
+#          key: v2-spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
+#          path: |
+#            ~/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
 
       - name: Setup Apache Spark
-        if: steps.cache.outputs.cache-hit != 'true'
+        # if: steps.cache.outputs.cache-hit != 'true'
         run: |
           echo "Apache Spark is not installed"
           # Access the directory.
           mkdir -p ~/deps/
-          pushd ~/deps/
           wget -q https://dlcdn.apache.org/spark/spark-${{ env.SPARK_VERSION }}/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
-          tar -xzf spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
+          tar -xzf spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz -C ~/deps/
           # Delete the old file
           rm spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
 
           # Setup the Environment Variables
           echo "Apache Spark is ready to use"
           echo "SPARK_HOME=~/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}" >> "$GITHUB_ENV"
-          popd
       - name: Run Build & Test
         run: |
           go mod download -x
