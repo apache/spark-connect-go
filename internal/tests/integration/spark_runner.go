@@ -36,7 +36,7 @@ func StartSparkConnect() (int64, error) {
 
 	cmd := exec.Command("./sbin/start-connect-server.sh", "--wait", "--conf",
 		"spark.log.structuredLogging.enabled=false", "--packages",
-		"org.apache.spark:spark-connect_2.12:3.5.1")
+		"org.apache.spark:spark-connect_2.12:3.5.2")
 	cmd.Dir = sparkHome
 
 	stdout, _ := cmd.StdoutPipe()

@@ -32,7 +32,7 @@ on:
       - master
 
 env:
-  SPARK_VERSION: '3.5.1'
+  SPARK_VERSION: '3.5.2'
   HADOOP_VERSION: '3'
 
 permissions:
@@ -84,7 +84,7 @@ jobs:
           tar -xzf spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
           # Delete the old file
           rm spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
-          
+
           # Setup the Environment Variables
           echo "Apache Spark is ready to use"
           echo "SPARK_HOME=${GITHUB_WORKSPACE}/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}" >> "$GITHUB_ENV"

@@ -35,7 +35,7 @@ Step 4: Setup the Spark Driver on localhost.
 2. Start the Spark Connect server with the following command (make sure to use a package version that matches your Spark distribution):
 
 ```
-sbin/start-connect-server.sh --packages org.apache.spark:spark-connect_2.12:3.5.0
+sbin/start-connect-server.sh --packages org.apache.spark:spark-connect_2.12:3.5.2
 ```
 
 Step 5: Run the example Go application.
