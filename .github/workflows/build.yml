@@ -66,13 +66,13 @@ jobs:
           java-version: '17'
           distribution: zulu
 
-#      - name: Cache Spark Installation
-#        uses: actions/cache@v2
-#        id: cache
-#        with:
-#          key: v2-spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
-#          path: |
-#            ~/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
+      - name: Cache Spark Installation
+        uses: actions/cache@v2
+        id: cache
+        with:
+          key: v2-spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
+          path: |
+            /home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
 
       - name: Setup Apache Spark
         # if: steps.cache.outputs.cache-hit != 'true'
