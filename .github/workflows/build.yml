@@ -100,10 +100,12 @@ jobs:
           make test
       - name: Run Integration Test
         run: |
+          export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
           # make integration
           make gen && make && make integration
       - name: Run Code Coverage
         run: |
+          export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
           make coverage
       - uses: PaloAltoNetworks/cov@3.0.0
         with:
