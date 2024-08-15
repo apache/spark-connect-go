@@ -22,6 +22,11 @@ github:
     merge: false
     squash: true
     rebase: true
+  features:
+    # Enable the "Issues" tab
+    issues: true
+    # Enable the "Projects" tab
+    projects: true
 
 notifications:
   pullrequests: reviews@spark.apache.org
