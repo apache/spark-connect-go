@@ -91,7 +91,7 @@ jobs:
           
           # Setup the Environment Variables
           echo "Apache Spark is ready to use"
-          echo "SPARK_HOME=~/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}" >> "$GITHUB_ENV"
+          echo "SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}" >> "$GITHUB_ENV"
       - name: Run Build & Test
         run: |
           go mod download -x
