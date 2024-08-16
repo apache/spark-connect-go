@@ -23,6 +23,7 @@ require (
 	github.com/apache/arrow/go/v17 v17.0.0
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.9.0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237
 	google.golang.org/grpc v1.64.1
 	google.golang.org/protobuf v1.34.2
 )
@@ -32,7 +33,6 @@ require (
 	github.com/kr/pretty v0.3.0 // indirect
 	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225 // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
 
