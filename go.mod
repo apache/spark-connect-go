@@ -23,7 +23,7 @@ require (
 	github.com/apache/arrow/go/v17 v17.0.0
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.9.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094
 	google.golang.org/grpc v1.64.1
 	google.golang.org/protobuf v1.34.2
 )
