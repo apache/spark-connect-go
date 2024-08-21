@@ -17,64 +17,23 @@ package integration
 
 import (
 	"context"
-	"log"
-	"os"
 	"testing"
-
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql"
 	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIntegration_RunSQLCommand(t *testing.T) {
-	// Run SQL command
+func TestIntegration_BuiltinFunctions(t *testing.T) {
 	ctx := context.Background()
 	spark, err := sql.NewSessionBuilder().Remote("sc://localhost").Build(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	df, err := spark.Sql(ctx, "select * from range(100)")
-	assert.NoError(t, err)
+	df, _ := spark.Sql(ctx, "select '[2]' as a from range(10)")
+	df, _ = df.Filter(functions.JsonArrayLength(functions.Col("a")).Eq(functions.Lit(1)))
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)
-	assert.Equal(t, 100, len(res))
-
-	col, err := df.Col("id")
-	assert.NoError(t, err)
-	df, err = df.Filter(col.Lt(functions.Lit(10)))
-	assert.NoError(t, err)
-	res, err = df.Collect(ctx)
-	assert.NoErrorf(t, err, "Must be able to collect the rows.")
 	assert.Equal(t, 10, len(res))
-}
-
-func TestIntegration_Schema(t *testing.T) {
-	ctx := context.Background()
-	spark, err := sql.NewSessionBuilder().Remote("sc://localhost").Build(ctx)
-	assert.NoError(t, err)
-
-	df, err := spark.Sql(ctx, "select * from range(1)")
-	assert.NoError(t, err)
-
-	schema, err := df.Schema(ctx)
-	assert.NoError(t, err)
-
-	assert.Len(t, schema.Fields, 1)
-	assert.Equal(t, "id", schema.Fields[0].Name)
-	assert.Equal(t, types.LongType{}, schema.Fields[0].DataType)
-}
-
-func TestMain(m *testing.M) {
-	pid, err := StartSparkConnect()
-	if err != nil {
-		log.Fatal(err)
-	}
-	code := m.Run()
-	if err = StopSparkConnect(pid); err != nil {
-		log.Fatal(err)
-	}
-	os.Exit(code)
 }
