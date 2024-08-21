@@ -21,6 +21,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql"
 	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
 	"github.com/stretchr/testify/assert"
@@ -47,6 +49,22 @@ func TestIntegration_RunSQLCommand(t *testing.T) {
 	res, err = df.Collect(ctx)
 	assert.NoErrorf(t, err, "Must be able to collect the rows.")
 	assert.Equal(t, 10, len(res))
+}
+
+func TestIntegration_Schema(t *testing.T) {
+	ctx := context.Background()
+	spark, err := sql.NewSessionBuilder().Remote("sc://localhost").Build(ctx)
+	assert.NoError(t, err)
+
+	df, err := spark.Sql(ctx, "select * from range(1)")
+	assert.NoError(t, err)
+
+	schema, err := df.Schema(ctx)
+	assert.NoError(t, err)
+
+	assert.Len(t, schema.Fields, 1)
+	assert.Equal(t, "id", schema.Fields[0].Name)
+	assert.Equal(t, types.LongType{}, schema.Fields[0].DataType)
 }
 
 func TestMain(m *testing.M) {
