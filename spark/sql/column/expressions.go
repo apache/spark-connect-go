@@ -117,6 +117,7 @@ func (u *unresolvedFunction) ToPlan() (*proto.Expression, error) {
 		UnresolvedFunction: &proto.Expression_UnresolvedFunction{
 			FunctionName: u.name,
 			Arguments:    args,
+			IsDistinct:   u.isDistinct,
 		},
 	}
 	return expr, nil
