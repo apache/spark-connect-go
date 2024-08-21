@@ -84,6 +84,85 @@ func TestNewUnresolvedFunction(t *testing.T) {
 	}
 }
 
+func TestNewUnresolvedFunctionWithColumns(t *testing.T) {
+	colRef := NewColumn(NewColumnReference("martin"))
+	colRefPlan, _ := colRef.ToPlan()
+
+	type args struct {
+		name      string
+		arguments []Column
+	}
+	tests := []struct {
+		name string
+		args args
+		want *proto.Expression
+	}{
+		{
+			name: "TestNewUnresolvedFunction",
+			args: args{
+				name:      "id",
+				arguments: nil,
+			},
+			want: &proto.Expression{
+				ExprType: &proto.Expression_UnresolvedFunction_{
+					UnresolvedFunction: &proto.Expression_UnresolvedFunction{
+						FunctionName: "id",
+						IsDistinct:   false,
+					},
+				},
+			},
+		},
+		{
+			name: "TestNewUnresolvedWithArguments",
+			args: args{
+				name:      "id",
+				arguments: []Column{colRef},
+			},
+			want: &proto.Expression{
+				ExprType: &proto.Expression_UnresolvedFunction_{
+					UnresolvedFunction: &proto.Expression_UnresolvedFunction{
+						FunctionName: "id",
+						IsDistinct:   false,
+						Arguments: []*proto.Expression{
+							colRefPlan,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "TestNewUnresolvedWithManyArguments",
+			args: args{
+				name:      "id",
+				arguments: []Column{colRef, colRef, colRef},
+			},
+			want: &proto.Expression{
+				ExprType: &proto.Expression_UnresolvedFunction_{
+					UnresolvedFunction: &proto.Expression_UnresolvedFunction{
+						FunctionName: "id",
+						IsDistinct:   false,
+						Arguments: []*proto.Expression{
+							colRefPlan,
+							colRefPlan,
+							colRefPlan,
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewUnresolvedFunctionWithColumns(tt.args.name, tt.args.arguments...).ToPlan()
+			assert.NoError(t, err)
+			if !reflect.DeepEqual(got, tt.want) {
+				assert.Equal(t, tt.want, got)
+				t.Errorf("NewUnresolvedFunction() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNewSQLExpression(t *testing.T) {
 	type args struct {
 		expression string
@@ -110,4 +189,15 @@ func TestNewSQLExpression(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestColumnAlias_Basic(t *testing.T) {
+	colRef := NewColumnReference("column")
+	colRefPlan, _ := colRef.ToPlan()
+	colAlias := NewColumnAlias("martin", colRef)
+	colAliasPlan, _ := colAlias.ToPlan()
+	assert.Equal(t, colRefPlan, colAliasPlan.GetAlias().GetExpr())
+
+	// Test the debug string:
+	assert.Equal(t, "column AS martin", colAlias.DebugString())
 }

@@ -117,6 +117,7 @@ func (u *unresolvedFunction) ToPlan() (*proto.Expression, error) {
 		UnresolvedFunction: &proto.Expression_UnresolvedFunction{
 			FunctionName: u.name,
 			Arguments:    args,
+			IsDistinct:   u.isDistinct,
 		},
 	}
 	return expr, nil
@@ -124,6 +125,14 @@ func (u *unresolvedFunction) ToPlan() (*proto.Expression, error) {
 
 func NewUnresolvedFunction(name string, args []Expression, isDistinct bool) Expression {
 	return &unresolvedFunction{name: name, args: args, isDistinct: isDistinct}
+}
+
+func NewUnresolvedFunctionWithColumns(name string, cols ...Column) Expression {
+	exprs := make([]Expression, 0)
+	for _, col := range cols {
+		exprs = append(exprs, col.Expr)
+	}
+	return NewUnresolvedFunction(name, exprs, false)
 }
 
 type columnAlias struct {

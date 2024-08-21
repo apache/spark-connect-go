@@ -18,48 +18,48 @@ package column
 import proto "github.com/apache/spark-connect-go/v35/internal/generated"
 
 type Column struct {
-	expr Expression
+	Expr Expression
 }
 
 func (c *Column) ToPlan() (*proto.Expression, error) {
-	return c.expr.ToPlan()
+	return c.Expr.ToPlan()
 }
 
 func (c Column) Lt(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("<", []Expression{c.expr, other.expr}, false))
+	return NewColumn(NewUnresolvedFunction("<", []Expression{c.Expr, other.Expr}, false))
 }
 
 func (c Column) Le(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("<=", []Expression{c.expr, other.expr}, false))
+	return NewColumn(NewUnresolvedFunction("<=", []Expression{c.Expr, other.Expr}, false))
 }
 
 func (c Column) Gt(other Column) Column {
-	return NewColumn(NewUnresolvedFunction(">", []Expression{c.expr, other.expr}, false))
+	return NewColumn(NewUnresolvedFunction(">", []Expression{c.Expr, other.Expr}, false))
 }
 
 func (c Column) Ge(other Column) Column {
-	return NewColumn(NewUnresolvedFunction(">=", []Expression{c.expr, other.expr}, false))
+	return NewColumn(NewUnresolvedFunction(">=", []Expression{c.Expr, other.Expr}, false))
 }
 
 func (c Column) Eq(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("==", []Expression{c.expr, other.expr}, false))
+	return NewColumn(NewUnresolvedFunction("==", []Expression{c.Expr, other.Expr}, false))
 }
 
 func (c Column) Neq(other Column) Column {
-	cmp := NewUnresolvedFunction("==", []Expression{c.expr, other.expr}, false)
+	cmp := NewUnresolvedFunction("==", []Expression{c.Expr, other.Expr}, false)
 	return NewColumn(NewUnresolvedFunction("not", []Expression{cmp}, false))
 }
 
 func (c Column) Mul(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("*", []Expression{c.expr, other.expr}, false))
+	return NewColumn(NewUnresolvedFunction("*", []Expression{c.Expr, other.Expr}, false))
 }
 
 func (c Column) Div(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("/", []Expression{c.expr, other.expr}, false))
+	return NewColumn(NewUnresolvedFunction("/", []Expression{c.Expr, other.Expr}, false))
 }
 
 func NewColumn(expr Expression) Column {
 	return Column{
-		expr: expr,
+		Expr: expr,
 	}
 }
