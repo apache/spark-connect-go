@@ -14,7 +14,7 @@ In your Go project, run `go mod tidy` to download the library on your local mach
 ## Write Spark Connect Client Application
 
 Create `main.go` file with following code:
-```
+```go
 package main
 
 import (
@@ -22,7 +22,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/apache/spark-connect-go/v35/client/sql"
+	"github.com/apache/spark-connect-go/v35/spark/sql"
 )
 
 var (
@@ -107,7 +107,7 @@ func main() {
 	}
 
 	log.Printf("DataFrame from sql: select count, word from view1 order by count")
-	df.Show(100, false)
+	df.Show(ctx, 100, false)
 }
 ```
 
