@@ -20,6 +20,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql"
@@ -28,8 +29,9 @@ import (
 var (
 	remote = flag.String("remote", "sc://localhost:15002",
 		"the remote address of Spark Connect server to connect to")
-	filedir = flag.String("filedir", "file:///tmp/spark-connect-write-example-output.parquet",
-		"the directory to save the output files")
+
+	filedir = flag.String("filedir", "/tmp",
+		"the directory to save the files")
 )
 
 func main() {
@@ -81,13 +83,13 @@ func main() {
 
 	err = df.Writer().Mode("overwrite").
 		Format("parquet").
-		Save(ctx, *filedir)
+		Save(ctx, fmt.Sprintf("file://%s/spark-connect-write-example-output.parquet", *filedir))
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}
 
 	df, err = spark.Read().Format("parquet").
-		Load(*filedir)
+		Load(fmt.Sprintf("file://%s/spark-connect-write-example-output.parquet", *filedir))
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}
