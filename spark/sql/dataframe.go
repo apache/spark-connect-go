@@ -56,9 +56,11 @@ type DataFrame interface {
 	Repartition(numPartitions int, columns []string) (DataFrame, error)
 	// RepartitionByRange re-partitions a data frame by range partition.
 	RepartitionByRange(numPartitions int, columns []RangePartitionColumn) (DataFrame, error)
-
+	// Filter filters the data frame by a column condition.
 	Filter(condition column.Column) (DataFrame, error)
+	// FilterByString filters the data frame by a string condition.
 	FilterByString(condition string) (DataFrame, error)
+	// Col returns a column by name.
 	Col(name string) (column.Column, error)
 }
 
