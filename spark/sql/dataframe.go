@@ -62,6 +62,15 @@ type DataFrame interface {
 	FilterByString(condition string) (DataFrame, error)
 	// Col returns a column by name.
 	Col(name string) (column.Column, error)
+
+	// Select projects a list of columns from the DataFrame
+	Select(columns ...column.Column) (DataFrame, error)
+	// SelectExpr projects a list of columns from the DataFrame by string expressions
+	SelectExpr(exprs ...string) (DataFrame, error)
+	// Alias creates a new DataFrame with the specified subquery alias
+	Alias(alias string) DataFrame
+	// CrossJoin joins the current DataFrame with another DataFrame using the cross product
+	CrossJoin(other DataFrame) DataFrame
 }
 
 type RangePartitionColumn struct {
@@ -73,6 +82,63 @@ type RangePartitionColumn struct {
 type dataFrameImpl struct {
 	session  *sparkSessionImpl
 	relation *proto.Relation // TODO change to proto.Plan?
+}
+
+func (df *dataFrameImpl) SelectExpr(exprs ...string) (DataFrame, error) {
+	expressions := make([]*proto.Expression, 0, len(exprs))
+	for _, expr := range exprs {
+		col := functions.Expr(expr)
+		f, e := col.ToPlan()
+		if e != nil {
+			return nil, e
+		}
+		expressions = append(expressions, f)
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Project{
+			Project: &proto.Project{
+				Input:       df.relation,
+				Expressions: expressions,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) Alias(alias string) DataFrame {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_SubqueryAlias{
+			SubqueryAlias: &proto.SubqueryAlias{
+				Input: df.relation,
+				Alias: alias,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) CrossJoin(other DataFrame) DataFrame {
+	otherDf := other.(*dataFrameImpl)
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Join{
+			Join: &proto.Join{
+				Left:     df.relation,
+				Right:    otherDf.relation,
+				JoinType: proto.Join_JOIN_TYPE_CROSS,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
 }
 
 // NewDataFrame creates a new DataFrame
@@ -328,4 +394,28 @@ func (df *dataFrameImpl) FilterByString(condition string) (DataFrame, error) {
 func (df *dataFrameImpl) Col(name string) (column.Column, error) {
 	planId := df.relation.Common.GetPlanId()
 	return column.NewColumn(column.NewColumnReferenceWithPlanId(name, planId)), nil
+}
+
+func (df *dataFrameImpl) Select(columns ...column.Column) (DataFrame, error) {
+	exprs := make([]*proto.Expression, 0, len(columns))
+	for _, c := range columns {
+		expr, err := c.ToPlan()
+		if err != nil {
+			return nil, err
+		}
+		exprs = append(exprs, expr)
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Project{
+			Project: &proto.Project{
+				Input:       df.relation,
+				Expressions: exprs,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
 }
