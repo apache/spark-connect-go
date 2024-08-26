@@ -130,7 +130,7 @@ func NewUnresolvedFunction(name string, args []Expression, isDistinct bool) Expr
 func NewUnresolvedFunctionWithColumns(name string, cols ...Column) Expression {
 	exprs := make([]Expression, 0)
 	for _, col := range cols {
-		exprs = append(exprs, col.Expr)
+		exprs = append(exprs, col.Expr())
 	}
 	return NewUnresolvedFunction(name, exprs, false)
 }

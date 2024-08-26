@@ -17,49 +17,71 @@ package column
 
 import proto "github.com/apache/spark-connect-go/v35/internal/generated"
 
-type Column struct {
-	Expr Expression
+type Column interface {
+	ToPlan() (*proto.Expression, error)
+	Expr() Expression
+	Lt(other Column) Column
+	Le(other Column) Column
+	Gt(other Column) Column
+	Ge(other Column) Column
+	Eq(other Column) Column
+	Neq(other Column) Column
+	Mul(other Column) Column
+	Div(other Column) Column
+	Alias(alias string) Column
 }
 
-func (c *Column) ToPlan() (*proto.Expression, error) {
-	return c.Expr.ToPlan()
+type columnImpl struct {
+	expr Expression
 }
 
-func (c Column) Lt(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("<", []Expression{c.Expr, other.Expr}, false))
+func (c *columnImpl) ToPlan() (*proto.Expression, error) {
+	return c.expr.ToPlan()
 }
 
-func (c Column) Le(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("<=", []Expression{c.Expr, other.Expr}, false))
+func (c *columnImpl) Expr() Expression {
+	return c.expr
 }
 
-func (c Column) Gt(other Column) Column {
-	return NewColumn(NewUnresolvedFunction(">", []Expression{c.Expr, other.Expr}, false))
+func (c columnImpl) Lt(other Column) Column {
+	return NewColumn(NewUnresolvedFunction("<", []Expression{c.expr, other.Expr()}, false))
 }
 
-func (c Column) Ge(other Column) Column {
-	return NewColumn(NewUnresolvedFunction(">=", []Expression{c.Expr, other.Expr}, false))
+func (c columnImpl) Le(other Column) Column {
+	return NewColumn(NewUnresolvedFunction("<=", []Expression{c.expr, other.Expr()}, false))
 }
 
-func (c Column) Eq(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("==", []Expression{c.Expr, other.Expr}, false))
+func (c columnImpl) Gt(other Column) Column {
+	return NewColumn(NewUnresolvedFunction(">", []Expression{c.expr, other.Expr()}, false))
 }
 
-func (c Column) Neq(other Column) Column {
-	cmp := NewUnresolvedFunction("==", []Expression{c.Expr, other.Expr}, false)
+func (c columnImpl) Ge(other Column) Column {
+	return NewColumn(NewUnresolvedFunction(">=", []Expression{c.expr, other.Expr()}, false))
+}
+
+func (c columnImpl) Eq(other Column) Column {
+	return NewColumn(NewUnresolvedFunction("==", []Expression{c.expr, other.Expr()}, false))
+}
+
+func (c columnImpl) Neq(other Column) Column {
+	cmp := NewUnresolvedFunction("==", []Expression{c.expr, other.Expr()}, false)
 	return NewColumn(NewUnresolvedFunction("not", []Expression{cmp}, false))
 }
 
-func (c Column) Mul(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("*", []Expression{c.Expr, other.Expr}, false))
+func (c columnImpl) Mul(other Column) Column {
+	return NewColumn(NewUnresolvedFunction("*", []Expression{c.expr, other.Expr()}, false))
 }
 
-func (c Column) Div(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("/", []Expression{c.Expr, other.Expr}, false))
+func (c columnImpl) Div(other Column) Column {
+	return NewColumn(NewUnresolvedFunction("/", []Expression{c.expr, other.Expr()}, false))
+}
+
+func (c columnImpl) Alias(alias string) Column {
+	return NewColumn(NewColumnAlias(alias, c.expr))
 }
 
 func NewColumn(expr Expression) Column {
-	return Column{
-		Expr: expr,
+	return &columnImpl{
+		expr: expr,
 	}
 }

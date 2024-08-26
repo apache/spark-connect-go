@@ -62,7 +62,6 @@ type DataFrame interface {
 	FilterByString(condition string) (DataFrame, error)
 	// Col returns a column by name.
 	Col(name string) (column.Column, error)
-
 	// Select projects a list of columns from the DataFrame
 	Select(columns ...column.Column) (DataFrame, error)
 	// SelectExpr projects a list of columns from the DataFrame by string expressions
@@ -71,6 +70,9 @@ type DataFrame interface {
 	Alias(alias string) DataFrame
 	// CrossJoin joins the current DataFrame with another DataFrame using the cross product
 	CrossJoin(other DataFrame) DataFrame
+	// GroupBy groups the DataFrame by the spcified columns so that the aggregation
+	// can be performed on them. See GroupedData for all the available aggregate functions.
+	GroupBy(cols ...column.Column) *GroupedData
 }
 
 type RangePartitionColumn struct {
@@ -418,4 +420,14 @@ func (df *dataFrameImpl) Select(columns ...column.Column) (DataFrame, error) {
 		},
 	}
 	return NewDataFrame(df.session, rel), nil
+}
+
+// GroupBy groups the DataFrame by the specified columns so that aggregation
+// can be performed on them. See GroupedData for all the available aggregate functions.
+func (df *dataFrameImpl) GroupBy(cols ...column.Column) *GroupedData {
+	return &GroupedData{
+		df:           *df,
+		groupingCols: cols,
+		groupType:    "groupby",
+	}
 }

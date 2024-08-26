@@ -2762,8 +2762,8 @@ func MakeTimestamp(years column.Column, months column.Column, days column.Column
 func MakeTimestampLtz(years column.Column, months column.Column, days column.Column,
 	hours column.Column, mins column.Column, secs column.Column, timezone column.Column,
 ) column.Column {
-	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("make_timestamp_ltz", years,
-		months, days, hours, mins, secs, timezone))
+	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("make_timestamp_ltz",
+		years, months, days, hours, mins, secs, timezone))
 }
 
 // MakeTimestampNtz - Create local date-time from years, months, days, hours, mins, secs fields.
@@ -2774,7 +2774,8 @@ func MakeTimestampLtz(years column.Column, months column.Column, days column.Col
 func MakeTimestampNtz(years column.Column, months column.Column, days column.Column,
 	hours column.Column, mins column.Column, secs column.Column,
 ) column.Column {
-	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("make_timestamp_ntz", years, months, days, hours, mins, secs))
+	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("make_timestamp_ntz",
+		years, months, days, hours, mins, secs))
 }
 
 // MakeYmInterval - Make year-month interval from years, months.

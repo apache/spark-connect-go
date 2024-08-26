@@ -48,6 +48,10 @@ func WithString(err error, errMsg string) error {
 	return &wrappedError{cause: err, errorType: errors.New(errMsg)}
 }
 
+func WithStringf(err error, errMsg string, params ...any) error {
+	return &wrappedError{cause: err, errorType: fmt.Errorf(errMsg, params...)}
+}
+
 type errorType error
 
 var (
