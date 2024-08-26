@@ -71,6 +71,8 @@ type DataFrame interface {
 	Alias(alias string) DataFrame
 	// CrossJoin joins the current DataFrame with another DataFrame using the cross product
 	CrossJoin(other DataFrame) DataFrame
+	// Agg performs aggregation on the data frame.
+	Agg(proto.Aggregate_GroupType, []*proto.Expression, []*proto.Expression, ...optionalAggParam) (DataFrame, error)
 }
 
 type RangePartitionColumn struct {
@@ -362,6 +364,35 @@ func (df *dataFrameImpl) repartitionByExpressions(numPartitions int,
 				NumPartitions:  numPartitionsPointerValue,
 				PartitionExprs: partitionExpressions,
 			},
+		},
+	}
+	return NewDataFrame(df.session, newRelation), nil
+}
+
+type optionalAggParam func(*proto.Aggregate)
+
+func Pivot(pivot *proto.Aggregate_Pivot) optionalAggParam {
+	return func(agg *proto.Aggregate) {
+		agg.Pivot = pivot
+	}
+}
+
+func (df *dataFrameImpl) Agg(groupType proto.Aggregate_GroupType, groupingExpressions []*proto.Expression, aggregateExpressions []*proto.Expression, optionalParams ...optionalAggParam) (DataFrame, error) {
+	aggregate := &proto.Aggregate{
+		Input:                df.relation,
+		GroupType:            groupType,
+		GroupingExpressions:  groupingExpressions,
+		AggregateExpressions: aggregateExpressions,
+	}
+	for _, optionalParams := range optionalParams {
+		optionalParams(aggregate)
+	}
+	newRelation := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Aggregate{
+			Aggregate: aggregate,
 		},
 	}
 	return NewDataFrame(df.session, newRelation), nil
