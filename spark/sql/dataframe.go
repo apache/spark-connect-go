@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/column"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
@@ -34,6 +36,8 @@ type ResultCollector interface {
 
 // DataFrame is a wrapper for data frame, representing a distributed collection of data row.
 type DataFrame interface {
+	// PlanId returns the plan id of the data frame.
+	PlanId() int64
 	// WriteResult streams the data frames to a result collector
 	WriteResult(ctx context.Context, collector ResultCollector, numRows int, truncate bool) error
 	// Show uses WriteResult to write the data frames to the console output.
@@ -52,16 +56,13 @@ type DataFrame interface {
 	// Repartition re-partitions a data frame.
 	Repartition(ctx context.Context, numPartitions int, columns []string) (DataFrame, error)
 	// RepartitionByRange re-partitions a data frame by range partition.
-	RepartitionByRange(ctx context.Context, numPartitions int, columns ...Convertible) (DataFrame, error)
+	RepartitionByRange(ctx context.Context, numPartitions int, columns ...column.ConvertibleColumn) (DataFrame, error)
 	// Filter filters the data frame by a column condition.
-	Filter(ctx context.Context, condition Convertible) (DataFrame, error)
+	Filter(ctx context.Context, condition column.ConvertibleColumn) (DataFrame, error)
 	// FilterByString filters the data frame by a string condition.
 	FilterByString(ctx context.Context, condition string) (DataFrame, error)
-	// Col returns a column by name.
-	Col(name string) Column
-
 	// Select projects a list of columns from the DataFrame
-	Select(ctx context.Context, columns ...Convertible) (DataFrame, error)
+	Select(ctx context.Context, columns ...column.ConvertibleColumn) (DataFrame, error)
 	// SelectExpr projects a list of columns from the DataFrame by string expressions
 	SelectExpr(ctx context.Context, exprs ...string) (DataFrame, error)
 	// Alias creates a new DataFrame with the specified subquery alias
@@ -76,10 +77,14 @@ type dataFrameImpl struct {
 	relation *proto.Relation // TODO change to proto.Plan?
 }
 
+func (df *dataFrameImpl) PlanId() int64 {
+	return df.relation.GetCommon().GetPlanId()
+}
+
 func (df *dataFrameImpl) SelectExpr(ctx context.Context, exprs ...string) (DataFrame, error) {
 	expressions := make([]*proto.Expression, 0, len(exprs))
 	for _, expr := range exprs {
-		col := NewSQLExpression(expr)
+		col := column.NewSQLExpression(expr)
 		f, e := col.ToPlan(ctx)
 		if e != nil {
 			return nil, e
@@ -297,7 +302,7 @@ func (df *dataFrameImpl) Repartition(ctx context.Context, numPartitions int, col
 	return df.repartitionByExpressions(numPartitions, partitionExpressions)
 }
 
-func (df *dataFrameImpl) RepartitionByRange(ctx context.Context, numPartitions int, columns ...Convertible) (DataFrame, error) {
+func (df *dataFrameImpl) RepartitionByRange(ctx context.Context, numPartitions int, columns ...column.ConvertibleColumn) (DataFrame, error) {
 	var partitionExpressions []*proto.Expression
 	if columns != nil {
 		partitionExpressions = make([]*proto.Expression, 0, len(columns))
@@ -344,7 +349,7 @@ func (df *dataFrameImpl) repartitionByExpressions(numPartitions int,
 	return NewDataFrame(df.session, newRelation), nil
 }
 
-func (df *dataFrameImpl) Filter(ctx context.Context, condition Convertible) (DataFrame, error) {
+func (df *dataFrameImpl) Filter(ctx context.Context, condition column.ConvertibleColumn) (DataFrame, error) {
 	cnd, err := condition.ToPlan(ctx)
 	if err != nil {
 		return nil, err
@@ -365,14 +370,10 @@ func (df *dataFrameImpl) Filter(ctx context.Context, condition Convertible) (Dat
 }
 
 func (df *dataFrameImpl) FilterByString(ctx context.Context, condition string) (DataFrame, error) {
-	return df.Filter(ctx, NewColumn(NewSQLExpression(condition)))
+	return df.Filter(ctx, column.NewColumn(column.NewSQLExpression(condition)))
 }
 
-func (df *dataFrameImpl) Col(name string) Column {
-	return NewColumn(&delayedColumnReference{unparsedIdentifier: name, df: df})
-}
-
-func (df *dataFrameImpl) Select(ctx context.Context, columns ...Convertible) (DataFrame, error) {
+func (df *dataFrameImpl) Select(ctx context.Context, columns ...column.ConvertibleColumn) (DataFrame, error) {
 	exprs := make([]*proto.Expression, 0, len(columns))
 	for _, c := range columns {
 		expr, err := c.ToPlan(ctx)

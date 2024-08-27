@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sql
+package column
 
 import (
 	"context"
@@ -37,7 +37,7 @@ type expression interface {
 
 type delayedColumnReference struct {
 	unparsedIdentifier string
-	df                 *dataFrameImpl
+	df                 SchemaDataFrame
 }
 
 func (d *delayedColumnReference) DebugString() string {
@@ -64,10 +64,11 @@ func (d *delayedColumnReference) ToPlan(ctx context.Context) (*proto.Expression,
 	}
 
 	expr := newProtoExpression()
+	id := d.df.PlanId()
 	expr.ExprType = &proto.Expression_UnresolvedAttribute_{
 		UnresolvedAttribute: &proto.Expression_UnresolvedAttribute{
 			UnparsedIdentifier: d.unparsedIdentifier,
-			PlanId:             d.df.relation.Common.PlanId,
+			PlanId:             &id,
 		},
 	}
 	return expr, nil

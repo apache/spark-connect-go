@@ -13,16 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sql
+package column
 
 import (
 	"context"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 )
 
-// Convertible is the interface for all things that can be converted into a protobuf expression.
-type Convertible interface {
+// ConvertibleColumn is the interface for all things that can be converted into a protobuf expression.
+type ConvertibleColumn interface {
 	ToPlan(ctx context.Context) (*proto.Expression, error)
 }
 
@@ -87,4 +89,13 @@ func NewColumn(expr expression) Column {
 	return Column{
 		expr: expr,
 	}
+}
+
+type SchemaDataFrame interface {
+	PlanId() int64
+	Schema(ctx context.Context) (*types.StructType, error)
+}
+
+func OfDF(df SchemaDataFrame, colName string) Column {
+	return NewColumn(&delayedColumnReference{colName, df})
 }

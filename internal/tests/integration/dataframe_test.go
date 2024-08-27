@@ -19,6 +19,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/column"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql"
@@ -45,7 +47,7 @@ func TestDataFrame_Select(t *testing.T) {
 
 	df, err = spark.Sql(ctx, "select * from range(100)")
 	assert.NoError(t, err)
-	_, err = df.Select(ctx, df.Col("id2"))
+	_, err = df.Select(ctx, column.OfDF(df, "id2"))
 	assert.Error(t, err)
 }
 
