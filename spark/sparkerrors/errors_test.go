@@ -16,6 +16,7 @@
 package sparkerrors
 
 import (
+	"fmt"
 	"testing"
 
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -47,6 +48,13 @@ func TestNonGRPCErrorsAreConvertedAsWell(t *testing.T) {
 	se := FromRPCError(err)
 	assert.Equal(t, se.Code, codes.Unknown)
 	assert.Equal(t, se.Message, assert.AnError.Error())
+}
+
+func TestStackTracePrint(t *testing.T) {
+	err := WithType(assert.AnError, ConnectionError)
+	errorString := fmt.Sprintf("%+v", err)
+	t.Log(errorString)
+	assert.Contains(t, errorString, "spark-connect-go/spark/sparkerrors/errors_test.go")
 }
 
 func TestErrorDetailsExtractionFromGRPCStatus(t *testing.T) {
