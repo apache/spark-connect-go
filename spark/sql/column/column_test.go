@@ -30,7 +30,7 @@ func TestNewUnresolvedFunction_Basic(t *testing.T) {
 
 	type args struct {
 		name       string
-		arguments  []Expression
+		arguments  []expression
 		isDistinct bool
 	}
 	tests := []struct {
@@ -42,7 +42,7 @@ func TestNewUnresolvedFunction_Basic(t *testing.T) {
 			name: "TestNewUnresolvedWithArguments",
 			args: args{
 				name:       "id",
-				arguments:  []Expression{col1.Expr, col2.Expr},
+				arguments:  []expression{col1.expr, col2.expr},
 				isDistinct: false,
 			},
 			want: &proto.Expression{
@@ -62,7 +62,7 @@ func TestNewUnresolvedFunction_Basic(t *testing.T) {
 			name: "TestNewUnresolvedWithArgumentsEmpty",
 			args: args{
 				name:       "id",
-				arguments:  []Expression{},
+				arguments:  []expression{},
 				isDistinct: true,
 			},
 			want: &proto.Expression{
@@ -318,7 +318,7 @@ func TestColumnFunctions(t *testing.T) {
 			got, err := tt.arg.ToPlan()
 			assert.NoError(t, err)
 			expected := tt.want
-			assert.Equalf(t, expected, got, "Input: %v", tt.arg.Expr.DebugString())
+			assert.Equalf(t, expected, got, "Input: %v", tt.arg.expr.DebugString())
 		})
 	}
 }

@@ -42,7 +42,7 @@ func TestIntegration_RunSQLCommand(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 100, len(res))
 
-	col, err := df.Col("id")
+	col := df.Col("id")
 	assert.NoError(t, err)
 	df, err = df.Filter(col.Lt(functions.Lit(10)))
 	assert.NoError(t, err)

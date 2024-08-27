@@ -55,27 +55,22 @@ type DataFrame interface {
 	// Repartition re-partitions a data frame.
 	Repartition(numPartitions int, columns []string) (DataFrame, error)
 	// RepartitionByRange re-partitions a data frame by range partition.
-	RepartitionByRange(numPartitions int, columns []RangePartitionColumn) (DataFrame, error)
+	RepartitionByRange(numPartitions int, columns ...column.Convertible) (DataFrame, error)
 	// Filter filters the data frame by a column condition.
-	Filter(condition column.Column) (DataFrame, error)
+	Filter(condition column.Convertible) (DataFrame, error)
 	// FilterByString filters the data frame by a string condition.
 	FilterByString(condition string) (DataFrame, error)
 	// Col returns a column by name.
-	Col(name string) (column.Column, error)
+	Col(name string) column.Column
 
 	// Select projects a list of columns from the DataFrame
-	Select(columns ...column.Column) (DataFrame, error)
+	Select(columns ...column.Convertible) (DataFrame, error)
 	// SelectExpr projects a list of columns from the DataFrame by string expressions
 	SelectExpr(exprs ...string) (DataFrame, error)
 	// Alias creates a new DataFrame with the specified subquery alias
 	Alias(alias string) DataFrame
 	// CrossJoin joins the current DataFrame with another DataFrame using the cross product
 	CrossJoin(other DataFrame) DataFrame
-}
-
-type RangePartitionColumn struct {
-	Name       string
-	Descending bool
 }
 
 // dataFrameImpl is an implementation of DataFrame interface.
@@ -305,31 +300,16 @@ func (df *dataFrameImpl) Repartition(numPartitions int, columns []string) (DataF
 	return df.repartitionByExpressions(numPartitions, partitionExpressions)
 }
 
-func (df *dataFrameImpl) RepartitionByRange(numPartitions int, columns []RangePartitionColumn) (DataFrame, error) {
+func (df *dataFrameImpl) RepartitionByRange(numPartitions int, columns ...column.Convertible) (DataFrame, error) {
 	var partitionExpressions []*proto.Expression
 	if columns != nil {
 		partitionExpressions = make([]*proto.Expression, 0, len(columns))
 		for _, c := range columns {
-			columnExpr := &proto.Expression{
-				ExprType: &proto.Expression_UnresolvedAttribute_{
-					UnresolvedAttribute: &proto.Expression_UnresolvedAttribute{
-						UnparsedIdentifier: c.Name,
-					},
-				},
+			expr, err := c.ToPlan()
+			if err != nil {
+				return nil, err
 			}
-			direction := proto.Expression_SortOrder_SORT_DIRECTION_ASCENDING
-			if c.Descending {
-				direction = proto.Expression_SortOrder_SORT_DIRECTION_DESCENDING
-			}
-			sortExpr := &proto.Expression{
-				ExprType: &proto.Expression_SortOrder_{
-					SortOrder: &proto.Expression_SortOrder{
-						Child:     columnExpr,
-						Direction: direction,
-					},
-				},
-			}
-			partitionExpressions = append(partitionExpressions, sortExpr)
+			partitionExpressions = append(partitionExpressions, expr)
 		}
 	}
 	return df.repartitionByExpressions(numPartitions, partitionExpressions)
@@ -367,7 +347,7 @@ func (df *dataFrameImpl) repartitionByExpressions(numPartitions int,
 	return NewDataFrame(df.session, newRelation), nil
 }
 
-func (df *dataFrameImpl) Filter(condition column.Column) (DataFrame, error) {
+func (df *dataFrameImpl) Filter(condition column.Convertible) (DataFrame, error) {
 	cnd, err := condition.ToPlan()
 	if err != nil {
 		return nil, err
@@ -391,12 +371,12 @@ func (df *dataFrameImpl) FilterByString(condition string) (DataFrame, error) {
 	return df.Filter(functions.Expr(condition))
 }
 
-func (df *dataFrameImpl) Col(name string) (column.Column, error) {
+func (df *dataFrameImpl) Col(name string) column.Column {
 	planId := df.relation.Common.GetPlanId()
-	return column.NewColumn(column.NewColumnReferenceWithPlanId(name, planId)), nil
+	return column.NewColumn(column.NewColumnReferenceWithPlanId(name, planId))
 }
 
-func (df *dataFrameImpl) Select(columns ...column.Column) (DataFrame, error) {
+func (df *dataFrameImpl) Select(columns ...column.Convertible) (DataFrame, error) {
 	exprs := make([]*proto.Expression, 0, len(columns))
 	for _, c := range columns {
 		expr, err := c.ToPlan()

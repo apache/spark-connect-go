@@ -28,23 +28,49 @@ func newProtoExpression() *proto.Expression {
 	return &proto.Expression{}
 }
 
-// Expression is the interface for all expressions used by Spark Connect.
-type Expression interface {
+// expression is the interface for all expressions used by Spark Connect.
+type expression interface {
 	ToPlan() (*proto.Expression, error)
 	DebugString() string
 }
 
+type sortExpression struct {
+	child        expression
+	direction    proto.Expression_SortOrder_SortDirection
+	nullOrdering proto.Expression_SortOrder_NullOrdering
+}
+
+func (s *sortExpression) DebugString() string {
+	return s.child.DebugString()
+}
+
+func (s *sortExpression) ToPlan() (*proto.Expression, error) {
+	exp := newProtoExpression()
+	child, err := s.child.ToPlan()
+	if err != nil {
+		return nil, err
+	}
+	exp.ExprType = &proto.Expression_SortOrder_{
+		SortOrder: &proto.Expression_SortOrder{
+			Child:        child,
+			Direction:    s.direction,
+			NullOrdering: s.nullOrdering,
+		},
+	}
+	return exp, nil
+}
+
 type caseWhenExpression struct {
 	branches []*caseWhenBranch
-	elseExpr Expression
+	elseExpr expression
 }
 
 type caseWhenBranch struct {
-	condition Expression
-	value     Expression
+	condition expression
+	value     expression
 }
 
-func NewCaseWhenExpression(branches []*caseWhenBranch, elseExpr Expression) Expression {
+func NewCaseWhenExpression(branches []*caseWhenBranch, elseExpr expression) expression {
 	return &caseWhenExpression{branches: branches, elseExpr: elseExpr}
 }
 
@@ -64,7 +90,7 @@ func (c *caseWhenExpression) DebugString() string {
 }
 
 func (c *caseWhenExpression) ToPlan() (*proto.Expression, error) {
-	args := make([]Expression, 0)
+	args := make([]expression, 0)
 	for _, branch := range c.branches {
 		args = append(args, branch.condition)
 		args = append(args, branch.value)
@@ -80,7 +106,7 @@ func (c *caseWhenExpression) ToPlan() (*proto.Expression, error) {
 
 type unresolvedFunction struct {
 	name       string
-	args       []Expression
+	args       []expression
 	isDistinct bool
 }
 
@@ -99,7 +125,7 @@ func (u *unresolvedFunction) DebugString() string {
 }
 
 func (u *unresolvedFunction) ToPlan() (*proto.Expression, error) {
-	// Convert input args to the proto Expression.
+	// Convert input args to the proto expression.
 	var args []*proto.Expression = nil
 	if len(u.args) > 0 {
 		args = make([]*proto.Expression, 0)
@@ -123,29 +149,29 @@ func (u *unresolvedFunction) ToPlan() (*proto.Expression, error) {
 	return expr, nil
 }
 
-func NewUnresolvedFunction(name string, args []Expression, isDistinct bool) Expression {
+func NewUnresolvedFunction(name string, args []expression, isDistinct bool) expression {
 	return &unresolvedFunction{name: name, args: args, isDistinct: isDistinct}
 }
 
-func NewUnresolvedFunctionWithColumns(name string, cols ...Column) Expression {
-	exprs := make([]Expression, 0)
+func NewUnresolvedFunctionWithColumns(name string, cols ...Column) expression {
+	exprs := make([]expression, 0)
 	for _, col := range cols {
-		exprs = append(exprs, col.Expr)
+		exprs = append(exprs, col.expr)
 	}
 	return NewUnresolvedFunction(name, exprs, false)
 }
 
 type columnAlias struct {
 	alias    []string
-	expr     Expression
+	expr     expression
 	metadata *string
 }
 
-func NewColumnAlias(alias string, expr Expression) Expression {
+func NewColumnAlias(alias string, expr expression) expression {
 	return &columnAlias{alias: []string{alias}, expr: expr}
 }
 
-func NewColumnAliasFromNameParts(alias []string, expr Expression) Expression {
+func NewColumnAliasFromNameParts(alias []string, expr expression) expression {
 	return &columnAlias{alias: alias, expr: expr}
 }
 
@@ -176,11 +202,11 @@ type columnReference struct {
 	planId             *int64
 }
 
-func NewColumnReference(unparsedIdentifier string) Expression {
+func NewColumnReference(unparsedIdentifier string) expression {
 	return &columnReference{unparsedIdentifier: unparsedIdentifier}
 }
 
-func NewColumnReferenceWithPlanId(unparsedIdentifier string, planId int64) Expression {
+func NewColumnReferenceWithPlanId(unparsedIdentifier string, planId int64) expression {
 	return &columnReference{unparsedIdentifier: unparsedIdentifier, planId: &planId}
 }
 
@@ -203,7 +229,7 @@ type sqlExression struct {
 	expression_string string
 }
 
-func NewSQLExpression(expression string) Expression {
+func NewSQLExpression(expression string) expression {
 	return &sqlExression{expression_string: expression}
 }
 
@@ -268,6 +294,6 @@ func (l *literalExpression) ToPlan() (*proto.Expression, error) {
 	return expr, nil
 }
 
-func NewLiteral(value any) Expression {
+func NewLiteral(value any) expression {
 	return &literalExpression{value: value}
 }

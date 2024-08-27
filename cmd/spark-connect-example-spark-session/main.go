@@ -190,12 +190,7 @@ func main() {
 	}
 
 	log.Printf("Repartition by range with columns")
-	df, err = df.RepartitionByRange(0, []sql.RangePartitionColumn{
-		{
-			Name:       "word",
-			Descending: true,
-		},
-	})
+	df, err = df.RepartitionByRange(0, functions.Col("word").Desc())
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}

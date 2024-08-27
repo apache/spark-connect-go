@@ -28,7 +28,7 @@ func TestNewUnresolvedFunction(t *testing.T) {
 	colRefPlan, _ := colRef.ToPlan()
 	type args struct {
 		name       string
-		arguments  []Expression
+		arguments  []expression
 		isDistinct bool
 	}
 	tests := []struct {
@@ -56,7 +56,7 @@ func TestNewUnresolvedFunction(t *testing.T) {
 			name: "TestNewUnresolvedWithArguments",
 			args: args{
 				name:       "id",
-				arguments:  []Expression{colRef},
+				arguments:  []expression{colRef},
 				isDistinct: false,
 			},
 			want: &proto.Expression{
