@@ -13,9 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package column
+package sql
 
 import (
+	"context"
 	"testing"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
@@ -23,10 +24,11 @@ import (
 )
 
 func TestNewUnresolvedFunction_Basic(t *testing.T) {
+	ctx := context.Background()
 	col1 := NewColumn(NewColumnReference("col1"))
 	col2 := NewColumn(NewColumnReference("col2"))
-	col1Plan, _ := col1.ToPlan()
-	col2Plan, _ := col2.ToPlan()
+	col1Plan, _ := col1.ToPlan(ctx)
+	col2Plan, _ := col2.ToPlan(ctx)
 
 	type args struct {
 		name       string
@@ -79,7 +81,7 @@ func TestNewUnresolvedFunction_Basic(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewUnresolvedFunction(tt.args.name, tt.args.arguments, tt.args.isDistinct)
 			expected := tt.want
-			p, err := got.ToPlan()
+			p, err := got.ToPlan(ctx)
 			assert.NoError(t, err)
 			assert.Equalf(t, expected, p, "Input: %v", tt.args)
 		})
@@ -315,7 +317,7 @@ func TestColumnFunctions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.arg.ToPlan()
+			got, err := tt.arg.ToPlan(context.Background())
 			assert.NoError(t, err)
 			expected := tt.want
 			assert.Equalf(t, expected, got, "Input: %v", tt.arg.expr.DebugString())

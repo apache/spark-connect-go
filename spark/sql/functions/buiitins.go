@@ -15,16 +15,16 @@
 
 package functions
 
-import "github.com/apache/spark-connect-go/v35/spark/sql/column"
+import "github.com/apache/spark-connect-go/v35/spark/sql"
 
-func Expr(expr string) column.Column {
-	return column.NewColumn(column.NewSQLExpression(expr))
+func Expr(expr string) sql.Column {
+	return sql.NewColumn(sql.NewSQLExpression(expr))
 }
 
-func Col(name string) column.Column {
-	return column.NewColumn(column.NewColumnReference(name))
+func Col(name string) sql.Column {
+	return sql.NewColumn(sql.NewColumnReference(name))
 }
 
-func Lit(value any) column.Column {
-	return column.NewColumn(column.NewLiteral(value))
+func Lit(value any) sql.Column {
+	return sql.NewColumn(sql.NewLiteral(value))
 }

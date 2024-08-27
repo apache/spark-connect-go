@@ -13,9 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package column
+package sql
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -25,7 +26,7 @@ import (
 
 func TestNewUnresolvedFunction(t *testing.T) {
 	colRef := NewColumnReference("martin")
-	colRefPlan, _ := colRef.ToPlan()
+	colRefPlan, _ := colRef.ToPlan(context.Background())
 	type args struct {
 		name       string
 		arguments  []expression
@@ -74,7 +75,8 @@ func TestNewUnresolvedFunction(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewUnresolvedFunction(tt.args.name, tt.args.arguments, tt.args.isDistinct).ToPlan()
+			got, err := NewUnresolvedFunction(tt.args.name, tt.args.arguments,
+				tt.args.isDistinct).ToPlan(context.Background())
 			assert.NoError(t, err)
 			if !reflect.DeepEqual(got, tt.want) {
 				assert.Equal(t, tt.want, got)
@@ -86,7 +88,7 @@ func TestNewUnresolvedFunction(t *testing.T) {
 
 func TestNewUnresolvedFunctionWithColumns(t *testing.T) {
 	colRef := NewColumn(NewColumnReference("martin"))
-	colRefPlan, _ := colRef.ToPlan()
+	colRefPlan, _ := colRef.ToPlan(context.Background())
 
 	type args struct {
 		name      string
@@ -153,7 +155,8 @@ func TestNewUnresolvedFunctionWithColumns(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewUnresolvedFunctionWithColumns(tt.args.name, tt.args.arguments...).ToPlan()
+			got, err := NewUnresolvedFunctionWithColumns(tt.args.name,
+				tt.args.arguments...).ToPlan(context.Background())
 			assert.NoError(t, err)
 			if !reflect.DeepEqual(got, tt.want) {
 				assert.Equal(t, tt.want, got)
@@ -193,9 +196,9 @@ func TestNewSQLExpression(t *testing.T) {
 
 func TestColumnAlias_Basic(t *testing.T) {
 	colRef := NewColumnReference("column")
-	colRefPlan, _ := colRef.ToPlan()
+	colRefPlan, _ := colRef.ToPlan(context.Background())
 	colAlias := NewColumnAlias("martin", colRef)
-	colAliasPlan, _ := colAlias.ToPlan()
+	colAliasPlan, _ := colAlias.ToPlan(context.Background())
 	assert.Equal(t, colRefPlan, colAliasPlan.GetAlias().GetExpr())
 
 	// Test the debug string:

@@ -13,21 +13,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package column
+package sql
 
-import proto "github.com/apache/spark-connect-go/v35/internal/generated"
+import (
+	"context"
+
+	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+)
 
 // Convertible is the interface for all things that can be converted into a protobuf expression.
 type Convertible interface {
-	ToPlan() (*proto.Expression, error)
+	ToPlan(ctx context.Context) (*proto.Expression, error)
 }
 
 type Column struct {
 	expr expression
 }
 
-func (c Column) ToPlan() (*proto.Expression, error) {
-	return c.expr.ToPlan()
+func (c Column) ToPlan(ctx context.Context) (*proto.Expression, error) {
+	return c.expr.ToPlan(ctx)
 }
 
 func (c Column) Lt(other Column) Column {
@@ -64,14 +68,16 @@ func (c Column) Div(other Column) Column {
 }
 
 func (c Column) Desc() Column {
-	return NewColumn(&sortExpression{child: c.expr,
+	return NewColumn(&sortExpression{
+		child:        c.expr,
 		direction:    proto.Expression_SortOrder_SORT_DIRECTION_DESCENDING,
 		nullOrdering: proto.Expression_SortOrder_SORT_NULLS_LAST,
 	})
 }
 
 func (c Column) Asc() Column {
-	return NewColumn(&sortExpression{child: c.expr,
+	return NewColumn(&sortExpression{
+		child:        c.expr,
 		direction:    proto.Expression_SortOrder_SORT_DIRECTION_ASCENDING,
 		nullOrdering: proto.Expression_SortOrder_SORT_NULLS_FIRST,
 	})

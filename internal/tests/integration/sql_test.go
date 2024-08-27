@@ -21,10 +21,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql"
-	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,7 +45,7 @@ func TestIntegration_RunSQLCommand(t *testing.T) {
 
 	col := df.Col("id")
 	assert.NoError(t, err)
-	df, err = df.Filter(col.Lt(functions.Lit(10)))
+	df, err = df.Filter(ctx, col.Lt(functions.Lit(10)))
 	assert.NoError(t, err)
 	res, err = df.Collect(ctx)
 	assert.NoErrorf(t, err, "Must be able to collect the rows.")
