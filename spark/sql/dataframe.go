@@ -69,6 +69,9 @@ type DataFrame interface {
 	Alias(ctx context.Context, alias string) DataFrame
 	// CrossJoin joins the current DataFrame with another DataFrame using the cross product
 	CrossJoin(ctx context.Context, other DataFrame) DataFrame
+	// GroupBy groups the DataFrame by the spcified columns so that the aggregation
+	// can be performed on them. See GroupedData for all the available aggregate functions.
+	GroupBy(cols ...column.Convertible) *GroupedData
 }
 
 // dataFrameImpl is an implementation of DataFrame interface.
@@ -395,4 +398,14 @@ func (df *dataFrameImpl) Select(ctx context.Context, columns ...column.Convertib
 		},
 	}
 	return NewDataFrame(df.session, rel), nil
+}
+
+// GroupBy groups the DataFrame by the specified columns so that aggregation
+// can be performed on them. See GroupedData for all the available aggregate functions.
+func (df *dataFrameImpl) GroupBy(cols ...column.Convertible) *GroupedData {
+	return &GroupedData{
+		df:           *df,
+		groupingCols: cols,
+		groupType:    "groupby",
+	}
 }

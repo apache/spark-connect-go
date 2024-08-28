@@ -85,6 +85,10 @@ func (c Column) Asc() Column {
 	})
 }
 
+func (c Column) Alias(alias string) Column {
+	return NewColumn(NewColumnAlias(alias, c.expr))
+}
+
 func NewColumn(expr expression) Column {
 	return Column{
 		expr: expr,

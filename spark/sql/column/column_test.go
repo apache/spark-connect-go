@@ -92,11 +92,25 @@ func TestColumnFunctions(t *testing.T) {
 	col1 := NewColumn(NewColumnReference("col1"))
 	col2 := NewColumn(NewColumnReference("col2"))
 
+	col1Plan, _ := col1.ToProto(context.Background())
+
 	tests := []struct {
 		name string
 		arg  Column
 		want *proto.Expression
 	}{
+		{
+			name: "TestColumnAlias",
+			arg:  NewColumn(NewColumnAlias("alias", col1.expr)),
+			want: &proto.Expression{
+				ExprType: &proto.Expression_Alias_{
+					Alias: &proto.Expression_Alias{
+						Expr: col1Plan,
+						Name: []string{"alias"},
+					},
+				},
+			},
+		},
 		{
 			name: "TestNewUnresolvedFunction",
 			arg:  NewColumn(NewUnresolvedFunction("id", nil, false)),

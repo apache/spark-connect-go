@@ -1,4 +1,3 @@
-//
 // Licensed to the Apache Software Foundation (ASF) under one or more
 // contributor license agreements.  See the NOTICE file distributed with
 // this work for additional information regarding copyright ownership.
@@ -6,7 +5,7 @@
 // (the "License"); you may not use this file except in compliance with
 // the License.  You may obtain a copy of the License at
 //
-//    http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,36 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sql
+package integration
 
 import (
 	"context"
-	"testing"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
-	"github.com/stretchr/testify/assert"
+	"github.com/apache/spark-connect-go/v35/spark/sql"
 )
 
-func TestDataFrameImpl_GroupBy(t *testing.T) {
+func connect() (context.Context, sql.SparkSession) {
 	ctx := context.Background()
-	rel := &proto.Relation{
-		RelType: &proto.Relation_Range{
-			Range: &proto.Range{
-				End:  10,
-				Step: 1,
-			},
-		},
+	spark, err := sql.NewSessionBuilder().Remote("sc://localhost").Build(ctx)
+	if err != nil {
+		panic(err)
 	}
-	df := NewDataFrame(nil, rel)
-	gd := df.GroupBy(functions.Col("id"))
-	assert.NotNil(t, gd)
-
-	assert.Equal(t, gd.groupType, "groupby")
-
-	df, err := gd.Agg(ctx, functions.Count(functions.Lit(1)))
-	assert.Nil(t, err)
-	impl := df.(*dataFrameImpl)
-	assert.NotNil(t, impl)
-	assert.IsType(t, impl.relation.RelType, &proto.Relation_Aggregate{})
+	return ctx, spark
 }
