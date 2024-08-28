@@ -18,9 +18,10 @@ package sparkerrors
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io"
 
+	"github.com/go-errors/errors"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -28,7 +29,7 @@ import (
 
 type wrappedError struct {
 	errorType error
-	cause     error
+	cause     *errors.Error
 }
 
 func (w *wrappedError) Unwrap() []error {
@@ -36,16 +37,16 @@ func (w *wrappedError) Unwrap() []error {
 }
 
 func (w *wrappedError) Error() string {
-	return fmt.Sprintf("%s: %s", w.errorType, w.cause)
+	return fmt.Sprintf("%s", w)
 }
 
 // WithType wraps an error with a type that can later be checked using `errors.Is`
 func WithType(err error, errType errorType) error {
-	return &wrappedError{cause: err, errorType: errType}
+	return &wrappedError{cause: errors.Wrap(err, 1), errorType: errType}
 }
 
 func WithString(err error, errMsg string) error {
-	return &wrappedError{cause: err, errorType: errors.New(errMsg)}
+	return &wrappedError{cause: errors.Wrap(err, 1), errorType: errors.New(errMsg)}
 }
 
 type errorType error
@@ -60,6 +61,24 @@ var (
 	InvalidServerSideSessionError = errorType(errors.New("invalid server side session"))
 	TestSetupError                = errorType(errors.New("test setup error"))
 )
+
+// Format formats the error, supporting both short forms (v, s, q) and verbose form (+v)
+func (w *wrappedError) Format(s fmt.State, verb rune) {
+	switch verb {
+	case 'v':
+		if s.Flag('+') {
+			_, _ = io.WriteString(s, "[sparkerror] ")
+			_, _ = io.WriteString(s, fmt.Sprintf("Error Type: %s\n", w.errorType.Error()))
+			_, _ = io.WriteString(s, fmt.Sprintf("Error Cause: %s\n%s", w.cause.Err.Error(), w.cause.Stack()))
+			return
+		}
+		fallthrough
+	case 's':
+		_, _ = io.WriteString(s, fmt.Sprintf("%s: %s", w.errorType, w.cause))
+	case 'q':
+		_, _ = fmt.Fprintf(s, "%q", w.errorType.Error())
+	}
+}
 
 type UnsupportedResponseTypeError struct {
 	ResponseType interface{}
