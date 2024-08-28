@@ -15,73 +15,87 @@
 
 package column
 
-import proto "github.com/apache/spark-connect-go/v35/internal/generated"
+import (
+	"context"
 
-type Column interface {
-	ToPlan() (*proto.Expression, error)
-	Expr() Expression
-	Lt(other Column) Column
-	Le(other Column) Column
-	Gt(other Column) Column
-	Ge(other Column) Column
-	Eq(other Column) Column
-	Neq(other Column) Column
-	Mul(other Column) Column
-	Div(other Column) Column
-	Alias(alias string) Column
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+
+	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+)
+
+// Convertible is the interface for all things that can be converted into a protobuf expression.
+type Convertible interface {
+	ToProto(ctx context.Context) (*proto.Expression, error)
 }
 
-type columnImpl struct {
-	expr Expression
+type Column struct {
+	expr expression
 }
 
-func (c *columnImpl) ToPlan() (*proto.Expression, error) {
-	return c.expr.ToPlan()
+func (c Column) ToProto(ctx context.Context) (*proto.Expression, error) {
+	return c.expr.ToProto(ctx)
 }
 
-func (c *columnImpl) Expr() Expression {
-	return c.expr
+func (c Column) Lt(other Column) Column {
+	return NewColumn(NewUnresolvedFunction("<", []expression{c.expr, other.expr}, false))
 }
 
-func (c columnImpl) Lt(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("<", []Expression{c.expr, other.Expr()}, false))
+func (c Column) Le(other Column) Column {
+	return NewColumn(NewUnresolvedFunction("<=", []expression{c.expr, other.expr}, false))
 }
 
-func (c columnImpl) Le(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("<=", []Expression{c.expr, other.Expr()}, false))
+func (c Column) Gt(other Column) Column {
+	return NewColumn(NewUnresolvedFunction(">", []expression{c.expr, other.expr}, false))
 }
 
-func (c columnImpl) Gt(other Column) Column {
-	return NewColumn(NewUnresolvedFunction(">", []Expression{c.expr, other.Expr()}, false))
+func (c Column) Ge(other Column) Column {
+	return NewColumn(NewUnresolvedFunction(">=", []expression{c.expr, other.expr}, false))
 }
 
-func (c columnImpl) Ge(other Column) Column {
-	return NewColumn(NewUnresolvedFunction(">=", []Expression{c.expr, other.Expr()}, false))
+func (c Column) Eq(other Column) Column {
+	return NewColumn(NewUnresolvedFunction("==", []expression{c.expr, other.expr}, false))
 }
 
-func (c columnImpl) Eq(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("==", []Expression{c.expr, other.Expr()}, false))
+func (c Column) Neq(other Column) Column {
+	cmp := NewUnresolvedFunction("==", []expression{c.expr, other.expr}, false)
+	return NewColumn(NewUnresolvedFunction("not", []expression{cmp}, false))
 }
 
-func (c columnImpl) Neq(other Column) Column {
-	cmp := NewUnresolvedFunction("==", []Expression{c.expr, other.Expr()}, false)
-	return NewColumn(NewUnresolvedFunction("not", []Expression{cmp}, false))
+func (c Column) Mul(other Column) Column {
+	return NewColumn(NewUnresolvedFunction("*", []expression{c.expr, other.expr}, false))
 }
 
-func (c columnImpl) Mul(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("*", []Expression{c.expr, other.Expr()}, false))
+func (c Column) Div(other Column) Column {
+	return NewColumn(NewUnresolvedFunction("/", []expression{c.expr, other.expr}, false))
 }
 
-func (c columnImpl) Div(other Column) Column {
-	return NewColumn(NewUnresolvedFunction("/", []Expression{c.expr, other.Expr()}, false))
+func (c Column) Desc() Column {
+	return NewColumn(&sortExpression{
+		child:        c.expr,
+		direction:    proto.Expression_SortOrder_SORT_DIRECTION_DESCENDING,
+		nullOrdering: proto.Expression_SortOrder_SORT_NULLS_LAST,
+	})
 }
 
-func (c columnImpl) Alias(alias string) Column {
-	return NewColumn(NewColumnAlias(alias, c.expr))
+func (c Column) Asc() Column {
+	return NewColumn(&sortExpression{
+		child:        c.expr,
+		direction:    proto.Expression_SortOrder_SORT_DIRECTION_ASCENDING,
+		nullOrdering: proto.Expression_SortOrder_SORT_NULLS_FIRST,
+	})
 }
 
-func NewColumn(expr Expression) Column {
-	return &columnImpl{
+func NewColumn(expr expression) Column {
+	return Column{
 		expr: expr,
 	}
+}
+
+type SchemaDataFrame interface {
+	PlanId() int64
+	Schema(ctx context.Context) (*types.StructType, error)
+}
+
+func OfDF(df SchemaDataFrame, colName string) Column {
+	return NewColumn(&delayedColumnReference{colName, df})
 }

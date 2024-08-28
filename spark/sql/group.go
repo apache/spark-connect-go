@@ -28,7 +28,7 @@ import (
 type GroupedData struct {
 	df           dataFrameImpl
 	groupType    string
-	groupingCols []column.Column
+	groupingCols []column.Convertible
 	pivotValues  []any
 	// groupingSets [][]column.Column
 }

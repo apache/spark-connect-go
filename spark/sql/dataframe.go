@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql/column"
-	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 
@@ -37,6 +36,8 @@ type ResultCollector interface {
 
 // DataFrame is a wrapper for data frame, representing a distributed collection of data row.
 type DataFrame interface {
+	// PlanId returns the plan id of the data frame.
+	PlanId() int64
 	// WriteResult streams the data frames to a result collector
 	WriteResult(ctx context.Context, collector ResultCollector, numRows int, truncate bool) error
 	// Show uses WriteResult to write the data frames to the console output.
@@ -53,31 +54,24 @@ type DataFrame interface {
 	// CreateTempView creates or replaces a temporary view.
 	CreateTempView(ctx context.Context, viewName string, replace, global bool) error
 	// Repartition re-partitions a data frame.
-	Repartition(numPartitions int, columns []string) (DataFrame, error)
+	Repartition(ctx context.Context, numPartitions int, columns []string) (DataFrame, error)
 	// RepartitionByRange re-partitions a data frame by range partition.
-	RepartitionByRange(numPartitions int, columns []RangePartitionColumn) (DataFrame, error)
+	RepartitionByRange(ctx context.Context, numPartitions int, columns ...column.Convertible) (DataFrame, error)
 	// Filter filters the data frame by a column condition.
-	Filter(condition column.Column) (DataFrame, error)
+	Filter(ctx context.Context, condition column.Convertible) (DataFrame, error)
 	// FilterByString filters the data frame by a string condition.
-	FilterByString(condition string) (DataFrame, error)
-	// Col returns a column by name.
-	Col(name string) (column.Column, error)
+	FilterByString(ctx context.Context, condition string) (DataFrame, error)
 	// Select projects a list of columns from the DataFrame
-	Select(columns ...column.Column) (DataFrame, error)
+	Select(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
 	// SelectExpr projects a list of columns from the DataFrame by string expressions
-	SelectExpr(exprs ...string) (DataFrame, error)
+	SelectExpr(ctx context.Context, exprs ...string) (DataFrame, error)
 	// Alias creates a new DataFrame with the specified subquery alias
-	Alias(alias string) DataFrame
+	Alias(ctx context.Context, alias string) DataFrame
 	// CrossJoin joins the current DataFrame with another DataFrame using the cross product
-	CrossJoin(other DataFrame) DataFrame
+	CrossJoin(ctx context.Context, other DataFrame) DataFrame
 	// GroupBy groups the DataFrame by the spcified columns so that the aggregation
 	// can be performed on them. See GroupedData for all the available aggregate functions.
-	GroupBy(cols ...column.Column) *GroupedData
-}
-
-type RangePartitionColumn struct {
-	Name       string
-	Descending bool
+	GroupBy(cols ...column.Convertible) *GroupedData
 }
 
 // dataFrameImpl is an implementation of DataFrame interface.
@@ -86,11 +80,15 @@ type dataFrameImpl struct {
 	relation *proto.Relation // TODO change to proto.Plan?
 }
 
-func (df *dataFrameImpl) SelectExpr(exprs ...string) (DataFrame, error) {
+func (df *dataFrameImpl) PlanId() int64 {
+	return df.relation.GetCommon().GetPlanId()
+}
+
+func (df *dataFrameImpl) SelectExpr(ctx context.Context, exprs ...string) (DataFrame, error) {
 	expressions := make([]*proto.Expression, 0, len(exprs))
 	for _, expr := range exprs {
-		col := functions.Expr(expr)
-		f, e := col.ToPlan()
+		col := column.NewSQLExpression(expr)
+		f, e := col.ToProto(ctx)
 		if e != nil {
 			return nil, e
 		}
@@ -111,7 +109,7 @@ func (df *dataFrameImpl) SelectExpr(exprs ...string) (DataFrame, error) {
 	return NewDataFrame(df.session, rel), nil
 }
 
-func (df *dataFrameImpl) Alias(alias string) DataFrame {
+func (df *dataFrameImpl) Alias(ctx context.Context, alias string) DataFrame {
 	rel := &proto.Relation{
 		Common: &proto.RelationCommon{
 			PlanId: newPlanId(),
@@ -126,7 +124,7 @@ func (df *dataFrameImpl) Alias(alias string) DataFrame {
 	return NewDataFrame(df.session, rel)
 }
 
-func (df *dataFrameImpl) CrossJoin(other DataFrame) DataFrame {
+func (df *dataFrameImpl) CrossJoin(ctx context.Context, other DataFrame) DataFrame {
 	otherDf := other.(*dataFrameImpl)
 	rel := &proto.Relation{
 		Common: &proto.RelationCommon{
@@ -289,7 +287,7 @@ func (df *dataFrameImpl) CreateTempView(ctx context.Context, viewName string, re
 	return err
 }
 
-func (df *dataFrameImpl) Repartition(numPartitions int, columns []string) (DataFrame, error) {
+func (df *dataFrameImpl) Repartition(ctx context.Context, numPartitions int, columns []string) (DataFrame, error) {
 	var partitionExpressions []*proto.Expression
 	if columns != nil {
 		partitionExpressions = make([]*proto.Expression, 0, len(columns))
@@ -307,31 +305,16 @@ func (df *dataFrameImpl) Repartition(numPartitions int, columns []string) (DataF
 	return df.repartitionByExpressions(numPartitions, partitionExpressions)
 }
 
-func (df *dataFrameImpl) RepartitionByRange(numPartitions int, columns []RangePartitionColumn) (DataFrame, error) {
+func (df *dataFrameImpl) RepartitionByRange(ctx context.Context, numPartitions int, columns ...column.Convertible) (DataFrame, error) {
 	var partitionExpressions []*proto.Expression
 	if columns != nil {
 		partitionExpressions = make([]*proto.Expression, 0, len(columns))
 		for _, c := range columns {
-			columnExpr := &proto.Expression{
-				ExprType: &proto.Expression_UnresolvedAttribute_{
-					UnresolvedAttribute: &proto.Expression_UnresolvedAttribute{
-						UnparsedIdentifier: c.Name,
-					},
-				},
+			expr, err := c.ToProto(ctx)
+			if err != nil {
+				return nil, err
 			}
-			direction := proto.Expression_SortOrder_SORT_DIRECTION_ASCENDING
-			if c.Descending {
-				direction = proto.Expression_SortOrder_SORT_DIRECTION_DESCENDING
-			}
-			sortExpr := &proto.Expression{
-				ExprType: &proto.Expression_SortOrder_{
-					SortOrder: &proto.Expression_SortOrder{
-						Child:     columnExpr,
-						Direction: direction,
-					},
-				},
-			}
-			partitionExpressions = append(partitionExpressions, sortExpr)
+			partitionExpressions = append(partitionExpressions, expr)
 		}
 	}
 	return df.repartitionByExpressions(numPartitions, partitionExpressions)
@@ -369,8 +352,8 @@ func (df *dataFrameImpl) repartitionByExpressions(numPartitions int,
 	return NewDataFrame(df.session, newRelation), nil
 }
 
-func (df *dataFrameImpl) Filter(condition column.Column) (DataFrame, error) {
-	cnd, err := condition.ToPlan()
+func (df *dataFrameImpl) Filter(ctx context.Context, condition column.Convertible) (DataFrame, error) {
+	cnd, err := condition.ToProto(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -389,19 +372,14 @@ func (df *dataFrameImpl) Filter(condition column.Column) (DataFrame, error) {
 	return NewDataFrame(df.session, rel), nil
 }
 
-func (df *dataFrameImpl) FilterByString(condition string) (DataFrame, error) {
-	return df.Filter(functions.Expr(condition))
+func (df *dataFrameImpl) FilterByString(ctx context.Context, condition string) (DataFrame, error) {
+	return df.Filter(ctx, column.NewColumn(column.NewSQLExpression(condition)))
 }
 
-func (df *dataFrameImpl) Col(name string) (column.Column, error) {
-	planId := df.relation.Common.GetPlanId()
-	return column.NewColumn(column.NewColumnReferenceWithPlanId(name, planId)), nil
-}
-
-func (df *dataFrameImpl) Select(columns ...column.Column) (DataFrame, error) {
+func (df *dataFrameImpl) Select(ctx context.Context, columns ...column.Convertible) (DataFrame, error) {
 	exprs := make([]*proto.Expression, 0, len(columns))
 	for _, c := range columns {
-		expr, err := c.ToPlan()
+		expr, err := c.ToProto(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -424,7 +402,7 @@ func (df *dataFrameImpl) Select(columns ...column.Column) (DataFrame, error) {
 
 // GroupBy groups the DataFrame by the specified columns so that aggregation
 // can be performed on them. See GroupedData for all the available aggregate functions.
-func (df *dataFrameImpl) GroupBy(cols ...column.Column) *GroupedData {
+func (df *dataFrameImpl) GroupBy(cols ...column.Convertible) *GroupedData {
 	return &GroupedData{
 		df:           *df,
 		groupingCols: cols,

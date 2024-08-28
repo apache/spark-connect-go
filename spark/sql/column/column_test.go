@@ -16,6 +16,7 @@
 package column
 
 import (
+	"context"
 	"testing"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
@@ -23,14 +24,15 @@ import (
 )
 
 func TestNewUnresolvedFunction_Basic(t *testing.T) {
+	ctx := context.Background()
 	col1 := NewColumn(NewColumnReference("col1"))
 	col2 := NewColumn(NewColumnReference("col2"))
-	col1Plan, _ := col1.ToPlan()
-	col2Plan, _ := col2.ToPlan()
+	col1Plan, _ := col1.ToProto(ctx)
+	col2Plan, _ := col2.ToProto(ctx)
 
 	type args struct {
 		name       string
-		arguments  []Expression
+		arguments  []expression
 		isDistinct bool
 	}
 	tests := []struct {
@@ -42,7 +44,7 @@ func TestNewUnresolvedFunction_Basic(t *testing.T) {
 			name: "TestNewUnresolvedWithArguments",
 			args: args{
 				name:       "id",
-				arguments:  []Expression{col1.Expr(), col2.Expr()},
+				arguments:  []expression{col1.expr, col2.expr},
 				isDistinct: false,
 			},
 			want: &proto.Expression{
@@ -62,7 +64,7 @@ func TestNewUnresolvedFunction_Basic(t *testing.T) {
 			name: "TestNewUnresolvedWithArgumentsEmpty",
 			args: args{
 				name:       "id",
-				arguments:  []Expression{},
+				arguments:  []expression{},
 				isDistinct: true,
 			},
 			want: &proto.Expression{
@@ -79,7 +81,7 @@ func TestNewUnresolvedFunction_Basic(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewUnresolvedFunction(tt.args.name, tt.args.arguments, tt.args.isDistinct)
 			expected := tt.want
-			p, err := got.ToPlan()
+			p, err := got.ToProto(ctx)
 			assert.NoError(t, err)
 			assert.Equalf(t, expected, p, "Input: %v", tt.args)
 		})
@@ -90,7 +92,7 @@ func TestColumnFunctions(t *testing.T) {
 	col1 := NewColumn(NewColumnReference("col1"))
 	col2 := NewColumn(NewColumnReference("col2"))
 
-	col1Plan, _ := col1.ToPlan()
+	col1Plan, _ := col1.ToProto(context.Background())
 
 	tests := []struct {
 		name string
@@ -99,7 +101,7 @@ func TestColumnFunctions(t *testing.T) {
 	}{
 		{
 			name: "TestColumnAlias",
-			arg:  NewColumn(NewColumnAlias("alias", col1.Expr())),
+			arg:  NewColumn(NewColumnAlias("alias", col1.expr)),
 			want: &proto.Expression{
 				ExprType: &proto.Expression_Alias_{
 					Alias: &proto.Expression_Alias{
@@ -329,10 +331,10 @@ func TestColumnFunctions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.arg.ToPlan()
+			got, err := tt.arg.ToProto(context.Background())
 			assert.NoError(t, err)
 			expected := tt.want
-			assert.Equalf(t, expected, got, "Input: %v", tt.arg.Expr().DebugString())
+			assert.Equalf(t, expected, got, "Input: %v", tt.arg.expr.DebugString())
 		})
 	}
 }

@@ -16,6 +16,7 @@
 package column
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
@@ -25,10 +26,10 @@ import (
 
 func TestNewUnresolvedFunction(t *testing.T) {
 	colRef := NewColumnReference("martin")
-	colRefPlan, _ := colRef.ToPlan()
+	colRefPlan, _ := colRef.ToProto(context.Background())
 	type args struct {
 		name       string
-		arguments  []Expression
+		arguments  []expression
 		isDistinct bool
 	}
 	tests := []struct {
@@ -56,7 +57,7 @@ func TestNewUnresolvedFunction(t *testing.T) {
 			name: "TestNewUnresolvedWithArguments",
 			args: args{
 				name:       "id",
-				arguments:  []Expression{colRef},
+				arguments:  []expression{colRef},
 				isDistinct: false,
 			},
 			want: &proto.Expression{
@@ -74,7 +75,8 @@ func TestNewUnresolvedFunction(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewUnresolvedFunction(tt.args.name, tt.args.arguments, tt.args.isDistinct).ToPlan()
+			got, err := NewUnresolvedFunction(tt.args.name, tt.args.arguments,
+				tt.args.isDistinct).ToProto(context.Background())
 			assert.NoError(t, err)
 			if !reflect.DeepEqual(got, tt.want) {
 				assert.Equal(t, tt.want, got)
@@ -86,7 +88,7 @@ func TestNewUnresolvedFunction(t *testing.T) {
 
 func TestNewUnresolvedFunctionWithColumns(t *testing.T) {
 	colRef := NewColumn(NewColumnReference("martin"))
-	colRefPlan, _ := colRef.ToPlan()
+	colRefPlan, _ := colRef.ToProto(context.Background())
 
 	type args struct {
 		name      string
@@ -153,7 +155,8 @@ func TestNewUnresolvedFunctionWithColumns(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewUnresolvedFunctionWithColumns(tt.args.name, tt.args.arguments...).ToPlan()
+			got, err := NewUnresolvedFunctionWithColumns(tt.args.name,
+				tt.args.arguments...).ToProto(context.Background())
 			assert.NoError(t, err)
 			if !reflect.DeepEqual(got, tt.want) {
 				assert.Equal(t, tt.want, got)
@@ -193,9 +196,9 @@ func TestNewSQLExpression(t *testing.T) {
 
 func TestColumnAlias_Basic(t *testing.T) {
 	colRef := NewColumnReference("column")
-	colRefPlan, _ := colRef.ToPlan()
+	colRefPlan, _ := colRef.ToProto(context.Background())
 	colAlias := NewColumnAlias("martin", colRef)
-	colAliasPlan, _ := colAlias.ToPlan()
+	colAliasPlan, _ := colAlias.ToProto(context.Background())
 	assert.Equal(t, colRefPlan, colAliasPlan.GetAlias().GetExpr())
 
 	// Test the debug string:

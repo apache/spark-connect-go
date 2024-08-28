@@ -183,7 +183,7 @@ func TestWriteResultStreamsArrowResultToCollector(t *testing.T) {
 	resp, err := session.Sql(ctx, query)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	df, err := resp.Repartition(1, []string{"1"})
+	df, err := resp.Repartition(ctx, 1, []string{"1"})
 	assert.NoError(t, err)
 	rows, err := df.Collect(ctx)
 	assert.NoError(t, err)

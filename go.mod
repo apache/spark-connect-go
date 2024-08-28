@@ -30,6 +30,7 @@ require (
 
 require (
 	cloud.google.com/go/compute/metadata v0.4.0 // indirect
+	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225 // indirect
 	golang.org/x/sync v0.7.0 // indirect
