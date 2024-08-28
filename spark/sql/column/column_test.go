@@ -27,8 +27,8 @@ func TestNewUnresolvedFunction_Basic(t *testing.T) {
 	ctx := context.Background()
 	col1 := NewColumn(NewColumnReference("col1"))
 	col2 := NewColumn(NewColumnReference("col2"))
-	col1Plan, _ := col1.ToPlan(ctx)
-	col2Plan, _ := col2.ToPlan(ctx)
+	col1Plan, _ := col1.ToProto(ctx)
+	col2Plan, _ := col2.ToProto(ctx)
 
 	type args struct {
 		name       string
@@ -81,7 +81,7 @@ func TestNewUnresolvedFunction_Basic(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewUnresolvedFunction(tt.args.name, tt.args.arguments, tt.args.isDistinct)
 			expected := tt.want
-			p, err := got.ToPlan(ctx)
+			p, err := got.ToProto(ctx)
 			assert.NoError(t, err)
 			assert.Equalf(t, expected, p, "Input: %v", tt.args)
 		})
@@ -317,7 +317,7 @@ func TestColumnFunctions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.arg.ToPlan(context.Background())
+			got, err := tt.arg.ToProto(context.Background())
 			assert.NoError(t, err)
 			expected := tt.want
 			assert.Equalf(t, expected, got, "Input: %v", tt.arg.expr.DebugString())
