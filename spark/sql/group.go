@@ -35,7 +35,7 @@ type GroupedData struct {
 
 // Agg compute aggregates and returns the result as a DataFrame. The aggegrate expressions
 // are passed as column.Column arguments.
-func (gd *GroupedData) Agg(exprs ...column.Column) (DataFrame, error) {
+func (gd *GroupedData) Agg(ctx context.Context, exprs ...column.Column) (DataFrame, error) {
 	if len(exprs) == 0 {
 		return nil, sparkerrors.WithString(sparkerrors.InvalidInputError, "exprs should not be empty")
 	}
@@ -47,7 +47,7 @@ func (gd *GroupedData) Agg(exprs ...column.Column) (DataFrame, error) {
 	// Add all grouping and aggregate expressions.
 	agg.GroupingExpressions = make([]*proto.Expression, len(gd.groupingCols))
 	for i, col := range gd.groupingCols {
-		exp, err := col.ToPlan()
+		exp, err := col.ToProto(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -56,7 +56,7 @@ func (gd *GroupedData) Agg(exprs ...column.Column) (DataFrame, error) {
 
 	agg.AggregateExpressions = make([]*proto.Expression, len(exprs))
 	for i, expr := range exprs {
-		exp, err := expr.ToPlan()
+		exp, err := expr.ToProto(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -75,7 +75,7 @@ func (gd *GroupedData) Agg(exprs ...column.Column) (DataFrame, error) {
 			Values: make([]*proto.Expression_Literal, len(gd.pivotValues)),
 		}
 		for i, v := range gd.pivotValues {
-			exp, err := column.NewLiteral(v).ToPlan()
+			exp, err := column.NewLiteral(v).ToProto(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -100,9 +100,7 @@ func (gd *GroupedData) Agg(exprs ...column.Column) (DataFrame, error) {
 	return NewDataFrame(gd.df.session, rel), nil
 }
 
-func (gd *GroupedData) numericAgg(name string, cols ...string) (DataFrame, error) {
-	// TODO: Fix getting the context here...
-	ctx := context.Background()
+func (gd *GroupedData) numericAgg(ctx context.Context, name string, cols ...string) (DataFrame, error) {
 	schema, err := gd.df.Schema(ctx)
 	if err != nil {
 		return nil, err
@@ -140,34 +138,32 @@ func (gd *GroupedData) numericAgg(name string, cols ...string) (DataFrame, error
 
 	finalColumns := make([]column.Column, len(aggCols))
 	for i, col := range aggCols {
-		finalColumns[i] = column.NewColumn(column.NewUnresolvedFunction(name, []column.Expression{
-			functions.Col(col).Expr(),
-		}, false))
+		finalColumns[i] = column.NewColumn(column.NewUnresolvedFunctionWithColumns(name, functions.Col(col)))
 	}
-	return gd.Agg(finalColumns...)
+	return gd.Agg(ctx, finalColumns...)
 }
 
 // Min Computes the min value for each numeric column for each group.
-func (gd *GroupedData) Min(cols ...string) (DataFrame, error) {
-	return gd.numericAgg("min", cols...)
+func (gd *GroupedData) Min(ctx context.Context, cols ...string) (DataFrame, error) {
+	return gd.numericAgg(ctx, "min", cols...)
 }
 
 // Max Computes the max value for each numeric column for each group.
-func (gd *GroupedData) Max(cols ...string) (DataFrame, error) {
-	return gd.numericAgg("max", cols...)
+func (gd *GroupedData) Max(ctx context.Context, cols ...string) (DataFrame, error) {
+	return gd.numericAgg(ctx, "max", cols...)
 }
 
 // Avg Computes the avg value for each numeric column for each group.
-func (gd *GroupedData) Avg(cols ...string) (DataFrame, error) {
-	return gd.numericAgg("avg", cols...)
+func (gd *GroupedData) Avg(ctx context.Context, cols ...string) (DataFrame, error) {
+	return gd.numericAgg(ctx, "avg", cols...)
 }
 
 // Sum Computes the sum value for each numeric column for each group.
-func (gd *GroupedData) Sum(cols ...string) (DataFrame, error) {
-	return gd.numericAgg("sum", cols...)
+func (gd *GroupedData) Sum(ctx context.Context, cols ...string) (DataFrame, error) {
+	return gd.numericAgg(ctx, "sum", cols...)
 }
 
 // Count Computes the count value for each group.
-func (gd *GroupedData) Count() (DataFrame, error) {
-	return gd.Agg(functions.Count(functions.Lit(1)).Alias("count"))
+func (gd *GroupedData) Count(ctx context.Context) (DataFrame, error) {
+	return gd.Agg(ctx, functions.Count(functions.Lit(1)).Alias("count"))
 }

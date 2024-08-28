@@ -103,13 +103,13 @@ func TestDataFrame_CrossJoin(t *testing.T) {
 func TestDataFrame_GroupBy(t *testing.T) {
 	ctx, spark := connect()
 	src, _ := spark.Sql(ctx, "select 'a' as a, 1 as b from range(10)")
-	df, _ := src.GroupBy(functions.Col("a")).Agg(functions.Sum(functions.Col("b")))
+	df, _ := src.GroupBy(functions.Col("a")).Agg(ctx, functions.Sum(functions.Col("b")))
 
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(res))
 
-	df, err = src.GroupBy(functions.Col("a")).Count()
+	df, err = src.GroupBy(functions.Col("a")).Count(ctx)
 	assert.NoError(t, err)
 	res, err = df.Collect(ctx)
 	assert.NoError(t, err)

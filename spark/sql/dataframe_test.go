@@ -17,6 +17,7 @@
 package sql
 
 import (
+	"context"
 	"testing"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
@@ -25,6 +26,7 @@ import (
 )
 
 func TestDataFrameImpl_GroupBy(t *testing.T) {
+	ctx := context.Background()
 	rel := &proto.Relation{
 		RelType: &proto.Relation_Range{
 			Range: &proto.Range{
@@ -39,7 +41,7 @@ func TestDataFrameImpl_GroupBy(t *testing.T) {
 
 	assert.Equal(t, gd.groupType, "groupby")
 
-	df, err := gd.Agg(functions.Count(functions.Lit(1)))
+	df, err := gd.Agg(ctx, functions.Count(functions.Lit(1)))
 	assert.Nil(t, err)
 	impl := df.(*dataFrameImpl)
 	assert.NotNil(t, impl)

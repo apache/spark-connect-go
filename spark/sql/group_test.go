@@ -16,6 +16,7 @@
 package sql
 
 import (
+	"context"
 	"testing"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
@@ -35,6 +36,7 @@ var sampleDataFrame = dataFrameImpl{session: nil, relation: &proto.Relation{
 }}
 
 func TestGroupedData_Agg(t *testing.T) {
+	ctx := context.Background()
 	c := client.NewSparkExecutorFromClient(
 		testutils.NewConnectServiceClientMock(nil, mocks.AnalyzePlanResponse, nil, nil), nil, mocks.MockSessionId)
 	session := sparkSessionImpl{sessionId: mocks.MockSessionId, client: c}
@@ -46,39 +48,40 @@ func TestGroupedData_Agg(t *testing.T) {
 	}
 
 	// Should not be able to group by a non-existing column
-	_, err := gd.Min("nonExistingColumn")
+	_, err := gd.Min(ctx, "nonExistingColumn")
 	assert.Error(t, err)
 
 	// Group by an existing column should work
-	df, err := gd.Min("col0")
+	df, err := gd.Min(ctx, "col0")
 	assert.NoError(t, err)
 	assert.IsType(t, df.(*dataFrameImpl).relation.RelType, &proto.Relation_Aggregate{})
 	assert.Equal(t, "min", df.(*dataFrameImpl).relation.GetAggregate().GetAggregateExpressions()[0].GetUnresolvedFunction().FunctionName)
 
 	// Group by an existing column should work
-	df, err = gd.Max("col0")
+	df, err = gd.Max(ctx, "col0")
 	assert.NoError(t, err)
 	assert.IsType(t, df.(*dataFrameImpl).relation.RelType, &proto.Relation_Aggregate{})
 	assert.Equal(t, "max", df.(*dataFrameImpl).relation.GetAggregate().GetAggregateExpressions()[0].GetUnresolvedFunction().FunctionName)
 
-	df, err = gd.Sum("col0")
+	df, err = gd.Sum(ctx, "col0")
 	assert.NoError(t, err)
 	assert.IsType(t, df.(*dataFrameImpl).relation.RelType, &proto.Relation_Aggregate{})
 	assert.Equal(t, "sum", df.(*dataFrameImpl).relation.GetAggregate().GetAggregateExpressions()[0].GetUnresolvedFunction().FunctionName)
 
-	df, err = gd.Avg("col0")
+	df, err = gd.Avg(ctx, "col0")
 	assert.NoError(t, err)
 	assert.IsType(t, df.(*dataFrameImpl).relation.RelType, &proto.Relation_Aggregate{})
 	assert.Equal(t, "avg", df.(*dataFrameImpl).relation.GetAggregate().GetAggregateExpressions()[0].GetUnresolvedFunction().FunctionName)
 
 	// Group by no column should pick all numeric columns
-	df, err = gd.Min()
+	df, err = gd.Min(ctx)
 	assert.NoError(t, err)
 	assert.IsType(t, df.(*dataFrameImpl).relation.RelType, &proto.Relation_Aggregate{})
 	assert.Len(t, df.(*dataFrameImpl).relation.GetAggregate().GetAggregateExpressions(), 1)
 }
 
 func TestGroupedData_Count(t *testing.T) {
+	ctx := context.Background()
 	c := client.NewSparkExecutorFromClient(
 		testutils.NewConnectServiceClientMock(nil, mocks.AnalyzePlanResponse, nil, nil), nil, mocks.MockSessionId)
 	session := sparkSessionImpl{sessionId: mocks.MockSessionId, client: c}
@@ -89,7 +92,7 @@ func TestGroupedData_Count(t *testing.T) {
 		df:        sampleDataFrame,
 	}
 
-	df, err := gd.Count()
+	df, err := gd.Count(ctx)
 	assert.NoError(t, err)
 	assert.IsType(t, df.(*dataFrameImpl).relation.RelType, &proto.Relation_Aggregate{})
 	assert.Equal(t, []string{"count"}, df.(*dataFrameImpl).relation.GetAggregate().GetAggregateExpressions()[0].GetAlias().Name)

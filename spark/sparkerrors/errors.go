@@ -50,7 +50,7 @@ func WithString(err error, errMsg string) error {
 }
 
 func WithStringf(err error, errMsg string, params ...any) error {
-	return &wrappedError{cause: err, errorType: fmt.Errorf(errMsg, params...)}
+	return &wrappedError{cause: errors.Wrap(err, 1), errorType: fmt.Errorf(errMsg, params...)}
 }
 
 type errorType error
