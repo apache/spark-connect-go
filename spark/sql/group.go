@@ -167,3 +167,8 @@ func (gd *GroupedData) Sum(ctx context.Context, cols ...string) (DataFrame, erro
 func (gd *GroupedData) Count(ctx context.Context) (DataFrame, error) {
 	return gd.Agg(ctx, functions.Count(functions.Lit(1)).Alias("count"))
 }
+
+// Mean Computes the average value for each numeric column for each group.
+func (gd *GroupedData) Mean(ctx context.Context, cols ...string) (DataFrame, error) {
+	return gd.Avg(ctx, cols...)
+}
