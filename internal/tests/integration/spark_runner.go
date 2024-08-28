@@ -34,10 +34,13 @@ func StartSparkConnect() (int64, error) {
 
 	fmt.Printf("Starting Spark Connect Server in: %v\n", os.Getenv("SPARK_HOME"))
 
-	cmd := exec.Command("./sbin/start-connect-server.sh", "--wait", "--conf",
+	cmd := exec.Command("./sbin/start-connect-server.sh", "--conf",
 		"spark.log.structuredLogging.enabled=false", "--packages",
 		"org.apache.spark:spark-connect_2.12:3.5.2")
 	cmd.Dir = sparkHome
+	baseEnv := os.Environ()
+	baseEnv = append(baseEnv, "SPARK_NO_DAEMONIZE=1")
+	cmd.Env = baseEnv
 
 	stdout, _ := cmd.StdoutPipe()
 	if err := cmd.Start(); err != nil {

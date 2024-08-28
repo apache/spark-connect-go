@@ -50,7 +50,7 @@ func main() {
 		log.Fatalf("Failed: %s", err)
 	}
 
-	df, _ = df.FilterByString("id < 10")
+	df, _ = df.FilterByString(ctx, "id < 10")
 	err = df.Show(ctx, 100, false)
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
@@ -61,14 +61,14 @@ func main() {
 		log.Fatalf("Failed: %s", err)
 	}
 
-	df, _ = df.Filter(functions.Col("id").Lt(functions.Expr("10")))
+	df, _ = df.Filter(ctx, functions.Col("id").Lt(functions.Expr("10")))
 	err = df.Show(ctx, 100, false)
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}
 
 	df, _ = spark.Sql(ctx, "select * from range(100)")
-	df, err = df.Filter(functions.Col("id").Lt(functions.Lit(20)))
+	df, err = df.Filter(ctx, functions.Col("id").Lt(functions.Lit(20)))
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}
@@ -151,7 +151,7 @@ func main() {
 	}
 
 	log.Printf("Repartition with one partition")
-	df, err = df.Repartition(1, nil)
+	df, err = df.Repartition(ctx, 1, nil)
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}
@@ -164,7 +164,7 @@ func main() {
 	}
 
 	log.Printf("Repartition with two partitions")
-	df, err = df.Repartition(2, nil)
+	df, err = df.Repartition(ctx, 2, nil)
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}
@@ -177,7 +177,7 @@ func main() {
 	}
 
 	log.Printf("Repartition with columns")
-	df, err = df.Repartition(0, []string{"word", "count"})
+	df, err = df.Repartition(ctx, 0, []string{"word", "count"})
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}
@@ -190,12 +190,7 @@ func main() {
 	}
 
 	log.Printf("Repartition by range with columns")
-	df, err = df.RepartitionByRange(0, []sql.RangePartitionColumn{
-		{
-			Name:       "word",
-			Descending: true,
-		},
-	})
+	df, err = df.RepartitionByRange(ctx, 0, functions.Col("word").Desc())
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}

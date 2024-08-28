@@ -19,8 +19,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql"
+	"github.com/apache/spark-connect-go/v35/spark/sql/column"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
+
+	"github.com/apache/spark-connect-go/v35/spark/sql"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -30,7 +33,7 @@ func TestDataFrame_Select(t *testing.T) {
 	assert.NoError(t, err)
 	df, err := spark.Sql(ctx, "select * from range(100)")
 	assert.NoError(t, err)
-	df, err = df.Select(functions.Lit("1"), functions.Lit("2"))
+	df, err = df.Select(ctx, functions.Lit("1"), functions.Lit("2"))
 	assert.NoError(t, err)
 
 	res, err := df.Collect(ctx)
@@ -41,6 +44,11 @@ func TestDataFrame_Select(t *testing.T) {
 	vals, err := row_zero.Values()
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(vals))
+
+	df, err = spark.Sql(ctx, "select * from range(100)")
+	assert.NoError(t, err)
+	_, err = df.Select(ctx, column.OfDF(df, "id2"))
+	assert.Error(t, err)
 }
 
 func TestDataFrame_SelectExpr(t *testing.T) {
@@ -49,7 +57,7 @@ func TestDataFrame_SelectExpr(t *testing.T) {
 	assert.NoError(t, err)
 	df, err := spark.Sql(ctx, "select * from range(100)")
 	assert.NoError(t, err)
-	df, err = df.SelectExpr("1", "2", "spark_partition_id()")
+	df, err = df.SelectExpr(ctx, "1", "2", "spark_partition_id()")
 	assert.NoError(t, err)
 
 	res, err := df.Collect(ctx)
@@ -68,7 +76,7 @@ func TestDataFrame_Alias(t *testing.T) {
 	assert.NoError(t, err)
 	df, err := spark.Sql(ctx, "select * from range(100)")
 	assert.NoError(t, err)
-	df = df.Alias("df")
+	df = df.Alias(ctx, "df")
 	res, er := df.Collect(ctx)
 	assert.NoError(t, er)
 	assert.Equal(t, 100, len(res))
@@ -82,7 +90,7 @@ func TestDataFrame_CrossJoin(t *testing.T) {
 	assert.NoError(t, err)
 	df2, err := spark.Sql(ctx, "select * from range(10)")
 	assert.NoError(t, err)
-	df := df1.CrossJoin(df2)
+	df := df1.CrossJoin(ctx, df2)
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 100, len(res))

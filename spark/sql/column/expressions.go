@@ -16,6 +16,7 @@
 package column
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -28,23 +29,88 @@ func newProtoExpression() *proto.Expression {
 	return &proto.Expression{}
 }
 
-// Expression is the interface for all expressions used by Spark Connect.
-type Expression interface {
-	ToPlan() (*proto.Expression, error)
+// expression is the interface for all expressions used by Spark Connect.
+type expression interface {
+	ToProto(context.Context) (*proto.Expression, error)
 	DebugString() string
+}
+
+type delayedColumnReference struct {
+	unparsedIdentifier string
+	df                 SchemaDataFrame
+}
+
+func (d *delayedColumnReference) DebugString() string {
+	return d.unparsedIdentifier
+}
+
+func (d *delayedColumnReference) ToProto(ctx context.Context) (*proto.Expression, error) {
+	// Check if the column identifier is actually part of the schema.
+	schema, err := d.df.Schema(ctx)
+	if err != nil {
+		return nil, err
+	}
+	found := false
+	for _, field := range schema.Fields {
+		if field.Name == d.unparsedIdentifier {
+			found = true
+			break
+		}
+	}
+	// TODO: return proper pyspark error
+	if !found {
+		return nil, sparkerrors.WithType(sparkerrors.InvalidPlanError,
+			fmt.Errorf("cannot resolve column %s", d.unparsedIdentifier))
+	}
+
+	expr := newProtoExpression()
+	id := d.df.PlanId()
+	expr.ExprType = &proto.Expression_UnresolvedAttribute_{
+		UnresolvedAttribute: &proto.Expression_UnresolvedAttribute{
+			UnparsedIdentifier: d.unparsedIdentifier,
+			PlanId:             &id,
+		},
+	}
+	return expr, nil
+}
+
+type sortExpression struct {
+	child        expression
+	direction    proto.Expression_SortOrder_SortDirection
+	nullOrdering proto.Expression_SortOrder_NullOrdering
+}
+
+func (s *sortExpression) DebugString() string {
+	return s.child.DebugString()
+}
+
+func (s *sortExpression) ToProto(ctx context.Context) (*proto.Expression, error) {
+	exp := newProtoExpression()
+	child, err := s.child.ToProto(ctx)
+	if err != nil {
+		return nil, err
+	}
+	exp.ExprType = &proto.Expression_SortOrder_{
+		SortOrder: &proto.Expression_SortOrder{
+			Child:        child,
+			Direction:    s.direction,
+			NullOrdering: s.nullOrdering,
+		},
+	}
+	return exp, nil
 }
 
 type caseWhenExpression struct {
 	branches []*caseWhenBranch
-	elseExpr Expression
+	elseExpr expression
 }
 
 type caseWhenBranch struct {
-	condition Expression
-	value     Expression
+	condition expression
+	value     expression
 }
 
-func NewCaseWhenExpression(branches []*caseWhenBranch, elseExpr Expression) Expression {
+func NewCaseWhenExpression(branches []*caseWhenBranch, elseExpr expression) expression {
 	return &caseWhenExpression{branches: branches, elseExpr: elseExpr}
 }
 
@@ -63,8 +129,8 @@ func (c *caseWhenExpression) DebugString() string {
 	return fmt.Sprintf("CASE %s %s END", strings.Join(branches, " "), elseExpr)
 }
 
-func (c *caseWhenExpression) ToPlan() (*proto.Expression, error) {
-	args := make([]Expression, 0)
+func (c *caseWhenExpression) ToProto(ctx context.Context) (*proto.Expression, error) {
+	args := make([]expression, 0)
 	for _, branch := range c.branches {
 		args = append(args, branch.condition)
 		args = append(args, branch.value)
@@ -75,12 +141,12 @@ func (c *caseWhenExpression) ToPlan() (*proto.Expression, error) {
 	}
 
 	fun := NewUnresolvedFunction("when", args, false)
-	return fun.ToPlan()
+	return fun.ToProto(ctx)
 }
 
 type unresolvedFunction struct {
 	name       string
-	args       []Expression
+	args       []expression
 	isDistinct bool
 }
 
@@ -98,13 +164,13 @@ func (u *unresolvedFunction) DebugString() string {
 	return fmt.Sprintf("%s(%s%s)", u.name, distinct, strings.Join(args, ", "))
 }
 
-func (u *unresolvedFunction) ToPlan() (*proto.Expression, error) {
-	// Convert input args to the proto Expression.
+func (u *unresolvedFunction) ToProto(ctx context.Context) (*proto.Expression, error) {
+	// Convert input args to the proto expression.
 	var args []*proto.Expression = nil
 	if len(u.args) > 0 {
 		args = make([]*proto.Expression, 0)
 		for _, arg := range u.args {
-			p, e := arg.ToPlan()
+			p, e := arg.ToProto(ctx)
 			if e != nil {
 				return nil, e
 			}
@@ -123,29 +189,29 @@ func (u *unresolvedFunction) ToPlan() (*proto.Expression, error) {
 	return expr, nil
 }
 
-func NewUnresolvedFunction(name string, args []Expression, isDistinct bool) Expression {
+func NewUnresolvedFunction(name string, args []expression, isDistinct bool) expression {
 	return &unresolvedFunction{name: name, args: args, isDistinct: isDistinct}
 }
 
-func NewUnresolvedFunctionWithColumns(name string, cols ...Column) Expression {
-	exprs := make([]Expression, 0)
+func NewUnresolvedFunctionWithColumns(name string, cols ...Column) expression {
+	exprs := make([]expression, 0)
 	for _, col := range cols {
-		exprs = append(exprs, col.Expr)
+		exprs = append(exprs, col.expr)
 	}
 	return NewUnresolvedFunction(name, exprs, false)
 }
 
 type columnAlias struct {
 	alias    []string
-	expr     Expression
+	expr     expression
 	metadata *string
 }
 
-func NewColumnAlias(alias string, expr Expression) Expression {
+func NewColumnAlias(alias string, expr expression) expression {
 	return &columnAlias{alias: []string{alias}, expr: expr}
 }
 
-func NewColumnAliasFromNameParts(alias []string, expr Expression) Expression {
+func NewColumnAliasFromNameParts(alias []string, expr expression) expression {
 	return &columnAlias{alias: alias, expr: expr}
 }
 
@@ -155,9 +221,9 @@ func (c *columnAlias) DebugString() string {
 	return fmt.Sprintf("%s AS %s", child, alias)
 }
 
-func (c *columnAlias) ToPlan() (*proto.Expression, error) {
+func (c *columnAlias) ToProto(ctx context.Context) (*proto.Expression, error) {
 	expr := newProtoExpression()
-	alias, err := c.expr.ToPlan()
+	alias, err := c.expr.ToProto(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -176,11 +242,11 @@ type columnReference struct {
 	planId             *int64
 }
 
-func NewColumnReference(unparsedIdentifier string) Expression {
+func NewColumnReference(unparsedIdentifier string) expression {
 	return &columnReference{unparsedIdentifier: unparsedIdentifier}
 }
 
-func NewColumnReferenceWithPlanId(unparsedIdentifier string, planId int64) Expression {
+func NewColumnReferenceWithPlanId(unparsedIdentifier string, planId int64) expression {
 	return &columnReference{unparsedIdentifier: unparsedIdentifier, planId: &planId}
 }
 
@@ -188,7 +254,7 @@ func (c *columnReference) DebugString() string {
 	return c.unparsedIdentifier
 }
 
-func (c *columnReference) ToPlan() (*proto.Expression, error) {
+func (c *columnReference) ToProto(context.Context) (*proto.Expression, error) {
 	expr := newProtoExpression()
 	expr.ExprType = &proto.Expression_UnresolvedAttribute_{
 		UnresolvedAttribute: &proto.Expression_UnresolvedAttribute{
@@ -203,7 +269,7 @@ type sqlExression struct {
 	expression_string string
 }
 
-func NewSQLExpression(expression string) Expression {
+func NewSQLExpression(expression string) expression {
 	return &sqlExression{expression_string: expression}
 }
 
@@ -211,7 +277,7 @@ func (s *sqlExression) DebugString() string {
 	return s.expression_string
 }
 
-func (s *sqlExression) ToPlan() (*proto.Expression, error) {
+func (s *sqlExression) ToProto(context.Context) (*proto.Expression, error) {
 	expr := newProtoExpression()
 	expr.ExprType = &proto.Expression_ExpressionString_{
 		ExpressionString: &proto.Expression_ExpressionString{
@@ -229,7 +295,7 @@ func (l *literalExpression) DebugString() string {
 	return fmt.Sprintf("%v", l.value)
 }
 
-func (l *literalExpression) ToPlan() (*proto.Expression, error) {
+func (l *literalExpression) ToProto(context.Context) (*proto.Expression, error) {
 	expr := newProtoExpression()
 	expr.ExprType = &proto.Expression_Literal_{
 		Literal: &proto.Expression_Literal{},
@@ -268,6 +334,6 @@ func (l *literalExpression) ToPlan() (*proto.Expression, error) {
 	return expr, nil
 }
 
-func NewLiteral(value any) Expression {
+func NewLiteral(value any) expression {
 	return &literalExpression{value: value}
 }

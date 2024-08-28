@@ -19,8 +19,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql"
 	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
+
+	"github.com/apache/spark-connect-go/v35/spark/sql"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,7 +33,7 @@ func TestIntegration_BuiltinFunctions(t *testing.T) {
 	}
 
 	df, _ := spark.Sql(ctx, "select '[2]' as a from range(10)")
-	df, _ = df.Filter(functions.JsonArrayLength(functions.Col("a")).Eq(functions.Lit(1)))
+	df, _ = df.Filter(ctx, functions.JsonArrayLength(functions.Col("a")).Eq(functions.Lit(1)))
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 10, len(res))
