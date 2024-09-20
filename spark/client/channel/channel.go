@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"net"
 	"net/url"
 	"strconv"
@@ -42,12 +43,18 @@ import (
 // This allows other consumers to plugin custom authentication and authorization
 // handlers without having to extend directly the Spark Connect code.
 type Builder interface {
+	// Build creates the grpc.ClientConn according to the configuration of the builder.
+	// Implementations are free to provide additional paramters in their implementation
+	// and simply must satisfy this minimal set of requirements.
 	Build(ctx context.Context) (*grpc.ClientConn, error)
-	Headers() map[string]string
-	Host() string
-	Port() int
-	Token() string
+	// User identifies the username passed as part of the Spark Connect requests.
 	User() string
+	// Headers refers to the request metadata that is passed for every request from the
+	// client to the server.
+	Headers() map[string]string
+	// SessionId identifies the client side session identifier. This value must be a UUID formatted
+	// as a string.
+	SessionId() string
 }
 
 // BaseBuilder is used to parse the different parameters of the connection
@@ -55,11 +62,12 @@ type Builder interface {
 //
 //	https://github.com/apache/spark/blob/master/connector/connect/docs/client-connection-string.md
 type BaseBuilder struct {
-	host    string
-	port    int
-	token   string
-	user    string
-	headers map[string]string
+	host      string
+	port      int
+	token     string
+	user      string
+	headers   map[string]string
+	sessionId string
 }
 
 func (cb *BaseBuilder) Host() string {
@@ -80,6 +88,10 @@ func (cb *BaseBuilder) User() string {
 
 func (cb *BaseBuilder) Headers() map[string]string {
 	return cb.headers
+}
+
+func (cb *BaseBuilder) SessionId() string {
+	return cb.sessionId
 }
 
 // Build finalizes the creation of the gprc.ClientConn by creating a GRPC channel
@@ -123,7 +135,7 @@ func (cb *BaseBuilder) Build(ctx context.Context) (*grpc.ClientConn, error) {
 //
 // The following parameters to the connection string are reserved: user_id, session_id, use_ssl,
 // and token. These parameters are not allowed to be injected as headers.
-func NewBuilder(connection string) (Builder, error) {
+func NewBuilder(connection string) (*BaseBuilder, error) {
 	u, err := url.Parse(connection)
 	if err != nil {
 		return nil, err
@@ -161,9 +173,10 @@ func NewBuilder(connection string) (Builder, error) {
 	}
 
 	cb := &BaseBuilder{
-		host:    host,
-		port:    port,
-		headers: map[string]string{},
+		host:      host,
+		port:      port,
+		headers:   map[string]string{},
+		sessionId: uuid.NewString(),
 	}
 
 	elements := strings.Split(u.Path, ";")
@@ -174,6 +187,8 @@ func NewBuilder(connection string) (Builder, error) {
 				cb.token = props[1]
 			} else if props[0] == "user_id" {
 				cb.user = props[1]
+			} else if props[0] == "session_id" {
+				cb.sessionId = props[1]
 			} else {
 				cb.headers[props[0]] = props[1]
 			}
