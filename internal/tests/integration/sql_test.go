@@ -17,6 +17,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -69,13 +70,23 @@ func TestIntegration_Schema(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	pid, err := StartSparkConnect()
-	if err != nil {
-		log.Fatal(err)
+	envShouldStartService := os.Getenv("START_SPARK_CONNECT_SERVICE")
+	shouldStartService := envShouldStartService == "" || envShouldStartService == "1"
+	pid := int64(-1)
+	var err error
+
+	if shouldStartService {
+		fmt.Println("Starting Spark Connect service...")
+		pid, err = StartSparkConnect()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	code := m.Run()
-	if err = StopSparkConnect(pid); err != nil {
-		log.Fatal(err)
+	if shouldStartService {
+		if err = StopSparkConnect(pid); err != nil {
+			log.Fatal(err)
+		}
 	}
 	os.Exit(code)
 }

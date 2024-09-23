@@ -19,6 +19,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql/column"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
@@ -117,4 +119,79 @@ func TestDataFrame_GroupBy(t *testing.T) {
 	vals, _ := res[0].Values()
 	assert.Equal(t, "a", vals[0])
 	assert.Equal(t, int64(10), vals[1])
+}
+
+func TestDataFrame_Count(t *testing.T) {
+	ctx, spark := connect()
+	src, _ := spark.Sql(ctx, "select 'a' as a, 1 as b from range(10)")
+	res, err := src.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(10), res)
+}
+
+func TestDataFrame_OfDFWithRegex(t *testing.T) {
+	ctx, spark := connect()
+	src, _ := spark.Sql(ctx, "select 'a' as myColumnName, 1 as b from range(10)")
+	col := column.OfDFWithRegex(src, "`.*(Column).*`")
+	res, err := src.Select(ctx, col)
+	assert.NoError(t, err)
+	schema, err := res.Schema(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(schema.Fields))
+}
+
+func TestSparkSession_CreateDataFrame(t *testing.T) {
+	ctx, spark := connect()
+
+	tbl := createArrowTable()
+	defer tbl.Release()
+
+	df, err := spark.CreateDataFrameFromArrow(ctx, tbl)
+	assert.NoError(t, err)
+	res, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(res))
+}
+
+func TestSparkSession_CreateDataFrameWithSchema(t *testing.T) {
+	ctx, spark := connect()
+
+	data := [][]any{
+		{1, 1.1, "a"},
+		{2, 2.2, "b"},
+	}
+	schema := types.StructOf(
+		types.NewStructField("f1-i32", types.INTEGER),
+		types.NewStructField("f2-f64", types.DOUBLE),
+		types.NewStructField("f3-string", types.STRING))
+
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+	res, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(res))
+
+	row1, err := res[0].Values()
+	assert.NoError(t, err)
+	assert.Len(t, row1, 3)
+	assert.Equal(t, int32(1), row1[0])
+	assert.Equal(t, 1.1, row1[1])
+	assert.Equal(t, "a", row1[2])
+}
+
+func TestDataFrame_Corr(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{
+		{1, 12}, {10, 1}, {19, 8},
+	}
+	schema := types.StructOf(
+		types.NewStructField("c1", types.INTEGER),
+		types.NewStructField("c2", types.INTEGER),
+	)
+
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+	res, err := df.Corr(ctx, "c1", "c2")
+	assert.NoError(t, err)
+	assert.Equal(t, -0.3592106040535498, res)
 }

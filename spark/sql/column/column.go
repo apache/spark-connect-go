@@ -103,3 +103,8 @@ type SchemaDataFrame interface {
 func OfDF(df SchemaDataFrame, colName string) Column {
 	return NewColumn(&delayedColumnReference{colName, df})
 }
+
+func OfDFWithRegex(df SchemaDataFrame, colRegex string) Column {
+	planId := df.PlanId()
+	return NewColumn(&unresolvedRegex{colRegex, &planId})
+}

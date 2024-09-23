@@ -17,9 +17,17 @@
 package sql
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/ipc"
 	"github.com/apache/spark-connect-go/v35/spark/client/base"
 
 	"github.com/apache/spark-connect-go/v35/spark/client/options"
@@ -37,6 +45,8 @@ type SparkSession interface {
 	Sql(ctx context.Context, query string) (DataFrame, error)
 	Stop() error
 	Table(name string) (DataFrame, error)
+	CreateDataFrameFromArrow(ctx context.Context, data arrow.Table) (DataFrame, error)
+	CreateDataFrame(ctx context.Context, data [][]any, schema *types.StructType) (DataFrame, error)
 }
 
 // NewSessionBuilder creates a new session builder for starting a new spark session
@@ -148,4 +158,91 @@ func (s *sparkSessionImpl) Stop() error {
 
 func (s *sparkSessionImpl) Table(name string) (DataFrame, error) {
 	return s.Read().Table(name)
+}
+
+func (s *sparkSessionImpl) CreateDataFrameFromArrow(ctx context.Context, data arrow.Table) (DataFrame, error) {
+	// Generate the schema.
+	// schema := types.ArrowSchemaToProto(data.Schema())
+	// schemaString := ""
+	// TODO (PySpark does a lot of casting here to convert the schema that does not exist yet.
+
+	// Convert the Arrow Table into a byte array of arrow IPC messages.
+	buf := new(bytes.Buffer)
+	w := ipc.NewWriter(buf, ipc.WithSchema(data.Schema()))
+	defer w.Close()
+
+	// Create a RecordReader from the table
+	rr := array.NewTableReader(data, int64(data.NumRows()))
+	defer rr.Release()
+
+	// Read the records from the table and write them to the buffer
+	for rr.Next() {
+		record := rr.Record()
+		if err := w.Write(record); err != nil {
+			return nil, sparkerrors.WithType(fmt.Errorf("failed to write record: %w", err), sparkerrors.WriteError)
+		}
+	}
+
+	// Create a local relation object
+	plan := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_LocalRelation{
+			LocalRelation: &proto.LocalRelation{
+				// Schema: &schemaString,
+				Data: buf.Bytes(),
+			},
+		},
+	}
+	return NewDataFrame(s, plan), nil
+}
+
+func (s *sparkSessionImpl) CreateDataFrame(ctx context.Context, data [][]any, schema *types.StructType) (DataFrame, error) {
+	pool := memory.NewGoAllocator()
+	// Convert the data into an Arrow Table
+	arrowSchema := arrow.NewSchema(schema.ToArrowType().Fields(), nil)
+	rb := array.NewRecordBuilder(pool, arrowSchema)
+	defer rb.Release()
+
+	// Iterate over all fields and add the values:
+	for _, row := range data {
+		for i, field := range schema.Fields {
+			switch field.DataType {
+			case types.BOOLEAN:
+				rb.Field(i).(*array.BooleanBuilder).Append(row[i].(bool))
+			case types.BYTE:
+				rb.Field(i).(*array.Int8Builder).Append(int8(row[i].(int)))
+			case types.SHORT:
+				rb.Field(i).(*array.Int16Builder).Append(int16(row[i].(int)))
+			case types.INTEGER:
+				rb.Field(i).(*array.Int32Builder).Append(int32(row[i].(int)))
+			case types.LONG:
+				rb.Field(i).(*array.Int64Builder).Append(int64(row[i].(int)))
+			case types.FLOAT:
+				rb.Field(i).(*array.Float32Builder).Append(float32(row[i].(float32)))
+			case types.DOUBLE:
+				rb.Field(i).(*array.Float64Builder).Append(row[i].(float64))
+			case types.STRING:
+				rb.Field(i).(*array.StringBuilder).Append(row[i].(string))
+			case types.DATE:
+				rb.Field(i).(*array.Date32Builder).Append(
+					arrow.Date32FromTime(row[i].(time.Time)))
+			case types.TIMESTAMP:
+				ts, err := arrow.TimestampFromTime(row[i].(time.Time), arrow.Millisecond)
+				if err != nil {
+					return nil, err
+				}
+				rb.Field(i).(*array.TimestampBuilder).Append(ts)
+			default:
+				return nil, sparkerrors.WithType(fmt.Errorf(
+					"unsupported data type: %s", field.DataType), sparkerrors.NotImplementedError)
+			}
+		}
+	}
+	rec := rb.NewRecord()
+	defer rec.Release()
+	tbl := array.NewTableFromRecords(arrowSchema, []arrow.Record{rec})
+	defer tbl.Release()
+	return s.CreateDataFrameFromArrow(ctx, tbl)
 }

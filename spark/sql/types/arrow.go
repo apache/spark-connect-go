@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"fmt"
 
+	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/array"
 	"github.com/apache/arrow/go/v17/arrow/ipc"
@@ -196,4 +198,75 @@ func ReadArrowBatchToRecord(data []byte, schema *StructType) (arrow.Record, erro
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to read arrow record: %w", err), sparkerrors.ReadError)
 	}
 	return record, nil
+}
+
+func arrowStructToProtoStruct(schema *arrow.StructType) *proto.DataType_Struct_ {
+	fields := make([]*proto.DataType_StructField, schema.NumFields())
+	for i, field := range schema.Fields() {
+		fields[i] = &proto.DataType_StructField{
+			Name:     field.Name,
+			DataType: ArrowTypeToProto(field.Type),
+		}
+	}
+	return &proto.DataType_Struct_{
+		Struct: &proto.DataType_Struct{
+			Fields: fields,
+		},
+	}
+}
+
+func ArrowTypeToProto(dataType arrow.DataType) *proto.DataType {
+	switch dataType.ID() {
+	case arrow.BOOL:
+		return &proto.DataType{Kind: &proto.DataType_Boolean_{}}
+	case arrow.INT8:
+		return &proto.DataType{Kind: &proto.DataType_Byte_{}}
+	case arrow.INT16:
+		return &proto.DataType{Kind: &proto.DataType_Short_{}}
+	case arrow.INT32:
+		return &proto.DataType{Kind: &proto.DataType_Integer_{}}
+	case arrow.INT64:
+		return &proto.DataType{Kind: &proto.DataType_Long_{}}
+	case arrow.FLOAT16:
+		return &proto.DataType{Kind: &proto.DataType_Float_{}}
+	case arrow.FLOAT32:
+		return &proto.DataType{Kind: &proto.DataType_Double_{}}
+	case arrow.FLOAT64:
+		return &proto.DataType{Kind: &proto.DataType_Double_{}}
+	case arrow.DECIMAL | arrow.DECIMAL128:
+		return &proto.DataType{Kind: &proto.DataType_Decimal_{}}
+	case arrow.DECIMAL256:
+		return &proto.DataType{Kind: &proto.DataType_Decimal_{}}
+	case arrow.STRING:
+		return &proto.DataType{Kind: &proto.DataType_String_{}}
+	case arrow.BINARY:
+		return &proto.DataType{Kind: &proto.DataType_Binary_{}}
+	case arrow.TIMESTAMP:
+		return &proto.DataType{Kind: &proto.DataType_Timestamp_{}}
+	case arrow.DATE64:
+		return &proto.DataType{Kind: &proto.DataType_Date_{}}
+	case arrow.LIST:
+		return &proto.DataType{Kind: &proto.DataType_Array_{
+			Array: &proto.DataType_Array{
+				ElementType: ArrowTypeToProto(dataType.(*arrow.ListType).Elem()),
+			},
+		}}
+	case arrow.STRUCT:
+		return &proto.DataType{Kind: arrowStructToProtoStruct(dataType.(*arrow.StructType))}
+	default:
+		return &proto.DataType{Kind: &proto.DataType_Unparsed_{}}
+	}
+}
+
+func ArrowSchemaToProto(schema *arrow.Schema) proto.DataType_Struct {
+	fields := make([]*proto.DataType_StructField, schema.NumFields())
+	for i, field := range schema.Fields() {
+		fields[i] = &proto.DataType_StructField{
+			Name:     field.Name,
+			DataType: ArrowTypeToProto(field.Type),
+		}
+	}
+	return proto.DataType_Struct{
+		Fields: fields,
+	}
 }
