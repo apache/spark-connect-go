@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/apache/spark-connect-go/v35/spark/client/channel"
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 	"github.com/stretchr/testify/assert"
@@ -67,17 +69,22 @@ func TestBasicChannelParsing(t *testing.T) {
 	assert.Equal(t, "a", cb.User())
 	assert.Equal(t, "b", cb.Token())
 
-	cb, err = channel.NewBuilder("sc://localhost:443/;token=token;user_id=user_id;cluster_id=a")
+	cb, err = channel.NewBuilder("sc://localhost:443/;token=token;user_id=user_id;cluster_id=a;session_id=session")
 	assert.NoError(t, err)
 	assert.Equal(t, 443, cb.Port())
 	assert.Equal(t, "localhost", cb.Host())
 	assert.Equal(t, "token", cb.Token())
 	assert.Equal(t, "user_id", cb.User())
+	assert.Equal(t, "session", cb.SessionId())
 }
 
 func TestChannelBuildConnect(t *testing.T) {
 	ctx := context.Background()
 	cb, err := channel.NewBuilder("sc://localhost")
+	assert.NoError(t, err)
+	id := cb.SessionId()
+	_, err = uuid.Parse(id)
+	assert.NoError(t, err)
 	assert.NoError(t, err, "Should not have an error for a proper URL.")
 	conn, err := cb.Build(ctx)
 	assert.Nil(t, err, "no error for proper connection")
