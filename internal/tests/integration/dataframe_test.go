@@ -195,3 +195,20 @@ func TestDataFrame_Corr(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, -0.3592106040535498, res)
 }
+
+func TestDataFrame_Cov(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{
+		{1, 12}, {10, 1}, {19, 8},
+	}
+	schema := types.StructOf(
+		types.NewStructField("c1", types.INTEGER),
+		types.NewStructField("c2", types.INTEGER),
+	)
+
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+	res, err := df.Cov(ctx, "c1", "c2")
+	assert.NoError(t, err)
+	assert.Equal(t, -18.0, res)
+}

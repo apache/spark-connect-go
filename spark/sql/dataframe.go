@@ -60,12 +60,20 @@ type DataFrame interface {
 	// the current partitioning is).
 	Coalesce(ctx context.Context, numPartitions int) DataFrame
 
+	// Columns returns the list of column names of the DataFrame.
 	Columns(ctx context.Context) ([]string, error)
 
+	// Corr calculates the correlation of two columns of a :class:`DataFrame` as a double value.
+	// Currently only supports the Pearson Correlation Coefficient.
 	Corr(ctx context.Context, col1, col2 string) (float64, error)
 	CorrWithMethod(ctx context.Context, col1, col2 string, method string) (float64, error)
 
+	// Count returns the number of rows in the DataFrame.
 	Count(ctx context.Context) (int64, error)
+
+	// Cov calculates the sample covariance for the given columns, specified by their names, as a
+	// double value.
+	Cov(ctx context.Context, col1, col2 string) (float64, error)
 
 	// Collect returns the data rows of the current data frame.
 	Collect(ctx context.Context) ([]Row, error)
@@ -187,6 +195,42 @@ func (df *dataFrameImpl) Count(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return row[0].(int64), nil
+}
+
+func (df *dataFrameImpl) Cov(ctx context.Context, col1, col2 string) (float64, error) {
+	plan := &proto.Plan{
+		OpType: &proto.Plan_Root{
+			Root: &proto.Relation{
+				Common: &proto.RelationCommon{
+					PlanId: newPlanId(),
+				},
+				RelType: &proto.Relation_Cov{
+					Cov: &proto.StatCov{
+						Input: df.relation,
+						Col1:  col1,
+						Col2:  col2,
+					},
+				},
+			},
+		},
+	}
+
+	responseClient, err := df.session.client.ExecutePlan(ctx, plan)
+	if err != nil {
+		return 0, sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
+	}
+
+	_, table, err := responseClient.ToTable()
+	if err != nil {
+		return 0, err
+	}
+
+	values, err := types.ReadArrowTable(table)
+	if err != nil {
+		return 0, err
+	}
+
+	return values[0][0].(float64), nil
 }
 
 func (df *dataFrameImpl) PlanId() int64 {
