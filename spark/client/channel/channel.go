@@ -22,11 +22,12 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"net"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/google/uuid"
 
 	"google.golang.org/grpc/credentials/insecure"
 
