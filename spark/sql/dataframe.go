@@ -44,6 +44,37 @@ type DataFrame interface {
 	Show(ctx context.Context, numRows int, truncate bool) error
 	// Schema returns the schema for the current data frame.
 	Schema(ctx context.Context) (*types.StructType, error)
+	// Coalesce returns a new DataFrame that has exactly numPartitions partitions.DataFrame
+	//
+	// Similar to coalesce defined on an :class:`RDD`, this operation results in a
+	// narrow dependency, e.g. if you go from 1000 partitions to 100 partitions,
+	// there will not be a shuffle, instead each of the 100 new partitions will
+	// claim 10 of the current partitions. If a larger number of partitions is requested,
+	// it will stay at the current number of partitions.
+	//
+	// However, if you're doing a drastic coalesce, e.g. to numPartitions = 1,
+	// this may result in your computation taking place on fewer nodes than
+	// you like (e.g. one node in the case of numPartitions = 1). To avoid this,
+	// you can call repartition(). This will add a shuffle step, but means the
+	// current upstream partitions will be executed in parallel (per whatever
+	// the current partitioning is).
+	Coalesce(ctx context.Context, numPartitions int) DataFrame
+
+	// Columns returns the list of column names of the DataFrame.
+	Columns(ctx context.Context) ([]string, error)
+
+	// Corr calculates the correlation of two columns of a :class:`DataFrame` as a double value.
+	// Currently only supports the Pearson Correlation Coefficient.
+	Corr(ctx context.Context, col1, col2 string) (float64, error)
+	CorrWithMethod(ctx context.Context, col1, col2 string, method string) (float64, error)
+
+	// Count returns the number of rows in the DataFrame.
+	Count(ctx context.Context) (int64, error)
+
+	// Cov calculates the sample covariance for the given columns, specified by their names, as a
+	// double value.
+	Cov(ctx context.Context, col1, col2 string) (float64, error)
+
 	// Collect returns the data rows of the current data frame.
 	Collect(ctx context.Context) ([]Row, error)
 	// Writer returns a data frame writer, which could be used to save data frame to supported storage.
@@ -78,6 +109,128 @@ type DataFrame interface {
 type dataFrameImpl struct {
 	session  *sparkSessionImpl
 	relation *proto.Relation // TODO change to proto.Plan?
+}
+
+func (df *dataFrameImpl) Coalesce(ctx context.Context, numPartitions int) DataFrame {
+	shuffle := false
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Repartition{
+			Repartition: &proto.Repartition{
+				Input:         df.relation,
+				Shuffle:       &shuffle,
+				NumPartitions: int32(numPartitions),
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) Columns(ctx context.Context) ([]string, error) {
+	schema, err := df.Schema(ctx)
+	if err != nil {
+		return nil, err
+	}
+	columns := make([]string, len(schema.Fields))
+	for i, field := range schema.Fields {
+		columns[i] = field.Name
+	}
+	return columns, nil
+}
+
+func (df *dataFrameImpl) Corr(ctx context.Context, col1, col2 string) (float64, error) {
+	return df.CorrWithMethod(ctx, col1, col2, "pearson")
+}
+
+func (df *dataFrameImpl) CorrWithMethod(ctx context.Context, col1, col2 string, method string) (float64, error) {
+	plan := &proto.Plan{
+		OpType: &proto.Plan_Root{
+			Root: &proto.Relation{
+				Common: &proto.RelationCommon{
+					PlanId: newPlanId(),
+				},
+				RelType: &proto.Relation_Corr{
+					Corr: &proto.StatCorr{
+						Input:  df.relation,
+						Col1:   col1,
+						Col2:   col2,
+						Method: &method,
+					},
+				},
+			},
+		},
+	}
+
+	responseClient, err := df.session.client.ExecutePlan(ctx, plan)
+	if err != nil {
+		return 0, sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
+	}
+
+	_, table, err := responseClient.ToTable()
+	if err != nil {
+		return 0, err
+	}
+
+	values, err := types.ReadArrowTable(table)
+	if err != nil {
+		return 0, err
+	}
+
+	return values[0][0].(float64), nil
+}
+
+func (df *dataFrameImpl) Count(ctx context.Context) (int64, error) {
+	res, err := df.GroupBy().Count(ctx)
+	if err != nil {
+		return 0, err
+	}
+	rows, err := res.Collect(ctx)
+	if err != nil {
+		return 0, err
+	}
+	row, err := rows[0].Values()
+	if err != nil {
+		return 0, err
+	}
+	return row[0].(int64), nil
+}
+
+func (df *dataFrameImpl) Cov(ctx context.Context, col1, col2 string) (float64, error) {
+	plan := &proto.Plan{
+		OpType: &proto.Plan_Root{
+			Root: &proto.Relation{
+				Common: &proto.RelationCommon{
+					PlanId: newPlanId(),
+				},
+				RelType: &proto.Relation_Cov{
+					Cov: &proto.StatCov{
+						Input: df.relation,
+						Col1:  col1,
+						Col2:  col2,
+					},
+				},
+			},
+		},
+	}
+
+	responseClient, err := df.session.client.ExecutePlan(ctx, plan)
+	if err != nil {
+		return 0, sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
+	}
+
+	_, table, err := responseClient.ToTable()
+	if err != nil {
+		return 0, err
+	}
+
+	values, err := types.ReadArrowTable(table)
+	if err != nil {
+		return 0, err
+	}
+
+	return values[0][0].(float64), nil
 }
 
 func (df *dataFrameImpl) PlanId() int64 {

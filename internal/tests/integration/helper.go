@@ -18,6 +18,10 @@ package integration
 import (
 	"context"
 
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql"
 )
 
@@ -28,4 +32,27 @@ func connect() (context.Context, sql.SparkSession) {
 		panic(err)
 	}
 	return ctx, spark
+}
+
+func createArrowTable() arrow.Table {
+	pool := memory.NewGoAllocator()
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f3-string", Type: &arrow.StringType{}},
+		},
+		nil,
+	)
+
+	b := array.NewRecordBuilder(pool, schema)
+	defer b.Release()
+
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3}, nil)
+	b.Field(1).(*array.Float64Builder).AppendValues([]float64{1.1, 2.2, 3.3}, nil)
+	b.Field(2).(*array.StringBuilder).AppendValues([]string{"a", "b", "c"}, nil)
+	rec1 := b.NewRecord()
+	// Do not release the table
+	tbl := array.NewTableFromRecords(schema, []arrow.Record{rec1})
+	return tbl
 }

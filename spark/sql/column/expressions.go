@@ -35,6 +35,26 @@ type expression interface {
 	DebugString() string
 }
 
+type unresolvedRegex struct {
+	colRegex string
+	planId   *int64
+}
+
+func (d *unresolvedRegex) DebugString() string {
+	return d.colRegex
+}
+
+func (d *unresolvedRegex) ToProto(ctx context.Context) (*proto.Expression, error) {
+	expr := newProtoExpression()
+	expr.ExprType = &proto.Expression_UnresolvedRegex_{
+		UnresolvedRegex: &proto.Expression_UnresolvedRegex{
+			ColName: d.colRegex,
+			PlanId:  d.planId,
+		},
+	}
+	return expr, nil
+}
+
 type delayedColumnReference struct {
 	unparsedIdentifier string
 	df                 SchemaDataFrame

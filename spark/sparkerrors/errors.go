@@ -64,6 +64,8 @@ var (
 	RetriesExceeded               = errorType(errors.New("retries exceeded"))
 	InvalidServerSideSessionError = errorType(errors.New("invalid server side session"))
 	TestSetupError                = errorType(errors.New("test setup error"))
+	WriteError                    = errorType(errors.New("write error"))
+	NotImplementedError           = errorType(errors.New("not implemented"))
 )
 
 // Format formats the error, supporting both short forms (v, s, q) and verbose form (+v)
