@@ -74,6 +74,7 @@ type DataFrame interface {
 	CrossJoin(ctx context.Context, other DataFrame) DataFrame
 	Drop(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
 	DropByName(ctx context.Context, columns ...string) (DataFrame, error)
+	DropDuplicates(ctx context.Context, columns ...string) (DataFrame, error)
 	// Filter filters the data frame by a column condition.
 	Filter(ctx context.Context, condition column.Convertible) (DataFrame, error)
 	// FilterByString filters the data frame by a string condition.
@@ -716,6 +717,25 @@ func (df *dataFrameImpl) DropByName(ctx context.Context, columns ...string) (Dat
 			Drop: &proto.Drop{
 				Input:       df.relation,
 				ColumnNames: columns,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) DropDuplicates(ctx context.Context, columns ...string) (DataFrame, error) {
+	withinWatermark := false
+	allColumnsAsKeys := len(columns) == 0
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Deduplicate{
+			Deduplicate: &proto.Deduplicate{
+				Input:            df.relation,
+				ColumnNames:      columns,
+				WithinWatermark:  &withinWatermark,
+				AllColumnsAsKeys: &allColumnsAsKeys,
 			},
 		},
 	}

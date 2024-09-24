@@ -355,3 +355,57 @@ func TestDataFrame_Drop(t *testing.T) {
 	assert.Equal(t, 1, len(schema.Fields))
 	assert.Equal(t, "id", schema.Fields[0].Name)
 }
+
+func TestDataFrame_DropDuplicates(t *testing.T) {
+	ctx, spark := connect()
+	src, err := spark.Sql(ctx, "select 1 as id, 2 as other from range(10)")
+	assert.NoError(t, err)
+	df, err := src.DropDuplicates(ctx)
+	assert.NoError(t, err)
+	res, err := df.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), res)
+
+	// Create a dataframe with duplicate rows
+	data := [][]any{
+		{"Alice", 5, 80}, {"Alice", 5, 80}, {"Alice", 10, 80},
+	}
+	schema := types.StructOf(
+		types.NewStructField("name", types.STRING),
+		types.NewStructField("age", types.INTEGER),
+		types.NewStructField("height", types.INTEGER),
+	)
+
+	df, err = spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+	// Check the schema of the dataframe
+	schema, err = df.Schema(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(schema.Fields))
+	assert.Equal(t, "name", schema.Fields[0].Name)
+	assert.Equal(t, "age", schema.Fields[1].Name)
+	assert.Equal(t, "height", schema.Fields[2].Name)
+
+	df, err = df.DropDuplicates(ctx)
+	assert.NoError(t, err)
+	res, err = df.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(2), res)
+	// Check the two ages
+	rows, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(rows))
+	vals, _ := rows[0].Values()
+	assert.Equal(t, "Alice", vals[0])
+	assert.Equal(t, int32(5), vals[1])
+	vals, _ = rows[1].Values()
+	assert.Equal(t, "Alice", vals[0])
+	assert.Equal(t, int32(10), vals[1])
+
+	// Test drop duplicates with column names
+	df, err = df.DropDuplicates(ctx, "name")
+	assert.NoError(t, err)
+	res, err = df.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), res)
+}
