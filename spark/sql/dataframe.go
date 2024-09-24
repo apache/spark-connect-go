@@ -38,12 +38,8 @@ type ResultCollector interface {
 type DataFrame interface {
 	// PlanId returns the plan id of the data frame.
 	PlanId() int64
-	// WriteResult streams the data frames to a result collector
-	WriteResult(ctx context.Context, collector ResultCollector, numRows int, truncate bool) error
-	// Show uses WriteResult to write the data frames to the console output.
-	Show(ctx context.Context, numRows int, truncate bool) error
-	// Schema returns the schema for the current data frame.
-	Schema(ctx context.Context) (*types.StructType, error)
+	// Alias creates a new DataFrame with the specified subquery alias
+	Alias(ctx context.Context, alias string) DataFrame
 	// Coalesce returns a new DataFrame that has exactly numPartitions partitions.DataFrame
 	//
 	// Similar to coalesce defined on an :class:`RDD`, this operation results in a
@@ -59,50 +55,71 @@ type DataFrame interface {
 	// current upstream partitions will be executed in parallel (per whatever
 	// the current partitioning is).
 	Coalesce(ctx context.Context, numPartitions int) DataFrame
-
 	// Columns returns the list of column names of the DataFrame.
 	Columns(ctx context.Context) ([]string, error)
-
 	// Corr calculates the correlation of two columns of a :class:`DataFrame` as a double value.
 	// Currently only supports the Pearson Correlation Coefficient.
 	Corr(ctx context.Context, col1, col2 string) (float64, error)
 	CorrWithMethod(ctx context.Context, col1, col2 string, method string) (float64, error)
-
 	// Count returns the number of rows in the DataFrame.
 	Count(ctx context.Context) (int64, error)
-
 	// Cov calculates the sample covariance for the given columns, specified by their names, as a
 	// double value.
 	Cov(ctx context.Context, col1, col2 string) (float64, error)
-
 	// Collect returns the data rows of the current data frame.
 	Collect(ctx context.Context) ([]Row, error)
+	// CreateTempView creates or replaces a temporary view.
+	CreateTempView(ctx context.Context, viewName string, replace, global bool) error
+	// CrossJoin joins the current DataFrame with another DataFrame using the cross product
+	CrossJoin(ctx context.Context, other DataFrame) DataFrame
+	Drop(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
+	DropByName(ctx context.Context, columns ...string) (DataFrame, error)
+	// Filter filters the data frame by a column condition.
+	Filter(ctx context.Context, condition column.Convertible) (DataFrame, error)
+	// FilterByString filters the data frame by a string condition.
+	FilterByString(ctx context.Context, condition string) (DataFrame, error)
+	// GroupBy groups the DataFrame by the spcified columns so that the aggregation
+	// can be performed on them. See GroupedData for all the available aggregate functions.
+	GroupBy(cols ...column.Convertible) *GroupedData
+	// Repartition re-partitions a data frame.
+	Repartition(ctx context.Context, numPartitions int, columns []string) (DataFrame, error)
+	// RepartitionByRange re-partitions a data frame by range partition.
+	RepartitionByRange(ctx context.Context, numPartitions int, columns ...column.Convertible) (DataFrame, error)
+	// Show uses WriteResult to write the data frames to the console output.
+	Show(ctx context.Context, numRows int, truncate bool) error
+	// Schema returns the schema for the current data frame.
+	Schema(ctx context.Context) (*types.StructType, error)
+	// Select projects a list of columns from the DataFrame
+	Select(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
+	// SelectExpr projects a list of columns from the DataFrame by string expressions
+	SelectExpr(ctx context.Context, exprs ...string) (DataFrame, error)
+	// WithColumn returns a new DataFrame by adding a column or replacing the
+	// existing column that has the same name. The column expression must be an
+	// expression over this DataFrame; attempting to add a column from some other
+	// DataFrame will raise an error.
+	//
+	// Note: This method introduces a projection internally. Therefore, calling it multiple
+	// times, for instance, via loops in order to add multiple columns can generate big
+	// plans which can cause performance issues and even `StackOverflowException`.
+	// To avoid this, use :func:`select` with multiple columns at once.
+	WithColumn(ctx context.Context, colName string, col column.Convertible) (DataFrame, error)
+	WithColumns(ctx context.Context, colsMap map[string]column.Convertible) (DataFrame, error)
+	// WithColumnRenamed returns a new DataFrame by renaming an existing column.
+	// This is a no-op if the schema doesn't contain the given column name.
+	WithColumnRenamed(ctx context.Context, existingName, newName string) (DataFrame, error)
+	// WithColumnsRenamed returns a new DataFrame by renaming multiple existing columns.
+	WithColumnsRenamed(ctx context.Context, colsMap map[string]string) (DataFrame, error)
+	// WithMetadata returns a new DataFrame with the specified metadata for each of the columns.
+	WithMetadata(ctx context.Context, metadata map[string]string) (DataFrame, error)
+	WithWatermark(ctx context.Context, eventTime string, delayThreshold string) (DataFrame, error)
+	Where(ctx context.Context, condition string) (DataFrame, error)
 	// Writer returns a data frame writer, which could be used to save data frame to supported storage.
 	Writer() DataFrameWriter
 	// Write is an alias for Writer
 	// Deprecated: Use Writer
 	Write() DataFrameWriter
-	// CreateTempView creates or replaces a temporary view.
-	CreateTempView(ctx context.Context, viewName string, replace, global bool) error
-	// Repartition re-partitions a data frame.
-	Repartition(ctx context.Context, numPartitions int, columns []string) (DataFrame, error)
-	// RepartitionByRange re-partitions a data frame by range partition.
-	RepartitionByRange(ctx context.Context, numPartitions int, columns ...column.Convertible) (DataFrame, error)
-	// Filter filters the data frame by a column condition.
-	Filter(ctx context.Context, condition column.Convertible) (DataFrame, error)
-	// FilterByString filters the data frame by a string condition.
-	FilterByString(ctx context.Context, condition string) (DataFrame, error)
-	// Select projects a list of columns from the DataFrame
-	Select(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
-	// SelectExpr projects a list of columns from the DataFrame by string expressions
-	SelectExpr(ctx context.Context, exprs ...string) (DataFrame, error)
-	// Alias creates a new DataFrame with the specified subquery alias
-	Alias(ctx context.Context, alias string) DataFrame
-	// CrossJoin joins the current DataFrame with another DataFrame using the cross product
-	CrossJoin(ctx context.Context, other DataFrame) DataFrame
-	// GroupBy groups the DataFrame by the spcified columns so that the aggregation
-	// can be performed on them. See GroupedData for all the available aggregate functions.
-	GroupBy(cols ...column.Convertible) *GroupedData
+	// WriteResult streams the data frames to a result collector
+	WriteResult(ctx context.Context, collector ResultCollector, numRows int, truncate bool) error
 }
 
 // dataFrameImpl is an implementation of DataFrame interface.
@@ -561,4 +578,146 @@ func (df *dataFrameImpl) GroupBy(cols ...column.Convertible) *GroupedData {
 		groupingCols: cols,
 		groupType:    "groupby",
 	}
+}
+
+func (df *dataFrameImpl) WithColumn(ctx context.Context, colName string, col column.Convertible) (DataFrame, error) {
+	return df.WithColumns(ctx, map[string]column.Convertible{colName: col})
+}
+
+func (df *dataFrameImpl) WithColumns(ctx context.Context, colsMap map[string]column.Convertible) (DataFrame, error) {
+	// Convert all columns to proto expressions and the corresponding alias:
+	aliases := make([]*proto.Expression_Alias, 0, len(colsMap))
+	for colName, col := range colsMap {
+		expr, err := col.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		alias := &proto.Expression_Alias{
+			Expr: expr,
+			Name: []string{colName},
+		}
+		aliases = append(aliases, alias)
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_WithColumns{
+			WithColumns: &proto.WithColumns{
+				Input:   df.relation,
+				Aliases: aliases,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) WithColumnRenamed(ctx context.Context, existingName, newName string) (DataFrame, error) {
+	return df.WithColumnsRenamed(ctx, map[string]string{existingName: newName})
+}
+
+func (df *dataFrameImpl) WithColumnsRenamed(ctx context.Context, colsMap map[string]string) (DataFrame, error) {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_WithColumnsRenamed{
+			WithColumnsRenamed: &proto.WithColumnsRenamed{
+				Input:            df.relation,
+				RenameColumnsMap: colsMap,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) WithMetadata(ctx context.Context, metadata map[string]string) (DataFrame, error) {
+	// WithMetadata works the same way as with columns but extracts the column reference from the DataFrame
+	// and injects it back into the projection.
+	aliases := make([]*proto.Expression_Alias, 0, len(metadata))
+	for colName, metadata := range metadata {
+		expr := column.OfDF(df, colName)
+		exprProto, err := expr.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		alias := &proto.Expression_Alias{
+			Expr:     exprProto,
+			Name:     []string{colName},
+			Metadata: &metadata,
+		}
+		aliases = append(aliases, alias)
+	}
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_WithColumns{
+			WithColumns: &proto.WithColumns{
+				Input:   df.relation,
+				Aliases: aliases,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) WithWatermark(ctx context.Context, eventTime string, delayThreshold string) (DataFrame, error) {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_WithWatermark{
+			WithWatermark: &proto.WithWatermark{
+				Input:          df.relation,
+				EventTime:      eventTime,
+				DelayThreshold: delayThreshold,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) Where(ctx context.Context, condition string) (DataFrame, error) {
+	return df.FilterByString(ctx, condition)
+}
+
+func (df *dataFrameImpl) Drop(ctx context.Context, columns ...column.Convertible) (DataFrame, error) {
+	exprs := make([]*proto.Expression, 0, len(columns))
+	for _, c := range columns {
+		e, err := c.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		exprs = append(exprs, e)
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Drop{
+			Drop: &proto.Drop{
+				Input:   df.relation,
+				Columns: exprs,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) DropByName(ctx context.Context, columns ...string) (DataFrame, error) {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Drop{
+			Drop: &proto.Drop{
+				Input:       df.relation,
+				ColumnNames: columns,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
 }

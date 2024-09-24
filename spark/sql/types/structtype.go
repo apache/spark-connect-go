@@ -23,6 +23,7 @@ type StructField struct {
 	Name     string
 	DataType DataType
 	Nullable bool // default should be true
+	Metadata *string
 }
 
 func (t *StructField) ToArrowType() arrow.Field {

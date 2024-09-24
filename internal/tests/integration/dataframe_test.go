@@ -212,3 +212,146 @@ func TestDataFrame_Cov(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, -18.0, res)
 }
+
+func TestDataFrame_WithColumn(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	df, err = df.WithColumn(ctx, "newCol", functions.Lit(1))
+	assert.NoError(t, err)
+	res, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, len(res))
+	// Check the values of the new column
+	for _, row := range res {
+		vals, err := row.Values()
+		assert.NoError(t, err)
+		assert.Equal(t, 2, len(vals))
+		assert.Equal(t, int64(1), vals[1])
+	}
+}
+
+func TestDataFrame_WithColumns(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	df, err = df.WithColumns(ctx, map[string]column.Convertible{
+		"newCol1": functions.Lit(1),
+		"newCol2": functions.Lit(2),
+	})
+	assert.NoError(t, err)
+	res, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, len(res))
+	// Check the values of the new columns
+	for _, row := range res {
+		vals, err := row.Values()
+		assert.NoError(t, err)
+		assert.Equal(t, 3, len(vals))
+		assert.Equal(t, int64(1), vals[1])
+		assert.Equal(t, int64(2), vals[2])
+	}
+}
+
+func TestDataFrame_WithMetadata(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	df, err = df.WithMetadata(ctx, map[string]string{"id": "value"})
+	assert.NoError(t, err)
+	_, err = df.Schema(ctx)
+	assert.Error(t, err, "Expecting malformed metadata")
+
+	df, err = spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	df, err = df.WithMetadata(ctx, map[string]string{"id": "{\"kk\": \"value\"}"})
+	assert.NoError(t, err)
+	schema, err := df.Schema(ctx)
+	assert.NoError(t, err)
+	fields := schema.Fields[0]
+	assert.Equal(t, "id", fields.Name)
+	assert.Equal(t, "{\"kk\":\"value\"}", *fields.Metadata)
+}
+
+func TestDataFrame_WithColumnRenamed(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	df, err = df.WithColumnRenamed(ctx, "id", "newId")
+	assert.NoError(t, err)
+	// Check the schema of the new dataframe
+	schema, err := df.Schema(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(schema.Fields))
+	assert.Equal(t, "newId", schema.Fields[0].Name)
+	res, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, len(res))
+	// Check the values of the new column
+	for i, row := range res {
+		vals, err := row.Values()
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(vals))
+		assert.Equal(t, int64(i), vals[0])
+	}
+
+	// Test that renaming a non-existing column does not change anything.
+	df, _ = spark.Sql(ctx, "select * from range(10)")
+	df, err = df.WithColumnRenamed(ctx, "nonExisting", "newId")
+	assert.NoError(t, err)
+	schema, err = df.Schema(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(schema.Fields))
+	assert.Equal(t, "id", schema.Fields[0].Name)
+
+	// Test that single column renaming works as well.
+	df, _ = spark.Sql(ctx, "select * from range(10)")
+	df, err = df.WithColumnRenamed(ctx, "id", "newId")
+	assert.NoError(t, err)
+	schema, err = df.Schema(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(schema.Fields))
+	assert.Equal(t, "newId", schema.Fields[0].Name)
+}
+
+func TestDataFrame_WithWatermark(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select current_timestamp() as this_time from range(10)")
+	assert.NoError(t, err)
+	df, err = df.WithWatermark(ctx, "this_time", "1 minute")
+	assert.NoError(t, err)
+	schema, err := df.Schema(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(schema.Fields))
+	assert.Equal(t, "this_time", schema.Fields[0].Name)
+}
+
+func TestDataFrame_Where(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	df, err = df.Where(ctx, "id = 0")
+	assert.NoError(t, err)
+	res, err := df.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), res)
+}
+
+func TestDataFrame_Drop(t *testing.T) {
+	ctx, spark := connect()
+	src, err := spark.Sql(ctx, "select 1 as id, 2 as other from range(10)")
+	assert.NoError(t, err)
+	df, err := src.DropByName(ctx, "id")
+	assert.NoError(t, err)
+	schema, err := df.Schema(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(schema.Fields))
+	assert.Equal(t, "other", schema.Fields[0].Name)
+
+	df, err = src.Drop(ctx, column.OfDF(src, "other"))
+	assert.NoError(t, err)
+	schema, err = df.Schema(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(schema.Fields))
+	assert.Equal(t, "id", schema.Fields[0].Name)
+}
