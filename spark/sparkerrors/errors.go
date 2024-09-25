@@ -66,6 +66,7 @@ var (
 	TestSetupError                = errorType(errors.New("test setup error"))
 	WriteError                    = errorType(errors.New("write error"))
 	NotImplementedError           = errorType(errors.New("not implemented"))
+	InvalidArgumentError          = errorType(errors.New("invalid argument"))
 )
 
 // Format formats the error, supporting both short forms (v, s, q) and verbose form (+v)

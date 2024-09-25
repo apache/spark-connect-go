@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
@@ -127,6 +129,206 @@ func (s *sparkConnectClientImpl) AnalyzePlan(ctx context.Context, plan *proto.Pl
 		return nil, sparkerrors.WithType(se, sparkerrors.ExecutionError)
 	}
 	return response, nil
+}
+
+func (s *sparkConnectClientImpl) Explain(ctx context.Context, plan *proto.Plan,
+	explainMode utils.ExplainMode,
+) (*proto.AnalyzePlanResponse, error) {
+	var mode proto.AnalyzePlanRequest_Explain_ExplainMode
+	if explainMode == utils.ExplainModeExtended {
+		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_EXTENDED
+	} else if explainMode == utils.ExplainModeSimple {
+		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_SIMPLE
+	} else if explainMode == utils.ExplainModeCost {
+		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_COST
+	} else if explainMode == utils.ExplainModeFormatted {
+		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_FORMATTED
+	} else if explainMode == utils.ExplainModeCodegen {
+		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_CODEGEN
+	} else {
+		return nil, sparkerrors.WithType(fmt.Errorf("unsupported explain mode %v",
+			explainMode), sparkerrors.InvalidArgumentError)
+	}
+
+	request := proto.AnalyzePlanRequest{
+		SessionId: s.sessionId,
+		Analyze: &proto.AnalyzePlanRequest_Explain_{
+			Explain: &proto.AnalyzePlanRequest_Explain{
+				Plan:        plan,
+				ExplainMode: mode,
+			},
+		},
+		UserContext: &proto.UserContext{
+			UserId: "na",
+		},
+	}
+	// Append the other items to the request.
+	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
+
+	response, err := s.client.AnalyzePlan(ctx, &request)
+	if se := sparkerrors.FromRPCError(err); se != nil {
+		return nil, sparkerrors.WithType(se, sparkerrors.ExecutionError)
+	}
+	return response, nil
+}
+
+func (s *sparkConnectClientImpl) Persist(ctx context.Context, plan *proto.Plan, storageLevel utils.StorageLevel) error {
+	protoLevel := utils.ToProtoStorageLevel(storageLevel)
+
+	request := proto.AnalyzePlanRequest{
+		SessionId: s.sessionId,
+		Analyze: &proto.AnalyzePlanRequest_Persist_{
+			Persist: &proto.AnalyzePlanRequest_Persist{
+				Relation:     plan.GetRoot(),
+				StorageLevel: protoLevel,
+			},
+		},
+		UserContext: &proto.UserContext{
+			UserId: "na",
+		},
+	}
+	// Append the other items to the request.
+	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
+
+	_, err := s.client.AnalyzePlan(ctx, &request)
+	if se := sparkerrors.FromRPCError(err); se != nil {
+		return sparkerrors.WithType(se, sparkerrors.ExecutionError)
+	}
+	return nil
+}
+
+func (s *sparkConnectClientImpl) Unpersist(ctx context.Context, plan *proto.Plan) error {
+	request := proto.AnalyzePlanRequest{
+		SessionId: s.sessionId,
+		Analyze: &proto.AnalyzePlanRequest_Unpersist_{
+			Unpersist: &proto.AnalyzePlanRequest_Unpersist{
+				Relation: plan.GetRoot(),
+			},
+		},
+		UserContext: &proto.UserContext{
+			UserId: "na",
+		},
+	}
+	// Append the other items to the request.
+	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
+
+	_, err := s.client.AnalyzePlan(ctx, &request)
+	if se := sparkerrors.FromRPCError(err); se != nil {
+		return sparkerrors.WithType(se, sparkerrors.ExecutionError)
+	}
+	return nil
+}
+
+func (s *sparkConnectClientImpl) GetStorageLevel(ctx context.Context, plan *proto.Plan) (*utils.StorageLevel, error) {
+	request := proto.AnalyzePlanRequest{
+		SessionId: s.sessionId,
+		Analyze: &proto.AnalyzePlanRequest_GetStorageLevel_{
+			GetStorageLevel: &proto.AnalyzePlanRequest_GetStorageLevel{
+				Relation: plan.GetRoot(),
+			},
+		},
+		UserContext: &proto.UserContext{
+			UserId: "na",
+		},
+	}
+	// Append the other items to the request.
+	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
+
+	response, err := s.client.AnalyzePlan(ctx, &request)
+	if se := sparkerrors.FromRPCError(err); se != nil {
+		return nil, sparkerrors.WithType(se, sparkerrors.ExecutionError)
+	}
+
+	level := response.GetGetStorageLevel().StorageLevel
+	res := utils.FromProtoStorageLevel(level)
+	return &res, nil
+}
+
+func (s *sparkConnectClientImpl) SparkVersion(ctx context.Context) (string, error) {
+	request := proto.AnalyzePlanRequest{
+		SessionId: s.sessionId,
+		Analyze: &proto.AnalyzePlanRequest_SparkVersion_{
+			SparkVersion: &proto.AnalyzePlanRequest_SparkVersion{},
+		},
+		UserContext: &proto.UserContext{
+			UserId: "na",
+		},
+	}
+	// Append the other items to the request.
+	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
+
+	response, err := s.client.AnalyzePlan(ctx, &request)
+	if se := sparkerrors.FromRPCError(err); se != nil {
+		return "", sparkerrors.WithType(se, sparkerrors.ExecutionError)
+	}
+	return response.GetSparkVersion().Version, nil
+}
+
+func (s *sparkConnectClientImpl) DDLParse(ctx context.Context, sql string) (*types.StructType, error) {
+	request := proto.AnalyzePlanRequest{
+		SessionId: s.sessionId,
+		Analyze: &proto.AnalyzePlanRequest_DdlParse{
+			DdlParse: &proto.AnalyzePlanRequest_DDLParse{
+				DdlString: sql,
+			},
+		},
+		UserContext: &proto.UserContext{
+			UserId: "na",
+		},
+	}
+	// Append the other items to the request.
+	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
+
+	response, err := s.client.AnalyzePlan(ctx, &request)
+	if se := sparkerrors.FromRPCError(err); se != nil {
+		return nil, sparkerrors.WithType(se, sparkerrors.ExecutionError)
+	}
+	return types.ConvertProtoDataTypeToStructType(response.GetDdlParse().Parsed)
+}
+
+func (s *sparkConnectClientImpl) SameSemantics(ctx context.Context, plan1 *proto.Plan, plan2 *proto.Plan) (bool, error) {
+	request := proto.AnalyzePlanRequest{
+		SessionId: s.sessionId,
+		Analyze: &proto.AnalyzePlanRequest_SameSemantics_{
+			SameSemantics: &proto.AnalyzePlanRequest_SameSemantics{
+				TargetPlan: plan1,
+				OtherPlan:  plan2,
+			},
+		},
+		UserContext: &proto.UserContext{
+			UserId: "na",
+		},
+	}
+	// Append the other items to the request.
+	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
+
+	response, err := s.client.AnalyzePlan(ctx, &request)
+	if se := sparkerrors.FromRPCError(err); se != nil {
+		return false, sparkerrors.WithType(se, sparkerrors.ExecutionError)
+	}
+	return response.GetSameSemantics().GetResult(), nil
+}
+
+func (s *sparkConnectClientImpl) SemanticHash(ctx context.Context, plan *proto.Plan) (int32, error) {
+	request := proto.AnalyzePlanRequest{
+		SessionId: s.sessionId,
+		Analyze: &proto.AnalyzePlanRequest_SemanticHash_{
+			SemanticHash: &proto.AnalyzePlanRequest_SemanticHash{
+				Plan: plan,
+			},
+		},
+		UserContext: &proto.UserContext{
+			UserId: "na",
+		},
+	}
+	// Append the other items to the request.
+	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
+
+	response, err := s.client.AnalyzePlan(ctx, &request)
+	if se := sparkerrors.FromRPCError(err); se != nil {
+		return 0, sparkerrors.WithType(se, sparkerrors.ExecutionError)
+	}
+	return response.GetSemanticHash().GetResult(), nil
 }
 
 func NewSparkExecutor(conn *grpc.ClientConn, md metadata.MD, sessionId string, opts options.SparkClientOptions) base.SparkConnectClient {
