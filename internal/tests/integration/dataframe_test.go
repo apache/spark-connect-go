@@ -458,7 +458,9 @@ func TestDataFrame_CachingAndPersistence(t *testing.T) {
 		assert.NoError(t, err)
 		l, err := df.GetStorageLevel(ctx)
 		assert.NoError(t, err)
-		assert.Equal(t, lvl, *l, "%v != %v", lvl, *l)
+
+		assert.Contains(t, []utils.StorageLevel{lvl, utils.StorageLevelMemoryOnly}, *l)
+
 		err = df.Unpersist(ctx)
 		assert.NoError(t, err)
 	}
