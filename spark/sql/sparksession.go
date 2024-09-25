@@ -195,7 +195,25 @@ func (s *sparkSessionImpl) CreateDataFrameFromArrow(ctx context.Context, data ar
 			},
 		},
 	}
-	return NewDataFrame(s, plan), nil
+
+	// Capture the column names from the schema:
+	columnNames := make([]string, data.NumCols())
+	for i, field := range data.Schema().Fields() {
+		columnNames[i] = field.Name
+	}
+
+	dfPlan := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_ToDf{
+			ToDf: &proto.ToDF{
+				Input:       plan,
+				ColumnNames: columnNames,
+			},
+		},
+	}
+	return NewDataFrame(s, dfPlan), nil
 }
 
 func (s *sparkSessionImpl) CreateDataFrame(ctx context.Context, data [][]any, schema *types.StructType) (DataFrame, error) {
@@ -204,7 +222,6 @@ func (s *sparkSessionImpl) CreateDataFrame(ctx context.Context, data [][]any, sc
 	arrowSchema := arrow.NewSchema(schema.ToArrowType().Fields(), nil)
 	rb := array.NewRecordBuilder(pool, arrowSchema)
 	defer rb.Release()
-
 	// Iterate over all fields and add the values:
 	for _, row := range data {
 		for i, field := range schema.Fields {

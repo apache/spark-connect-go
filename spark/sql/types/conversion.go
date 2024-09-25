@@ -45,6 +45,8 @@ func ConvertProtoStructField(field *generated.DataType_StructField) StructField 
 	return StructField{
 		Name:     field.Name,
 		DataType: ConvertProtoDataTypeToDataType(field.DataType),
+		Nullable: field.Nullable,
+		Metadata: field.Metadata,
 	}
 }
 
