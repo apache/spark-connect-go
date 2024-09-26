@@ -704,7 +704,7 @@ func TestDataFrame_SameSemantics(t *testing.T) {
 	assert.NoError(t, err)
 	df2, err := spark.Sql(ctx, "select * from range(10)")
 	assert.NoError(t, err)
-	res, err := df1.SameSemantics(ctx, df2)
+	res, _ := df1.SameSemantics(ctx, df2)
 	assert.True(t, res)
 }
 

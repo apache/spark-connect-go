@@ -1036,7 +1036,8 @@ func (df *dataFrameImpl) Sort(ctx context.Context, columns ...column.Convertible
 		}
 		so := expr.GetSortOrder()
 		if so == nil {
-			return nil, sparkerrors.WithType(fmt.Errorf("sort expression must not be nil"), sparkerrors.InvalidArgumentError)
+			return nil, sparkerrors.WithType(fmt.Errorf(
+				"sort expression must not be nil"), sparkerrors.InvalidArgumentError)
 		}
 		sortExprs = append(sortExprs, so)
 	}
