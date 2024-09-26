@@ -18,6 +18,8 @@ package base
 import (
 	"context"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
+
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/apache/spark-connect-go/v35/spark/sql/types"
@@ -33,6 +35,14 @@ type SparkConnectClient interface {
 	ExecutePlan(ctx context.Context, plan *generated.Plan) (ExecuteResponseStream, error)
 	ExecuteCommand(ctx context.Context, plan *generated.Plan) (arrow.Table, *types.StructType, map[string]any, error)
 	AnalyzePlan(ctx context.Context, plan *generated.Plan) (*generated.AnalyzePlanResponse, error)
+	Explain(ctx context.Context, plan *generated.Plan, explainMode utils.ExplainMode) (*generated.AnalyzePlanResponse, error)
+	Persist(ctx context.Context, plan *generated.Plan, storageLevel utils.StorageLevel) error
+	Unpersist(ctx context.Context, plan *generated.Plan) error
+	GetStorageLevel(ctx context.Context, plan *generated.Plan) (*utils.StorageLevel, error)
+	SparkVersion(ctx context.Context) (string, error)
+	DDLParse(ctx context.Context, sql string) (*types.StructType, error)
+	SameSemantics(ctx context.Context, plan1 *generated.Plan, plan2 *generated.Plan) (bool, error)
+	SemanticHash(ctx context.Context, plan *generated.Plan) (int32, error)
 }
 
 type ExecuteResponseStream interface {

@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql/column"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql/types"
@@ -40,6 +43,8 @@ type DataFrame interface {
 	PlanId() int64
 	// Alias creates a new DataFrame with the specified subquery alias
 	Alias(ctx context.Context, alias string) DataFrame
+	// Cache persists the DataFrame with the default storage level.
+	Cache(ctx context.Context) error
 	// Coalesce returns a new DataFrame that has exactly numPartitions partitions.DataFrame
 	//
 	// Similar to coalesce defined on an :class:`RDD`, this operation results in a
@@ -72,20 +77,39 @@ type DataFrame interface {
 	CreateTempView(ctx context.Context, viewName string, replace, global bool) error
 	// CrossJoin joins the current DataFrame with another DataFrame using the cross product
 	CrossJoin(ctx context.Context, other DataFrame) DataFrame
+	// Drop returns a new DataFrame that drops the specified list of columns.
 	Drop(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
+	// DropByName returns a new DataFrame that drops the specified list of columns by name.
 	DropByName(ctx context.Context, columns ...string) (DataFrame, error)
+	// DropDuplicates returns a new DataFrame that contains only the unique rows from this DataFrame.
 	DropDuplicates(ctx context.Context, columns ...string) (DataFrame, error)
+	// ExceptAll is similar to Substract but does not perform the distinct operation.
+	ExceptAll(ctx context.Context, other DataFrame) DataFrame
+	Explain(ctx context.Context, explainMode utils.ExplainMode) (string, error)
 	// Filter filters the data frame by a column condition.
 	Filter(ctx context.Context, condition column.Convertible) (DataFrame, error)
 	// FilterByString filters the data frame by a string condition.
 	FilterByString(ctx context.Context, condition string) (DataFrame, error)
+	// GetStorageLevel returns the storage level of the data frame.
+	GetStorageLevel(ctx context.Context) (*utils.StorageLevel, error)
 	// GroupBy groups the DataFrame by the spcified columns so that the aggregation
 	// can be performed on them. See GroupedData for all the available aggregate functions.
 	GroupBy(cols ...column.Convertible) *GroupedData
+	// Head is an alias for Limit
+	Head(ctx context.Context, limit int32) ([]Row, error)
+	// Intersect performs the set intersection of two data frames and only returns distinct rows.
+	Intersect(ctx context.Context, other DataFrame) DataFrame
+	// IntersectAll performs the set intersection of two data frames and returns all rows.
+	IntersectAll(ctx context.Context, other DataFrame) DataFrame
+	// Limit returns the first `limit` rows as a list of Row.
+	Limit(ctx context.Context, limit int32) ([]Row, error)
+	Persist(ctx context.Context, storageLevel utils.StorageLevel) error
 	// Repartition re-partitions a data frame.
 	Repartition(ctx context.Context, numPartitions int, columns []string) (DataFrame, error)
 	// RepartitionByRange re-partitions a data frame by range partition.
 	RepartitionByRange(ctx context.Context, numPartitions int, columns ...column.Convertible) (DataFrame, error)
+	// SameSemantics returns true if the other DataFrame has the same semantics.
+	SameSemantics(ctx context.Context, other DataFrame) (bool, error)
 	// Show uses WriteResult to write the data frames to the console output.
 	Show(ctx context.Context, numRows int, truncate bool) error
 	// Schema returns the schema for the current data frame.
@@ -94,6 +118,31 @@ type DataFrame interface {
 	Select(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
 	// SelectExpr projects a list of columns from the DataFrame by string expressions
 	SelectExpr(ctx context.Context, exprs ...string) (DataFrame, error)
+	// SemanticHash returns the semantic hash of the data frame. The semantic hash can be used to
+	// understand of the semantic operations are similar.
+	SemanticHash(ctx context.Context) (int32, error)
+	// Subtract subtracts the other DataFrame from the current DataFrame. And only returns
+	// distinct rows.
+	Subtract(ctx context.Context, other DataFrame) DataFrame
+	// Tail returns the last `limit` rows as a list of Row.
+	Tail(ctx context.Context, limit int32) ([]Row, error)
+	// Take is an alias for Limit
+	Take(ctx context.Context, limit int32) ([]Row, error)
+	// ToArrow returns the Arrow representation of the DataFrame.
+	ToArrow(ctx context.Context) (*arrow.Table, error)
+	// Union is an alias for UnionAll
+	Union(ctx context.Context, other DataFrame) DataFrame
+	// UnionAll returns a new DataFrame containing union of rows in this and another DataFrame.
+	UnionAll(ctx context.Context, other DataFrame) DataFrame
+	// UnionByName performs a SQL union operation on two dataframes but reorders the schema
+	// according to the matching columns. If columns are missing, it will throw an eror.
+	UnionByName(ctx context.Context, other DataFrame) DataFrame
+	// UnionByNameWithMissingColumns performs a SQL union operation on two dataframes but reorders the schema
+	// according to the matching columns. Missing columns are supported.
+	UnionByNameWithMissingColumns(ctx context.Context, other DataFrame) DataFrame
+	// Unpersist resets the storage level for this data frame, and if necessary removes it
+	// from server-side caches.
+	Unpersist(ctx context.Context) error
 	// WithColumn returns a new DataFrame by adding a column or replacing the
 	// existing column that has the same name. The column expression must be an
 	// expression over this DataFrame; attempting to add a column from some other
@@ -740,4 +789,320 @@ func (df *dataFrameImpl) DropDuplicates(ctx context.Context, columns ...string) 
 		},
 	}
 	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) Tail(ctx context.Context, limit int32) ([]Row, error) {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Tail{
+			Tail: &proto.Tail{
+				Input: df.relation,
+				Limit: limit,
+			},
+		},
+	}
+	data := NewDataFrame(df.session, rel)
+	return data.Collect(ctx)
+}
+
+func (df *dataFrameImpl) Limit(ctx context.Context, limit int32) ([]Row, error) {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Limit{
+			Limit: &proto.Limit{
+				Input: df.relation,
+				Limit: limit,
+			},
+		},
+	}
+	data := NewDataFrame(df.session, rel)
+	return data.Collect(ctx)
+}
+
+func (df *dataFrameImpl) Head(ctx context.Context, limit int32) ([]Row, error) {
+	return df.Limit(ctx, limit)
+}
+
+func (df *dataFrameImpl) Take(ctx context.Context, limit int32) ([]Row, error) {
+	return df.Limit(ctx, limit)
+}
+
+func (df *dataFrameImpl) ToArrow(ctx context.Context) (*arrow.Table, error) {
+	responseClient, err := df.session.client.ExecutePlan(ctx, df.createPlan())
+	if err != nil {
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
+	}
+
+	_, table, err := responseClient.ToTable()
+	if err != nil {
+		return nil, err
+	}
+
+	return &table, nil
+}
+
+func (df *dataFrameImpl) UnionAll(ctx context.Context, other DataFrame) DataFrame {
+	otherDf := other.(*dataFrameImpl)
+	isAll := true
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_SetOp{
+			SetOp: &proto.SetOperation{
+				LeftInput:  df.relation,
+				RightInput: otherDf.relation,
+				SetOpType:  proto.SetOperation_SET_OP_TYPE_UNION,
+				IsAll:      &isAll,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) Union(ctx context.Context, other DataFrame) DataFrame {
+	return df.UnionAll(ctx, other)
+}
+
+func (df *dataFrameImpl) UnionByName(ctx context.Context, other DataFrame) DataFrame {
+	otherDf := other.(*dataFrameImpl)
+	byName := true
+	allowMissingColumns := false
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_SetOp{
+			SetOp: &proto.SetOperation{
+				LeftInput:           df.relation,
+				RightInput:          otherDf.relation,
+				SetOpType:           proto.SetOperation_SET_OP_TYPE_UNION,
+				ByName:              &byName,
+				AllowMissingColumns: &allowMissingColumns,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) UnionByNameWithMissingColumns(ctx context.Context, other DataFrame) DataFrame {
+	otherDf := other.(*dataFrameImpl)
+	byName := true
+	allowMissingColumns := true
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_SetOp{
+			SetOp: &proto.SetOperation{
+				LeftInput:           df.relation,
+				RightInput:          otherDf.relation,
+				SetOpType:           proto.SetOperation_SET_OP_TYPE_UNION,
+				ByName:              &byName,
+				AllowMissingColumns: &allowMissingColumns,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) ExceptAll(ctx context.Context, other DataFrame) DataFrame {
+	otherDf := other.(*dataFrameImpl)
+	isAll := true
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_SetOp{
+			SetOp: &proto.SetOperation{
+				LeftInput:  df.relation,
+				RightInput: otherDf.relation,
+				SetOpType:  proto.SetOperation_SET_OP_TYPE_EXCEPT,
+				IsAll:      &isAll,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) Subtract(ctx context.Context, other DataFrame) DataFrame {
+	otherDf := other.(*dataFrameImpl)
+	isAll := false
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_SetOp{
+			SetOp: &proto.SetOperation{
+				LeftInput:  df.relation,
+				RightInput: otherDf.relation,
+				SetOpType:  proto.SetOperation_SET_OP_TYPE_EXCEPT,
+				IsAll:      &isAll,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) Intersect(ctx context.Context, other DataFrame) DataFrame {
+	otherDf := other.(*dataFrameImpl)
+	isAll := false
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_SetOp{
+			SetOp: &proto.SetOperation{
+				LeftInput:  df.relation,
+				RightInput: otherDf.relation,
+				SetOpType:  proto.SetOperation_SET_OP_TYPE_INTERSECT,
+				IsAll:      &isAll,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) IntersectAll(ctx context.Context, other DataFrame) DataFrame {
+	otherDf := other.(*dataFrameImpl)
+	isAll := true
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_SetOp{
+			SetOp: &proto.SetOperation{
+				LeftInput:  df.relation,
+				RightInput: otherDf.relation,
+				SetOpType:  proto.SetOperation_SET_OP_TYPE_INTERSECT,
+				IsAll:      &isAll,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) Sort(ctx context.Context, columns ...column.Convertible) (DataFrame, error) {
+	globalSort := true
+	sortExprs := make([]*proto.Expression_SortOrder, 0, len(columns))
+	for _, c := range columns {
+		expr, err := c.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		sortExprs = append(sortExprs, expr.GetSortOrder())
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Sort{
+			Sort: &proto.Sort{
+				Input:    df.relation,
+				Order:    sortExprs,
+				IsGlobal: &globalSort,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) SortWithinPartitions(ctx context.Context, columns ...column.Convertible) (DataFrame, error) {
+	globalSort := false
+	sortExprs := make([]*proto.Expression_SortOrder, 0, len(columns))
+	for _, c := range columns {
+		expr, err := c.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		sortExprs = append(sortExprs, expr.GetSortOrder())
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Sort{
+			Sort: &proto.Sort{
+				Input:    df.relation,
+				Order:    sortExprs,
+				IsGlobal: &globalSort,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) OrderBy(ctx context.Context, columns ...column.Convertible) (DataFrame, error) {
+	return df.Sort(ctx, columns...)
+}
+
+func (df *dataFrameImpl) Explain(ctx context.Context, explainMode utils.ExplainMode) (string, error) {
+	plan := df.createPlan()
+
+	responseClient, err := df.session.client.Explain(ctx, plan, explainMode)
+	if err != nil {
+		return "", sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
+	}
+	return responseClient.GetExplain().GetExplainString(), nil
+}
+
+func (df *dataFrameImpl) Persist(ctx context.Context, storageLevel utils.StorageLevel) error {
+	plan := &proto.Plan{
+		OpType: &proto.Plan_Root{
+			Root: df.relation,
+		},
+	}
+	return df.session.client.Persist(ctx, plan, storageLevel)
+}
+
+func (df *dataFrameImpl) Cache(ctx context.Context) error {
+	return df.Persist(ctx, utils.StorageLevelMemoryOnly)
+}
+
+func (df *dataFrameImpl) Unpersist(ctx context.Context) error {
+	plan := &proto.Plan{
+		OpType: &proto.Plan_Root{
+			Root: df.relation,
+		},
+	}
+	return df.session.client.Unpersist(ctx, plan)
+}
+
+func (df *dataFrameImpl) GetStorageLevel(ctx context.Context) (*utils.StorageLevel, error) {
+	plan := &proto.Plan{
+		OpType: &proto.Plan_Root{
+			Root: df.relation,
+		},
+	}
+	return df.session.client.GetStorageLevel(ctx, plan)
+}
+
+func (df *dataFrameImpl) SameSemantics(ctx context.Context, other DataFrame) (bool, error) {
+	otherDf := other.(*dataFrameImpl)
+	plan := &proto.Plan{
+		OpType: &proto.Plan_Root{
+			Root: df.relation,
+		},
+	}
+	otherPlan := &proto.Plan{
+		OpType: &proto.Plan_Root{
+			Root: otherDf.relation,
+		},
+	}
+	return df.session.client.SameSemantics(ctx, plan, otherPlan)
+}
+
+func (df *dataFrameImpl) SemanticHash(ctx context.Context) (int32, error) {
+	plan := &proto.Plan{
+		OpType: &proto.Plan_Root{
+			Root: df.relation,
+		},
+	}
+	return df.session.client.SemanticHash(ctx, plan)
 }

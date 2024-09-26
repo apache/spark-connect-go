@@ -19,6 +19,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql/column"
@@ -248,8 +250,8 @@ func TestDataFrame_WithColumns(t *testing.T) {
 		vals, err := row.Values()
 		assert.NoError(t, err)
 		assert.Equal(t, 3, len(vals))
-		assert.Equal(t, int64(1), vals[1])
-		assert.Equal(t, int64(2), vals[2])
+		assert.Equal(t, int64(1), vals[1], "%v", vals)
+		assert.Equal(t, int64(2), vals[2], "%v", vals)
 	}
 }
 
@@ -408,4 +410,118 @@ func TestDataFrame_DropDuplicates(t *testing.T) {
 	res, err = df.Count(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), res)
+}
+
+func TestDataFrame_Explain(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	res, err := df.Explain(ctx, utils.ExplainModeSimple)
+	assert.NoError(t, err)
+	assert.Contains(t, res, "Physical Plan")
+
+	res, err = df.Explain(ctx, utils.ExplainModeExtended)
+	assert.NoError(t, err)
+	assert.Contains(t, res, "Physical Plan")
+
+	res, err = df.Explain(ctx, utils.ExplainModeCodegen)
+	assert.NoError(t, err)
+	assert.Contains(t, res, "WholeStageCodegen")
+
+	res, err = df.Explain(ctx, utils.ExplainModeCost)
+	assert.NoError(t, err)
+	assert.Contains(t, res, "Physical Plan")
+
+	res, err = df.Explain(ctx, utils.ExplainModeFormatted)
+	assert.NoError(t, err)
+	assert.Contains(t, res, "Physical Plan")
+}
+
+func TestDataFrame_CachingAndPersistence(t *testing.T) {
+	ctx, spark := connect()
+	levels := []utils.StorageLevel{
+		utils.StorageLevelDiskOnly,
+		utils.StorageLevelDiskOnly2,
+		utils.StorageLevelDiskOnly3,
+		utils.StorageLevelMemoryAndDisk,
+		utils.StorageLevelMemoryAndDisk2,
+		utils.StorageLevelMemoryOnly,
+		utils.StorageLevelMemoryOnly2,
+		utils.StorageLevelMemoyAndDiskDeser,
+		utils.StorageLevelOffHeap,
+	}
+
+	for _, lvl := range levels {
+		df, err := spark.Sql(ctx, "select * from range(10)")
+		assert.NoError(t, err)
+		err = df.Persist(ctx, lvl)
+		assert.NoError(t, err)
+		l, err := df.GetStorageLevel(ctx)
+		assert.NoError(t, err)
+
+		assert.Contains(t, []utils.StorageLevel{lvl, utils.StorageLevelMemoryOnly}, *l)
+
+		err = df.Unpersist(ctx)
+		assert.NoError(t, err)
+	}
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	err = df.Cache(ctx)
+	assert.NoError(t, err)
+	l, err := df.GetStorageLevel(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, utils.StorageLevelMemoryOnly, *l, "%v != %v", utils.StorageLevelMemoryOnly, *l)
+}
+
+func TestDataFrame_SetOps(t *testing.T) {
+	ctx, spark := connect()
+	df1, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	df2, err := spark.Sql(ctx, "select * from range(5)")
+	assert.NoError(t, err)
+
+	df := df1.Union(ctx, df2)
+	res, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 15, len(res))
+
+	df = df1.Intersect(ctx, df2)
+	res, err = df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 5, len(res))
+
+	df = df1.ExceptAll(ctx, df2)
+	res, err = df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 5, len(res))
+}
+
+func TestDataFrame_ToArrow(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	tbl, err := df.ToArrow(ctx)
+	assert.NoError(t, err)
+	assert.NotNil(t, tbl)
+}
+
+func TestDataFrame_LimitVersions(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	rows, err := df.Limit(ctx, int32(5))
+	assert.NoError(t, err)
+	assert.Len(t, rows, 5)
+
+	rows, err = df.Tail(ctx, int32(3))
+	assert.NoError(t, err)
+	assert.Len(t, rows, 3)
+
+	rows, err = df.Head(ctx, int32(3))
+	assert.NoError(t, err)
+	assert.Len(t, rows, 3)
+
+	rows, err = df.Take(ctx, int32(3))
+	assert.NoError(t, err)
+	assert.Len(t, rows, 3)
 }
