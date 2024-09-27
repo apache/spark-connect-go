@@ -19,6 +19,7 @@ package sql
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
 
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
@@ -75,8 +76,28 @@ type DataFrame interface {
 	Collect(ctx context.Context) ([]Row, error)
 	// CreateTempView creates or replaces a temporary view.
 	CreateTempView(ctx context.Context, viewName string, replace, global bool) error
+	// CreateOrReplaceTempView creates or replaces a temporary view and replaces the optional existing view.
+	CreateOrReplaceTempView(ctx context.Context, viewName string) error
+	// CreateGlobalTempView creates a global temporary view.
+	CreateGlobalTempView(ctx context.Context, viewName string) error
+	// CreateOrReplaceGlobalTempView creates or replaces a global temporary view and replaces the optional existing view.
+	CreateOrReplaceGlobalTempView(ctx context.Context, viewName string) error
 	// CrossJoin joins the current DataFrame with another DataFrame using the cross product
 	CrossJoin(ctx context.Context, other DataFrame) DataFrame
+	// CrossTab computes a pair-wise frequency table of the given columns. Also known as a
+	// contingency table.
+	// The first column of each row will be the distinct values of `col1` and the column names
+	// will be the distinct values of `col2`. The name of the first column will be `$col1_$col2`.
+	// Pairs that have no occurrences will have zero as their counts.
+	CrossTab(ctx context.Context, col1, col2 string) DataFrame
+	// Cube creates a multi-dimensional cube for the current DataFrame using
+	// the specified columns, so we can run aggregations on them.
+	Cube(ctx context.Context, cols ...column.Convertible) *GroupedData
+	// Describe omputes basic statistics for numeric and string columns.
+	// This includes count, mean, stddev, min, and max.
+	Describe(ctx context.Context, cols ...string) DataFrame
+	// Distinct returns a new DataFrame containing the distinct rows in this DataFrame.
+	Distinct(ctx context.Context) DataFrame
 	// Drop returns a new DataFrame that drops the specified list of columns.
 	Drop(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
 	// DropByName returns a new DataFrame that drops the specified list of columns by name.
@@ -85,11 +106,16 @@ type DataFrame interface {
 	DropDuplicates(ctx context.Context, columns ...string) (DataFrame, error)
 	// ExceptAll is similar to Substract but does not perform the distinct operation.
 	ExceptAll(ctx context.Context, other DataFrame) DataFrame
+	// Explain returns the string explain plan for the current DataFrame according to the explainMode.
 	Explain(ctx context.Context, explainMode utils.ExplainMode) (string, error)
 	// Filter filters the data frame by a column condition.
 	Filter(ctx context.Context, condition column.Convertible) (DataFrame, error)
 	// FilterByString filters the data frame by a string condition.
 	FilterByString(ctx context.Context, condition string) (DataFrame, error)
+	// Returns the first row of the DataFrame.
+	First(ctx context.Context) (Row, error)
+	FreqItems(ctx context.Context, cols ...string) DataFrame
+	FreqItemsWithSupport(ctx context.Context, support float64, cols ...string) DataFrame
 	// GetStorageLevel returns the storage level of the data frame.
 	GetStorageLevel(ctx context.Context) (*utils.StorageLevel, error)
 	// GroupBy groups the DataFrame by the spcified columns so that the aggregation
@@ -101,13 +127,25 @@ type DataFrame interface {
 	Intersect(ctx context.Context, other DataFrame) DataFrame
 	// IntersectAll performs the set intersection of two data frames and returns all rows.
 	IntersectAll(ctx context.Context, other DataFrame) DataFrame
-	// Limit returns the first `limit` rows as a list of Row.
-	Limit(ctx context.Context, limit int32) ([]Row, error)
+	// IsEmpty returns true if the DataFrame is empty.
+	IsEmpty(ctx context.Context) (bool, error)
+	// Join joins the current DataFrame with another DataFrame using the specified column using the joinType specified.
+	Join(ctx context.Context, other DataFrame, on column.Convertible, joinType utils.JoinType) (DataFrame, error)
+	// Limit applies a limit on the DataFrame
+	Limit(ctx context.Context, limit int32) DataFrame
+	// Offset returns a new DataFrame by skipping the first `offset` rows.
+	Offset(ctx context.Context, offset int32) DataFrame
+	// OrderBy is an alias for Sort
+	OrderBy(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
 	Persist(ctx context.Context, storageLevel utils.StorageLevel) error
+	RandomSplit(ctx context.Context, weights []float64) ([]DataFrame, error)
 	// Repartition re-partitions a data frame.
 	Repartition(ctx context.Context, numPartitions int, columns []string) (DataFrame, error)
 	// RepartitionByRange re-partitions a data frame by range partition.
 	RepartitionByRange(ctx context.Context, numPartitions int, columns ...column.Convertible) (DataFrame, error)
+	// Rollup creates a multi-dimensional rollup for the current DataFrame using
+	// the specified columns, so we can run aggregation on them.
+	Rollup(ctx context.Context, cols ...column.Convertible) *GroupedData
 	// SameSemantics returns true if the other DataFrame has the same semantics.
 	SameSemantics(ctx context.Context, other DataFrame) (bool, error)
 	// Show uses WriteResult to write the data frames to the console output.
@@ -121,9 +159,16 @@ type DataFrame interface {
 	// SemanticHash returns the semantic hash of the data frame. The semantic hash can be used to
 	// understand of the semantic operations are similar.
 	SemanticHash(ctx context.Context) (int32, error)
+	// Sort returns a new DataFrame sorted by the specified columns.
+	Sort(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
 	// Subtract subtracts the other DataFrame from the current DataFrame. And only returns
 	// distinct rows.
 	Subtract(ctx context.Context, other DataFrame) DataFrame
+	// Summary computes the specified statistics for the current DataFrame and returns it
+	// as a new DataFrame. Available statistics are: "count", "mean", "stddev", "min", "max" and
+	// arbitrary percentiles specified as a percentage (e.g., "75%"). If no statistics are given,
+	// this function computes "count", "mean", "stddev", "min", "25%", "50%", "75%", "max".
+	Summary(ctx context.Context, statistics ...string) DataFrame
 	// Tail returns the last `limit` rows as a list of Row.
 	Tail(ctx context.Context, limit int32) ([]Row, error)
 	// Take is an alias for Limit
@@ -507,6 +552,18 @@ func (df *dataFrameImpl) CreateTempView(ctx context.Context, viewName string, re
 	return err
 }
 
+func (df *dataFrameImpl) CreateOrReplaceTempView(ctx context.Context, viewName string) error {
+	return df.CreateTempView(ctx, viewName, true, false)
+}
+
+func (df *dataFrameImpl) CreateGlobalTempView(ctx context.Context, viewName string) error {
+	return df.CreateTempView(ctx, viewName, false, true)
+}
+
+func (df *dataFrameImpl) CreateOrReplaceGlobalTempView(ctx context.Context, viewName string) error {
+	return df.CreateTempView(ctx, viewName, true, true)
+}
+
 func (df *dataFrameImpl) Repartition(ctx context.Context, numPartitions int, columns []string) (DataFrame, error) {
 	var partitionExpressions []*proto.Expression
 	if columns != nil {
@@ -597,6 +654,10 @@ func (df *dataFrameImpl) FilterByString(ctx context.Context, condition string) (
 }
 
 func (df *dataFrameImpl) Select(ctx context.Context, columns ...column.Convertible) (DataFrame, error) {
+	//
+	if len(columns) == 0 {
+		return df, nil
+	}
 	exprs := make([]*proto.Expression, 0, len(columns))
 	for _, c := range columns {
 		expr, err := c.ToProto(ctx)
@@ -624,7 +685,7 @@ func (df *dataFrameImpl) Select(ctx context.Context, columns ...column.Convertib
 // can be performed on them. See GroupedData for all the available aggregate functions.
 func (df *dataFrameImpl) GroupBy(cols ...column.Convertible) *GroupedData {
 	return &GroupedData{
-		df:           *df,
+		df:           df,
 		groupingCols: cols,
 		groupType:    "groupby",
 	}
@@ -807,7 +868,7 @@ func (df *dataFrameImpl) Tail(ctx context.Context, limit int32) ([]Row, error) {
 	return data.Collect(ctx)
 }
 
-func (df *dataFrameImpl) Limit(ctx context.Context, limit int32) ([]Row, error) {
+func (df *dataFrameImpl) Limit(ctx context.Context, limit int32) DataFrame {
 	rel := &proto.Relation{
 		Common: &proto.RelationCommon{
 			PlanId: newPlanId(),
@@ -819,16 +880,15 @@ func (df *dataFrameImpl) Limit(ctx context.Context, limit int32) ([]Row, error) 
 			},
 		},
 	}
-	data := NewDataFrame(df.session, rel)
-	return data.Collect(ctx)
+	return NewDataFrame(df.session, rel)
 }
 
 func (df *dataFrameImpl) Head(ctx context.Context, limit int32) ([]Row, error) {
-	return df.Limit(ctx, limit)
+	return df.Limit(ctx, limit).Collect(ctx)
 }
 
 func (df *dataFrameImpl) Take(ctx context.Context, limit int32) ([]Row, error) {
-	return df.Limit(ctx, limit)
+	return df.Limit(ctx, limit).Collect(ctx)
 }
 
 func (df *dataFrameImpl) ToArrow(ctx context.Context) (*arrow.Table, error) {
@@ -994,7 +1054,12 @@ func (df *dataFrameImpl) Sort(ctx context.Context, columns ...column.Convertible
 		if err != nil {
 			return nil, err
 		}
-		sortExprs = append(sortExprs, expr.GetSortOrder())
+		so := expr.GetSortOrder()
+		if so == nil {
+			return nil, sparkerrors.WithType(fmt.Errorf(
+				"sort expression must not be nil"), sparkerrors.InvalidArgumentError)
+		}
+		sortExprs = append(sortExprs, so)
 	}
 
 	rel := &proto.Relation{
@@ -1105,4 +1170,211 @@ func (df *dataFrameImpl) SemanticHash(ctx context.Context) (int32, error) {
 		},
 	}
 	return df.session.client.SemanticHash(ctx, plan)
+}
+
+func (df *dataFrameImpl) Join(ctx context.Context, other DataFrame, onExpr column.Convertible, joinType utils.JoinType) (DataFrame, error) {
+	otherDf := other.(*dataFrameImpl)
+	onExpression, err := onExpr.ToProto(ctx)
+	if err != nil {
+		return nil, err
+	}
+	joinTypeProto := utils.ToProtoJoinType(joinType)
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Join{
+			Join: &proto.Join{
+				Left:          df.relation,
+				Right:         otherDf.relation,
+				JoinType:      joinTypeProto,
+				JoinCondition: onExpression,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) CrossTab(ctx context.Context, col1, col2 string) DataFrame {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+
+		RelType: &proto.Relation_Crosstab{
+			Crosstab: &proto.StatCrosstab{
+				Input: df.relation,
+				Col1:  col1,
+				Col2:  col2,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) Cube(ctx context.Context, cols ...column.Convertible) *GroupedData {
+	return &GroupedData{
+		df:           df,
+		groupingCols: cols,
+		groupType:    "cube",
+	}
+}
+
+func (df *dataFrameImpl) Rollup(ctx context.Context, cols ...column.Convertible) *GroupedData {
+	return &GroupedData{
+		df:           df,
+		groupingCols: cols,
+		groupType:    "rollup",
+	}
+}
+
+func (df *dataFrameImpl) Describe(ctx context.Context, cols ...string) DataFrame {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+
+		RelType: &proto.Relation_Describe{
+			Describe: &proto.StatDescribe{
+				Input: df.relation,
+				Cols:  cols,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) Distinct(ctx context.Context) DataFrame {
+	allColumnsAsKeys := true
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Deduplicate{
+			Deduplicate: &proto.Deduplicate{
+				Input:            df.relation,
+				AllColumnsAsKeys: &allColumnsAsKeys,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) First(ctx context.Context) (Row, error) {
+	rows, err := df.Head(ctx, 1)
+	if err != nil {
+		return nil, err
+	}
+	return rows[0], nil
+}
+
+func (df *dataFrameImpl) FreqItems(ctx context.Context, cols ...string) DataFrame {
+	return df.FreqItemsWithSupport(ctx, 0.01, cols...)
+}
+
+func (df *dataFrameImpl) FreqItemsWithSupport(ctx context.Context, support float64, cols ...string) DataFrame {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+
+		RelType: &proto.Relation_FreqItems{
+			FreqItems: &proto.StatFreqItems{
+				Input:   df.relation,
+				Cols:    cols,
+				Support: &support,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) IsEmpty(ctx context.Context) (bool, error) {
+	d, err := df.Select(ctx)
+	if err != nil {
+		return false, err
+	}
+	rows, err := d.Take(ctx, int32(1))
+	if err != nil {
+		return false, err
+	}
+	return len(rows) == 0, nil
+}
+
+func (df *dataFrameImpl) Offset(ctx context.Context, offset int32) DataFrame {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+
+		RelType: &proto.Relation_Offset{
+			Offset: &proto.Offset{
+				Input:  df.relation,
+				Offset: offset,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) RandomSplit(ctx context.Context, weights []float64) ([]DataFrame, error) {
+	// Check that we don't have negative weights:
+	total := 0.0
+	for _, w := range weights {
+		if w < 0.0 {
+			return nil, sparkerrors.WithType(fmt.Errorf("weights must not be negative"), sparkerrors.InvalidArgumentError)
+		}
+		total += w
+	}
+	seed := rand.Int64()
+	normalizedWeights := make([]float64, len(weights))
+	for i, w := range weights {
+		normalizedWeights[i] = w / total
+	}
+
+	// Calculate the cumulative sum of the weights:
+	cumulativeWeights := make([]float64, len(weights)+1)
+	cumulativeWeights[0] = 0.0
+	for i := 0; i < len(normalizedWeights); i++ {
+		cumulativeWeights[i+1] = cumulativeWeights[i] + normalizedWeights[i]
+	}
+
+	// Iterate over cumulative weights as the boundaries of the interval and create the dataframes:
+	dataFrames := make([]DataFrame, len(weights))
+	withReplacement := false
+	for i := 1; i < len(cumulativeWeights); i++ {
+		sampleRelation := &proto.Relation{
+			Common: &proto.RelationCommon{
+				PlanId: newPlanId(),
+			},
+			RelType: &proto.Relation_Sample{
+				Sample: &proto.Sample{
+					Input:              df.relation,
+					LowerBound:         cumulativeWeights[i-1],
+					UpperBound:         cumulativeWeights[i],
+					WithReplacement:    &withReplacement,
+					Seed:               &seed,
+					DeterministicOrder: true,
+				},
+			},
+		}
+		dataFrames[i-1] = NewDataFrame(df.session, sampleRelation)
+	}
+	return dataFrames, nil
+}
+
+func (df *dataFrameImpl) Summary(ctx context.Context, statistics ...string) DataFrame {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+
+		RelType: &proto.Relation_Summary{
+			Summary: &proto.StatSummary{
+				Input:      df.relation,
+				Statistics: statistics,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
 }

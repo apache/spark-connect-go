@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var sampleDataFrame = dataFrameImpl{session: nil, relation: &proto.Relation{
+var sampleDataFrame = &dataFrameImpl{session: nil, relation: &proto.Relation{
 	RelType: &proto.Relation_Range{
 		Range: &proto.Range{
 			End:  10,

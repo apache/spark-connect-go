@@ -44,8 +44,8 @@ func TestDataFrame_Select(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 100, len(res))
 
-	row_zero := res[0]
-	vals, err := row_zero.Values()
+	rowZero := res[0]
+	vals, err := rowZero.Values()
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(vals))
 
@@ -509,7 +509,9 @@ func TestDataFrame_LimitVersions(t *testing.T) {
 	ctx, spark := connect()
 	df, err := spark.Sql(ctx, "select * from range(10)")
 	assert.NoError(t, err)
-	rows, err := df.Limit(ctx, int32(5))
+	df = df.Limit(ctx, int32(5))
+	assert.NoError(t, err)
+	rows, err := df.Collect(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, rows, 5)
 
@@ -525,3 +527,202 @@ func TestDataFrame_LimitVersions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, rows, 3)
 }
+
+func TestDataFrame_Sort(t *testing.T) {
+	ctx, spark := connect()
+	src, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	df, err := src.Sort(ctx, functions.Col("id").Desc())
+	assert.NoError(t, err)
+	res, err := df.Head(ctx, 1)
+	assert.NoError(t, err)
+	vals, err := res[0].Values()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(9), vals[0])
+
+	df, err = src.Sort(ctx, functions.Col("id").Asc())
+	assert.NoError(t, err)
+	res, err = df.Head(ctx, 1)
+	assert.NoError(t, err)
+	vals, err = res[0].Values()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), vals[0])
+}
+
+func TestDataFrame_Join(t *testing.T) {
+	ctx, spark := connect()
+	df1, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	df2, err := spark.Sql(ctx, "select * from range(5)")
+	assert.NoError(t, err)
+
+	df, err := df1.Join(ctx, df2, column.OfDF(df1, "id").Eq(column.OfDF(df2, "id")), utils.JoinTypeInner)
+	assert.NoError(t, err)
+	res, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 5, len(res))
+}
+
+func TestDataFrame_RandomSplits(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(1000)")
+	assert.NoError(t, err)
+	dfs, err := df.RandomSplit(ctx, []float64{0.3, 0.7})
+	assert.NoError(t, err)
+	assert.Len(t, dfs, 2)
+	c1, err := dfs[0].Count(ctx)
+	assert.NoError(t, err)
+	c2, err := dfs[1].Count(ctx)
+	assert.NoError(t, err)
+	assert.Less(t, c1, c2)
+}
+
+func TestDataFrame_Describe(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	res, err := df.Describe(ctx, "id").Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, res, 5)
+}
+
+func TestDataFrame_Summary(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select id, 'a' as col, 2 as other from range(10)")
+	assert.NoError(t, err)
+	res, err := df.Summary(ctx, "count", "stddev").Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, res, 2)
+	v, err := res[0].Values()
+	assert.NoError(t, err)
+	assert.Equal(t, "count", v[0])
+	assert.Len(t, v, 4)
+}
+
+func TestDataFrame_Pivot(t *testing.T) {
+	ctx, spark := connect()
+
+	data := [][]any{
+		{"dotNET", 2012, 10000},
+		{"Java", 2012, 20000},
+		{"dotNET", 2012, 5000},
+		{"dotNET", 2013, 48000},
+		{"Java", 2013, 30000},
+	}
+	schema := types.StructOf(
+		types.NewStructField("course", types.STRING),
+		types.NewStructField("year", types.INTEGER),
+		types.NewStructField("earnings", types.INTEGER))
+
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+	gd := df.GroupBy(functions.Col("year"))
+	gd, err = gd.Pivot(ctx, "course", []any{"Java", "dotNET"})
+	assert.NoError(t, err)
+	df, err = gd.Sum(ctx, "earnings")
+	assert.NoError(t, err)
+	res, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, res, 2)
+}
+
+func TestDataFrame_Offset(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	df = df.Offset(ctx, int32(5))
+	assert.NoError(t, err)
+	res, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, res, 5)
+}
+
+func TestDataFrame_IsEmpty(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	empty, err := df.IsEmpty(ctx)
+	assert.NoError(t, err)
+	assert.False(t, empty)
+
+	df, err = spark.Sql(ctx, "select * from range(0)")
+	assert.NoError(t, err)
+	empty, err = df.IsEmpty(ctx)
+	assert.NoError(t, err)
+	assert.True(t, empty)
+}
+
+func TestDataFrame_First(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	row, err := df.First(ctx)
+	assert.NoError(t, err)
+	vals, err := row.Values()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), vals[0])
+}
+
+func TestDataFrame_Distinct(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	df = df.Distinct(ctx)
+	assert.NoError(t, err)
+	res, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, res, 10)
+}
+
+func TestDataFrame_CrossTab(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{{1, 11}, {1, 11}, {3, 10}, {4, 8}, {4, 8}}
+	schema := types.StructOf(
+		types.NewStructField("c1", types.INTEGER),
+		types.NewStructField("c2", types.INTEGER),
+	)
+
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+	df = df.CrossTab(ctx, "c1", "c2")
+	df, err = df.Sort(ctx, column.OfDF(df, "c1_c2").Asc())
+	assert.NoError(t, err)
+	res, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, res, 3)
+	v, err := res[0].Values()
+	assert.NoError(t, err)
+	assert.Equal(t, "1", v[0])
+	assert.Equal(t, int64(0), v[1])
+	assert.Equal(t, int64(2), v[2])
+	assert.Equal(t, int64(0), v[3])
+}
+
+func TestDataFrame_SameSemantics(t *testing.T) {
+	ctx, spark := connect()
+	df1, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	df2, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	res, _ := df1.SameSemantics(ctx, df2)
+	assert.True(t, res)
+}
+
+func TestDataFrame_SemanticHash(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	hash, err := df.SemanticHash(ctx)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, hash)
+}
+
+// DISABLED: Because we cannot parse LIST types
+//func TestDataFrame_FreqItems(t *testing.T) {
+//	ctx, spark := connect()
+//	df, err := spark.Sql(ctx, "select * from range(10)")
+//	assert.NoError(t, err)
+//	res, err := df.FreqItems(ctx, "id").Collect(ctx)
+//	assert.NoErrorf(t, err, "%+v", err)
+//	assert.Len(t, res, 1)
+//}

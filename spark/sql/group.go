@@ -26,11 +26,11 @@ import (
 )
 
 type GroupedData struct {
-	df           dataFrameImpl
+	df           *dataFrameImpl
 	groupType    string
 	groupingCols []column.Convertible
 	pivotValues  []any
-	// groupingSets [][]column.Column
+	pivotCol     column.Convertible
 }
 
 // Agg compute aggregates and returns the result as a DataFrame. The aggegrate expressions
@@ -71,8 +71,14 @@ func (gd *GroupedData) Agg(ctx context.Context, exprs ...column.Column) (DataFra
 		if len(gd.pivotValues) == 0 {
 			return nil, sparkerrors.WithString(sparkerrors.InvalidInputError, "pivotValues should not be empty")
 		}
+		protoCol, err := gd.pivotCol.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+
 		agg.Pivot = &proto.Aggregate_Pivot{
 			Values: make([]*proto.Expression_Literal, len(gd.pivotValues)),
+			Col:    protoCol,
 		}
 		for i, v := range gd.pivotValues {
 			exp, err := column.NewLiteral(v).ToProto(ctx)
@@ -171,4 +177,20 @@ func (gd *GroupedData) Count(ctx context.Context) (DataFrame, error) {
 // Mean Computes the average value for each numeric column for each group.
 func (gd *GroupedData) Mean(ctx context.Context, cols ...string) (DataFrame, error) {
 	return gd.Avg(ctx, cols...)
+}
+
+func (gd *GroupedData) Pivot(ctx context.Context, pivotCol string, pivotValues []any) (*GroupedData, error) {
+	if gd.groupType != "groupby" {
+		if gd.groupType == "pivot" {
+			return nil, sparkerrors.WithString(sparkerrors.InvalidInputError, "pivot cannot be applied on pivot")
+		}
+		return nil, sparkerrors.WithString(sparkerrors.InvalidInputError, "pivot can only be applied on groupby")
+	}
+	return &GroupedData{
+		df:           gd.df,
+		groupType:    "pivot",
+		groupingCols: gd.groupingCols,
+		pivotValues:  pivotValues,
+		pivotCol:     column.NewColumnReferenceWithPlanId(pivotCol, gd.df.PlanId()),
+	}, nil
 }

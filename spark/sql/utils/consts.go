@@ -96,3 +96,36 @@ func FromProtoStorageLevel(level *proto.StorageLevel) StorageLevel {
 	}
 	return StorageLevelNone
 }
+
+type JoinType int
+
+const (
+	JoinTypeInner      JoinType = iota
+	JoinTypeLeftOuter  JoinType = iota
+	JoinTypeRightOuter JoinType = iota
+	JoinTypeFullOuter  JoinType = iota
+	JoinTypeLeftSemi   JoinType = iota
+	JoinTypeLeftAnti   JoinType = iota
+	JoinTypeCross      JoinType = iota
+)
+
+func ToProtoJoinType(joinType JoinType) proto.Join_JoinType {
+	switch joinType {
+	case JoinTypeInner:
+		return proto.Join_JOIN_TYPE_INNER
+	case JoinTypeLeftOuter:
+		return proto.Join_JOIN_TYPE_LEFT_OUTER
+	case JoinTypeRightOuter:
+		return proto.Join_JOIN_TYPE_RIGHT_OUTER
+	case JoinTypeFullOuter:
+		return proto.Join_JOIN_TYPE_FULL_OUTER
+	case JoinTypeLeftSemi:
+		return proto.Join_JOIN_TYPE_LEFT_SEMI
+	case JoinTypeLeftAnti:
+		return proto.Join_JOIN_TYPE_LEFT_ANTI
+	case JoinTypeCross:
+		return proto.Join_JOIN_TYPE_CROSS
+	default:
+		return proto.Join_JOIN_TYPE_INNER
+	}
+}
