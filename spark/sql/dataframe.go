@@ -84,9 +84,19 @@ type DataFrame interface {
 	CreateOrReplaceGlobalTempView(ctx context.Context, viewName string) error
 	// CrossJoin joins the current DataFrame with another DataFrame using the cross product
 	CrossJoin(ctx context.Context, other DataFrame) DataFrame
+	// CrossTab computes a pair-wise frequency table of the given columns. Also known as a
+	// contingency table.
+	// The first column of each row will be the distinct values of `col1` and the column names
+	// will be the distinct values of `col2`. The name of the first column will be `$col1_$col2`.
+	// Pairs that have no occurrences will have zero as their counts.
 	CrossTab(ctx context.Context, col1, col2 string) DataFrame
+	// Cube creates a multi-dimensional cube for the current DataFrame using
+	// the specified columns, so we can run aggregations on them.
 	Cube(ctx context.Context, cols ...column.Convertible) *GroupedData
+	// Describe omputes basic statistics for numeric and string columns.
+	// This includes count, mean, stddev, min, and max.
 	Describe(ctx context.Context, cols ...string) DataFrame
+	// Distinct returns a new DataFrame containing the distinct rows in this DataFrame.
 	Distinct(ctx context.Context) DataFrame
 	// Drop returns a new DataFrame that drops the specified list of columns.
 	Drop(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
@@ -96,11 +106,13 @@ type DataFrame interface {
 	DropDuplicates(ctx context.Context, columns ...string) (DataFrame, error)
 	// ExceptAll is similar to Substract but does not perform the distinct operation.
 	ExceptAll(ctx context.Context, other DataFrame) DataFrame
+	// Explain returns the string explain plan for the current DataFrame according to the explainMode.
 	Explain(ctx context.Context, explainMode utils.ExplainMode) (string, error)
 	// Filter filters the data frame by a column condition.
 	Filter(ctx context.Context, condition column.Convertible) (DataFrame, error)
 	// FilterByString filters the data frame by a string condition.
 	FilterByString(ctx context.Context, condition string) (DataFrame, error)
+	// Returns the first row of the DataFrame.
 	First(ctx context.Context) (Row, error)
 	FreqItems(ctx context.Context, cols ...string) DataFrame
 	FreqItemsWithSupport(ctx context.Context, support float64, cols ...string) DataFrame
@@ -115,11 +127,13 @@ type DataFrame interface {
 	Intersect(ctx context.Context, other DataFrame) DataFrame
 	// IntersectAll performs the set intersection of two data frames and returns all rows.
 	IntersectAll(ctx context.Context, other DataFrame) DataFrame
+	// IsEmpty returns true if the DataFrame is empty.
 	IsEmpty(ctx context.Context) (bool, error)
 	// Join joins the current DataFrame with another DataFrame using the specified column using the joinType specified.
 	Join(ctx context.Context, other DataFrame, on column.Convertible, joinType utils.JoinType) (DataFrame, error)
 	// Limit applies a limit on the DataFrame
 	Limit(ctx context.Context, limit int32) DataFrame
+	// Offset returns a new DataFrame by skipping the first `offset` rows.
 	Offset(ctx context.Context, offset int32) DataFrame
 	// OrderBy is an alias for Sort
 	OrderBy(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
@@ -129,6 +143,8 @@ type DataFrame interface {
 	Repartition(ctx context.Context, numPartitions int, columns []string) (DataFrame, error)
 	// RepartitionByRange re-partitions a data frame by range partition.
 	RepartitionByRange(ctx context.Context, numPartitions int, columns ...column.Convertible) (DataFrame, error)
+	// Rollup creates a multi-dimensional rollup for the current DataFrame using
+	// the specified columns, so we can run aggregation on them.
 	Rollup(ctx context.Context, cols ...column.Convertible) *GroupedData
 	// SameSemantics returns true if the other DataFrame has the same semantics.
 	SameSemantics(ctx context.Context, other DataFrame) (bool, error)
@@ -148,6 +164,10 @@ type DataFrame interface {
 	// Subtract subtracts the other DataFrame from the current DataFrame. And only returns
 	// distinct rows.
 	Subtract(ctx context.Context, other DataFrame) DataFrame
+	// Summary computes the specified statistics for the current DataFrame and returns it
+	// as a new DataFrame. Available statistics are: "count", "mean", "stddev", "min", "max" and
+	// arbitrary percentiles specified as a percentage (e.g., "75%"). If no statistics are given,
+	// this function computes "count", "mean", "stddev", "min", "25%", "50%", "75%", "max".
 	Summary(ctx context.Context, statistics ...string) DataFrame
 	// Tail returns the last `limit` rows as a list of Row.
 	Tail(ctx context.Context, limit int32) ([]Row, error)
