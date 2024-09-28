@@ -64,11 +64,11 @@ func TestShowArrowBatchData(t *testing.T) {
 	require.NoError(t, err)
 
 	table := array.NewTableFromRecords(arrowSchema, []arrow.Record{record})
-	values, err := types.ReadArrowTable(table)
+	values, err := types.ReadArrowTableToRows(table)
 	require.Nil(t, err)
 	assert.Equal(t, 2, len(values))
-	assert.Equal(t, []any{"str1a\nstr1b"}, values[0])
-	assert.Equal(t, []any{"str2"}, values[1])
+	assert.Equal(t, []any{"str1a\nstr1b"}, values[0].Values())
+	assert.Equal(t, []any{"str2"}, values[1].Values())
 }
 
 func TestReadArrowRecord(t *testing.T) {
@@ -214,7 +214,7 @@ func TestReadArrowRecord(t *testing.T) {
 	defer record.Release()
 
 	table := array.NewTableFromRecords(arrowSchema, []arrow.Record{record})
-	values, err := types.ReadArrowTable(table)
+	values, err := types.ReadArrowTableToRows(table)
 	require.Nil(t, err)
 	assert.Equal(t, 2, len(values))
 	assert.Equal(t, []any{
@@ -225,7 +225,7 @@ func TestReadArrowRecord(t *testing.T) {
 		arrow.Timestamp(1686981953115000), arrow.Date64(1686981953117000),
 		[]any{int64(1), int64(-999231)},
 	},
-		values[0])
+		values[0].Values())
 	assert.Equal(t, []any{
 		true, int8(2), int16(20), int32(200), int64(2000),
 		float16.New(20000.1), float32(200000.1), 2000000.1,
@@ -234,7 +234,7 @@ func TestReadArrowRecord(t *testing.T) {
 		arrow.Timestamp(1686981953116000), arrow.Date64(1686981953118000),
 		[]any{int64(1), int64(2), int64(3)},
 	},
-		values[1])
+		values[1].Values())
 }
 
 func TestReadArrowRecord_UnsupportedType(t *testing.T) {
@@ -259,7 +259,7 @@ func TestReadArrowRecord_UnsupportedType(t *testing.T) {
 	defer record.Release()
 
 	table := array.NewTableFromRecords(arrowSchema, []arrow.Record{record})
-	_, err := types.ReadArrowTable(table)
+	_, err := types.ReadArrowTableToRows(table)
 	require.NotNil(t, err)
 }
 

@@ -14,35 +14,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sql
+package types
 
-import "github.com/apache/spark-connect-go/v35/spark/sql/types"
-
-// Row represents a row in a DataFrame.
 type Row interface {
-	// Schema returns the schema of the row.
-	Schema() (*types.StructType, error)
-	// Values returns the values of the row.
-	Values() ([]any, error)
+	At(index int) any
+	Value(name string) any
+	Values() []any
+	Len() int
+	FieldNames() []string
 }
 
-// genericRowWithSchema represents a row in a DataFrame with schema.
-type genericRowWithSchema struct {
-	values []any
-	schema *types.StructType
+type rowImpl struct {
+	values  []any
+	offsets map[string]int
 }
 
-func NewRowWithSchema(values []any, schema *types.StructType) Row {
-	return &genericRowWithSchema{
-		values: values,
-		schema: schema,
+func (r *rowImpl) At(index int) any {
+	return r.values[index]
+}
+
+func (r *rowImpl) Value(name string) any {
+	return r.values[r.offsets[name]]
+}
+
+func (r *rowImpl) Values() []any {
+	return r.values
+}
+
+func (r *rowImpl) Len() int {
+	return len(r.values)
+}
+
+func (r *rowImpl) FieldNames() []string {
+	names := make([]string, len(r.offsets))
+	for name := range r.offsets {
+		names = append(names, name)
 	}
-}
-
-func (r *genericRowWithSchema) Schema() (*types.StructType, error) {
-	return r.schema, nil
-}
-
-func (r *genericRowWithSchema) Values() ([]any, error) {
-	return r.values, nil
+	return names
 }

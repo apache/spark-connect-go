@@ -102,7 +102,7 @@ func main() {
 		log.Fatalf("Failed: %s", err)
 	}
 
-	schema, err = rows[0].Schema()
+	schema, err = df.Schema(ctx)
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}

@@ -73,7 +73,7 @@ type DataFrame interface {
 	// double value.
 	Cov(ctx context.Context, col1, col2 string) (float64, error)
 	// Collect returns the data rows of the current data frame.
-	Collect(ctx context.Context) ([]Row, error)
+	Collect(ctx context.Context) ([]types.Row, error)
 	// CreateTempView creates or replaces a temporary view.
 	CreateTempView(ctx context.Context, viewName string, replace, global bool) error
 	// CreateOrReplaceTempView creates or replaces a temporary view and replaces the optional existing view.
@@ -113,7 +113,7 @@ type DataFrame interface {
 	// FilterByString filters the data frame by a string condition.
 	FilterByString(ctx context.Context, condition string) (DataFrame, error)
 	// Returns the first row of the DataFrame.
-	First(ctx context.Context) (Row, error)
+	First(ctx context.Context) (types.Row, error)
 	FreqItems(ctx context.Context, cols ...string) DataFrame
 	FreqItemsWithSupport(ctx context.Context, support float64, cols ...string) DataFrame
 	// GetStorageLevel returns the storage level of the data frame.
@@ -122,7 +122,7 @@ type DataFrame interface {
 	// can be performed on them. See GroupedData for all the available aggregate functions.
 	GroupBy(cols ...column.Convertible) *GroupedData
 	// Head is an alias for Limit
-	Head(ctx context.Context, limit int32) ([]Row, error)
+	Head(ctx context.Context, limit int32) ([]types.Row, error)
 	// Intersect performs the set intersection of two data frames and only returns distinct rows.
 	Intersect(ctx context.Context, other DataFrame) DataFrame
 	// IntersectAll performs the set intersection of two data frames and returns all rows.
@@ -170,9 +170,9 @@ type DataFrame interface {
 	// this function computes "count", "mean", "stddev", "min", "25%", "50%", "75%", "max".
 	Summary(ctx context.Context, statistics ...string) DataFrame
 	// Tail returns the last `limit` rows as a list of Row.
-	Tail(ctx context.Context, limit int32) ([]Row, error)
+	Tail(ctx context.Context, limit int32) ([]types.Row, error)
 	// Take is an alias for Limit
-	Take(ctx context.Context, limit int32) ([]Row, error)
+	Take(ctx context.Context, limit int32) ([]types.Row, error)
 	// ToArrow returns the Arrow representation of the DataFrame.
 	ToArrow(ctx context.Context) (*arrow.Table, error)
 	// Union is an alias for UnionAll
@@ -285,12 +285,12 @@ func (df *dataFrameImpl) CorrWithMethod(ctx context.Context, col1, col2 string, 
 		return 0, err
 	}
 
-	values, err := types.ReadArrowTable(table)
+	values, err := types.ReadArrowTableToRows(table)
 	if err != nil {
 		return 0, err
 	}
 
-	return values[0][0].(float64), nil
+	return values[0].At(0).(float64), nil
 }
 
 func (df *dataFrameImpl) Count(ctx context.Context) (int64, error) {
@@ -302,11 +302,8 @@ func (df *dataFrameImpl) Count(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	row, err := rows[0].Values()
-	if err != nil {
-		return 0, err
-	}
-	return row[0].(int64), nil
+
+	return rows[0].At(0).(int64), nil
 }
 
 func (df *dataFrameImpl) Cov(ctx context.Context, col1, col2 string) (float64, error) {
@@ -337,12 +334,12 @@ func (df *dataFrameImpl) Cov(ctx context.Context, col1, col2 string) (float64, e
 		return 0, err
 	}
 
-	values, err := types.ReadArrowTable(table)
+	values, err := types.ReadArrowTableToRows(table)
 	if err != nil {
 		return 0, err
 	}
 
-	return values[0][0].(float64), nil
+	return values[0].At(0).(float64), nil
 }
 
 func (df *dataFrameImpl) PlanId() int64 {
@@ -454,29 +451,18 @@ func (df *dataFrameImpl) WriteResult(ctx context.Context, collector ResultCollec
 		return sparkerrors.WithType(fmt.Errorf("failed to show dataframe: %w", err), sparkerrors.ExecutionError)
 	}
 
-	schema, table, err := responseClient.ToTable()
+	_, table, err := responseClient.ToTable()
 	if err != nil {
 		return err
 	}
 
-	rows := make([]Row, table.NumRows())
-
-	values, err := types.ReadArrowTable(table)
+	rows, err := types.ReadArrowTableToRows(table)
 	if err != nil {
 		return err
-	}
-
-	for idx, v := range values {
-		row := NewRowWithSchema(v, schema)
-		rows[idx] = row
 	}
 
 	for _, row := range rows {
-		values, err := row.Values()
-		if err != nil {
-			return sparkerrors.WithType(fmt.Errorf(
-				"failed to get values in the row: %w", err), sparkerrors.ReadError)
-		}
+		values := row.Values()
 		collector.WriteRow(values)
 	}
 	return nil
@@ -492,30 +478,17 @@ func (df *dataFrameImpl) Schema(ctx context.Context) (*types.StructType, error) 
 	return types.ConvertProtoDataTypeToStructType(responseSchema)
 }
 
-func (df *dataFrameImpl) Collect(ctx context.Context) ([]Row, error) {
+func (df *dataFrameImpl) Collect(ctx context.Context) ([]types.Row, error) {
 	responseClient, err := df.session.client.ExecutePlan(ctx, df.createPlan())
 	if err != nil {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
 	}
 
-	var schema *types.StructType
-	schema, table, err := responseClient.ToTable()
+	_, table, err := responseClient.ToTable()
 	if err != nil {
 		return nil, err
 	}
-
-	rows := make([]Row, table.NumRows())
-
-	values, err := types.ReadArrowTable(table)
-	if err != nil {
-		return nil, err
-	}
-
-	for idx, v := range values {
-		row := NewRowWithSchema(v, schema)
-		rows[idx] = row
-	}
-	return rows, nil
+	return types.ReadArrowTableToRows(table)
 }
 
 func (df *dataFrameImpl) Write() DataFrameWriter {
@@ -852,7 +825,7 @@ func (df *dataFrameImpl) DropDuplicates(ctx context.Context, columns ...string) 
 	return NewDataFrame(df.session, rel), nil
 }
 
-func (df *dataFrameImpl) Tail(ctx context.Context, limit int32) ([]Row, error) {
+func (df *dataFrameImpl) Tail(ctx context.Context, limit int32) ([]types.Row, error) {
 	rel := &proto.Relation{
 		Common: &proto.RelationCommon{
 			PlanId: newPlanId(),
@@ -883,11 +856,11 @@ func (df *dataFrameImpl) Limit(ctx context.Context, limit int32) DataFrame {
 	return NewDataFrame(df.session, rel)
 }
 
-func (df *dataFrameImpl) Head(ctx context.Context, limit int32) ([]Row, error) {
+func (df *dataFrameImpl) Head(ctx context.Context, limit int32) ([]types.Row, error) {
 	return df.Limit(ctx, limit).Collect(ctx)
 }
 
-func (df *dataFrameImpl) Take(ctx context.Context, limit int32) ([]Row, error) {
+func (df *dataFrameImpl) Take(ctx context.Context, limit int32) ([]types.Row, error) {
 	return df.Limit(ctx, limit).Collect(ctx)
 }
 
@@ -1260,7 +1233,7 @@ func (df *dataFrameImpl) Distinct(ctx context.Context) DataFrame {
 	return NewDataFrame(df.session, rel)
 }
 
-func (df *dataFrameImpl) First(ctx context.Context) (Row, error) {
+func (df *dataFrameImpl) First(ctx context.Context) (types.Row, error) {
 	rows, err := df.Head(ctx, 1)
 	if err != nil {
 		return nil, err

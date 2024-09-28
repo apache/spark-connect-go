@@ -29,22 +29,43 @@ import (
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 )
 
-func ReadArrowTable(table arrow.Table) ([][]any, error) {
-	numRows := table.NumRows()
-	numColumns := int(table.NumCols())
+func ReadArrowTableToRows(table arrow.Table) ([]Row, error) {
+	result := make([]Row, table.NumRows())
 
-	values := make([][]any, numRows)
-	for i := range values {
-		values[i] = make([]any, numColumns)
-	}
-
-	for columnIndex := 0; columnIndex < numColumns; columnIndex++ {
-		err := ReadArrowRecordColumn(table, columnIndex, values)
+	// For each column in the table, read the data and convert it to an array of any.
+	cols := make([][]any, table.NumCols())
+	for i := 0; i < int(table.NumCols()); i++ {
+		chunkedColumn := table.Column(i).Data()
+		column, err := readChunkedColumn(chunkedColumn)
 		if err != nil {
 			return nil, err
 		}
+		cols[i] = column
 	}
-	return values, nil
+
+	// Create a list of field names for the rows.
+	fieldNames := make([]string, table.NumCols())
+	for i, field := range table.Schema().Fields() {
+		fieldNames[i] = field.Name
+	}
+
+	// Create the rows:
+	for i := 0; i < int(table.NumRows()); i++ {
+		row := make([]any, table.NumCols())
+		for j := 0; j < int(table.NumCols()); j++ {
+			row[j] = cols[j][i]
+		}
+		r := &rowImpl{
+			values:  row,
+			offsets: make(map[string]int),
+		}
+		for j, fieldName := range fieldNames {
+			r.offsets[fieldName] = j
+		}
+		result[i] = r
+	}
+
+	return result, nil
 }
 
 func readArrayData(t arrow.Type, data arrow.ArrayData) ([]any, error) {
@@ -164,20 +185,6 @@ func readChunkedColumn(chunked *arrow.Chunked) ([]any, error) {
 		buf = append(buf, values...)
 	}
 	return buf, nil
-}
-
-// readArrowRecordColumn reads all values in a column and stores them in values
-func ReadArrowRecordColumn(record arrow.Table, columnIndex int, values [][]any) error {
-	chunkedColumn := record.Column(columnIndex).Data()
-	column, err := readChunkedColumn(chunkedColumn)
-	if err != nil {
-		return err
-	}
-
-	for i, value := range column {
-		values[i][columnIndex] = value
-	}
-	return nil
 }
 
 func ReadArrowBatchToRecord(data []byte, schema *StructType) (arrow.Record, error) {

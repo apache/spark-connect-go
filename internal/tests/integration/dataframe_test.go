@@ -45,9 +45,7 @@ func TestDataFrame_Select(t *testing.T) {
 	assert.Equal(t, 100, len(res))
 
 	rowZero := res[0]
-	vals, err := rowZero.Values()
-	assert.NoError(t, err)
-	assert.Equal(t, 2, len(vals))
+	assert.Equal(t, 2, rowZero.Len())
 
 	df, err = spark.Sql(ctx, "select * from range(100)")
 	assert.NoError(t, err)
@@ -69,9 +67,7 @@ func TestDataFrame_SelectExpr(t *testing.T) {
 	assert.Equal(t, 100, len(res))
 
 	row_zero := res[0]
-	vals, err := row_zero.Values()
-	assert.NoError(t, err)
-	assert.Equal(t, 3, len(vals))
+	assert.Equal(t, 3, row_zero.Len())
 }
 
 func TestDataFrame_Alias(t *testing.T) {
@@ -98,10 +94,7 @@ func TestDataFrame_CrossJoin(t *testing.T) {
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 100, len(res))
-
-	v, e := res[0].Values()
-	assert.NoError(t, e)
-	assert.Equal(t, 2, len(v))
+	assert.Equal(t, 2, res[0].Len())
 }
 
 func TestDataFrame_GroupBy(t *testing.T) {
@@ -118,9 +111,8 @@ func TestDataFrame_GroupBy(t *testing.T) {
 	res, err = df.Collect(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(res))
-	vals, _ := res[0].Values()
-	assert.Equal(t, "a", vals[0])
-	assert.Equal(t, int64(10), vals[1])
+	assert.Equal(t, "a", res[0].At(0))
+	assert.Equal(t, int64(10), res[0].At(1))
 }
 
 func TestDataFrame_Count(t *testing.T) {
@@ -172,13 +164,10 @@ func TestSparkSession_CreateDataFrameWithSchema(t *testing.T) {
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(res))
-
-	row1, err := res[0].Values()
-	assert.NoError(t, err)
-	assert.Len(t, row1, 3)
-	assert.Equal(t, int32(1), row1[0])
-	assert.Equal(t, 1.1, row1[1])
-	assert.Equal(t, "a", row1[2])
+	assert.Equal(t, 3, res[0].Len())
+	assert.Equal(t, int32(1), res[0].At(0))
+	assert.Equal(t, 1.1, res[0].At(1))
+	assert.Equal(t, "a", res[0].At(2))
 }
 
 func TestDataFrame_Corr(t *testing.T) {
@@ -226,10 +215,8 @@ func TestDataFrame_WithColumn(t *testing.T) {
 	assert.Equal(t, 10, len(res))
 	// Check the values of the new column
 	for _, row := range res {
-		vals, err := row.Values()
-		assert.NoError(t, err)
-		assert.Equal(t, 2, len(vals))
-		assert.Equal(t, int64(1), vals[1])
+		assert.Equal(t, 2, row.Len())
+		assert.Equal(t, int64(1), row.At(1))
 	}
 }
 
@@ -247,11 +234,9 @@ func TestDataFrame_WithColumns(t *testing.T) {
 	assert.Equal(t, 10, len(res))
 	// Check the values of the new columns
 	for _, row := range res {
-		vals, err := row.Values()
-		assert.NoError(t, err)
-		assert.Equal(t, 3, len(vals))
-		assert.Equal(t, int64(1), vals[1], "%v", vals)
-		assert.Equal(t, int64(2), vals[2], "%v", vals)
+		assert.Equal(t, 3, row.Len())
+		assert.Equal(t, int64(1), row.At(1))
+		assert.Equal(t, int64(2), row.At(2))
 	}
 }
 
@@ -291,10 +276,8 @@ func TestDataFrame_WithColumnRenamed(t *testing.T) {
 	assert.Equal(t, 10, len(res))
 	// Check the values of the new column
 	for i, row := range res {
-		vals, err := row.Values()
-		assert.NoError(t, err)
-		assert.Equal(t, 1, len(vals))
-		assert.Equal(t, int64(i), vals[0])
+		assert.Equal(t, 1, row.Len())
+		assert.Equal(t, int64(i), row.At(0))
 	}
 
 	// Test that renaming a non-existing column does not change anything.
@@ -397,12 +380,10 @@ func TestDataFrame_DropDuplicates(t *testing.T) {
 	rows, err := df.Collect(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(rows))
-	vals, _ := rows[0].Values()
-	assert.Equal(t, "Alice", vals[0])
-	assert.Equal(t, int32(5), vals[1])
-	vals, _ = rows[1].Values()
-	assert.Equal(t, "Alice", vals[0])
-	assert.Equal(t, int32(10), vals[1])
+	assert.Equal(t, "Alice", rows[0].At(0))
+	assert.Equal(t, int32(5), rows[0].At(1))
+	assert.Equal(t, "Alice", rows[1].At(0))
+	assert.Equal(t, int32(10), rows[1].At(1))
 
 	// Test drop duplicates with column names
 	df, err = df.DropDuplicates(ctx, "name")
@@ -536,17 +517,13 @@ func TestDataFrame_Sort(t *testing.T) {
 	assert.NoError(t, err)
 	res, err := df.Head(ctx, 1)
 	assert.NoError(t, err)
-	vals, err := res[0].Values()
-	assert.NoError(t, err)
-	assert.Equal(t, int64(9), vals[0])
+	assert.Equal(t, int64(9), res[0].At(0))
 
 	df, err = src.Sort(ctx, functions.Col("id").Asc())
 	assert.NoError(t, err)
 	res, err = df.Head(ctx, 1)
 	assert.NoError(t, err)
-	vals, err = res[0].Values()
-	assert.NoError(t, err)
-	assert.Equal(t, int64(0), vals[0])
+	assert.Equal(t, int64(0), res[0].At(0))
 }
 
 func TestDataFrame_Join(t *testing.T) {
@@ -593,10 +570,8 @@ func TestDataFrame_Summary(t *testing.T) {
 	res, err := df.Summary(ctx, "count", "stddev").Collect(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, res, 2)
-	v, err := res[0].Values()
-	assert.NoError(t, err)
-	assert.Equal(t, "count", v[0])
-	assert.Len(t, v, 4)
+	assert.Equal(t, "count", res[0].At(0))
+	assert.Equal(t, 4, res[0].Len())
 }
 
 func TestDataFrame_Pivot(t *testing.T) {
@@ -658,9 +633,7 @@ func TestDataFrame_First(t *testing.T) {
 	assert.NoError(t, err)
 	row, err := df.First(ctx)
 	assert.NoError(t, err)
-	vals, err := row.Values()
-	assert.NoError(t, err)
-	assert.Equal(t, int64(0), vals[0])
+	assert.Equal(t, int64(0), row.At(0))
 }
 
 func TestDataFrame_Distinct(t *testing.T) {
@@ -690,12 +663,10 @@ func TestDataFrame_CrossTab(t *testing.T) {
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)
 	assert.Len(t, res, 3)
-	v, err := res[0].Values()
-	assert.NoError(t, err)
-	assert.Equal(t, "1", v[0])
-	assert.Equal(t, int64(0), v[1])
-	assert.Equal(t, int64(2), v[2])
-	assert.Equal(t, int64(0), v[3])
+	assert.Equal(t, "1", res[0].At(0))
+	assert.Equal(t, int64(0), res[0].At(1))
+	assert.Equal(t, int64(2), res[0].At(2))
+	assert.Equal(t, int64(0), res[0].At(3))
 }
 
 func TestDataFrame_SameSemantics(t *testing.T) {
