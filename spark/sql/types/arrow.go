@@ -47,139 +47,135 @@ func ReadArrowTable(table arrow.Table) ([][]any, error) {
 	return values, nil
 }
 
+func readArrayData(t arrow.Type, data arrow.ArrayData) ([]any, error) {
+	buf := make([]any, 0)
+	// Switch over the type t and append the values to buf.
+	switch t {
+	case arrow.BOOL:
+		data := array.NewBooleanData(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.INT8:
+		data := array.NewInt8Data(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.INT16:
+		data := array.NewInt16Data(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.INT32:
+		data := array.NewInt32Data(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.INT64:
+		data := array.NewInt64Data(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.FLOAT16:
+		data := array.NewFloat16Data(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.FLOAT32:
+		data := array.NewFloat32Data(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.FLOAT64:
+		data := array.NewFloat64Data(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.DECIMAL | arrow.DECIMAL128:
+		data := array.NewDecimal128Data(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.DECIMAL256:
+		data := array.NewDecimal256Data(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.STRING:
+		data := array.NewStringData(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.BINARY:
+		data := array.NewBinaryData(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.TIMESTAMP:
+		data := array.NewTimestampData(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.DATE64:
+		data := array.NewDate64Data(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.DATE32:
+		data := array.NewDate32Data(data)
+		for i := 0; i < data.Len(); i++ {
+			buf = append(buf, data.Value(i))
+		}
+	case arrow.LIST:
+		data := array.NewListData(data)
+		values := data.ListValues()
+
+		res, err := readArrayData(values.DataType().ID(), values.Data())
+		if err != nil {
+			return nil, err
+		}
+
+		for i := 0; i < data.Len(); i++ {
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+				continue
+			}
+			start := data.Offsets()[i]
+			end := data.Offsets()[i+1]
+			// TODO: Unfortunately, this ends up being stored as a slice of slices of any. But not
+			// the right type.
+			buf = append(buf, res[start:end])
+		}
+	default:
+		return nil, fmt.Errorf("unsupported arrow data type %s", t.String())
+	}
+	return buf, nil
+}
+
+func readChunkedColumn(chunked *arrow.Chunked) ([]any, error) {
+	buf := make([]any, 0)
+	for _, chunk := range chunked.Chunks() {
+		data := chunk.Data()
+		t := data.DataType().ID()
+		values, err := readArrayData(t, data)
+		if err != nil {
+			return nil, err
+		}
+		buf = append(buf, values...)
+	}
+	return buf, nil
+}
+
 // readArrowRecordColumn reads all values in a column and stores them in values
 func ReadArrowRecordColumn(record arrow.Table, columnIndex int, values [][]any) error {
 	chunkedColumn := record.Column(columnIndex).Data()
-	dataTypeId := chunkedColumn.DataType().ID()
-	switch dataTypeId {
-	case arrow.BOOL:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewBooleanData(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.INT8:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewInt8Data(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.INT16:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewInt16Data(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.INT32:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewInt32Data(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.INT64:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewInt64Data(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.FLOAT16:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewFloat16Data(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.FLOAT32:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewFloat32Data(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.FLOAT64:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewFloat64Data(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.DECIMAL | arrow.DECIMAL128:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewDecimal128Data(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.DECIMAL256:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewDecimal256Data(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.STRING:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewStringData(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.BINARY:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewBinaryData(columnData.Data())
-			for i := 0; rowIndex < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.TIMESTAMP:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewTimestampData(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	case arrow.DATE64:
-		rowIndex := 0
-		for _, columnData := range chunkedColumn.Chunks() {
-			vector := array.NewDate64Data(columnData.Data())
-			for i := 0; i < columnData.Len(); i++ {
-				values[rowIndex][columnIndex] = vector.Value(i)
-				rowIndex += 1
-			}
-		}
-	default:
-		return fmt.Errorf("unsupported arrow data type %s in column %d", dataTypeId.String(), columnIndex)
+	column, err := readChunkedColumn(chunkedColumn)
+	if err != nil {
+		return err
+	}
+
+	for i, value := range column {
+		values[i][columnIndex] = value
 	}
 	return nil
 }

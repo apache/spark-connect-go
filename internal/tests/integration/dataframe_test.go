@@ -717,12 +717,11 @@ func TestDataFrame_SemanticHash(t *testing.T) {
 	assert.NotEmpty(t, hash)
 }
 
-// DISABLED: Because we cannot parse LIST types
-//func TestDataFrame_FreqItems(t *testing.T) {
-//	ctx, spark := connect()
-//	df, err := spark.Sql(ctx, "select * from range(10)")
-//	assert.NoError(t, err)
-//	res, err := df.FreqItems(ctx, "id").Collect(ctx)
-//	assert.NoErrorf(t, err, "%+v", err)
-//	assert.Len(t, res, 1)
-//}
+func TestDataFrame_FreqItems(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select id % 4 as id from range(100)")
+	assert.NoError(t, err)
+	res, err := df.FreqItems(ctx, "id").Collect(ctx)
+	assert.NoErrorf(t, err, "%+v", err)
+	assert.Len(t, res, 1)
+}

@@ -129,6 +129,10 @@ func TestReadArrowRecord(t *testing.T) {
 			Name: "date64_column",
 			Type: &arrow.Date64Type{},
 		},
+		{
+			Name: "array_int64_column",
+			Type: arrow.ListOf(arrow.PrimitiveTypes.Int64),
+		},
 	}
 	arrowSchema := arrow.NewSchema(arrowFields, nil)
 	var buf bytes.Buffer
@@ -195,6 +199,17 @@ func TestReadArrowRecord(t *testing.T) {
 	recordBuilder.Field(i).(*array.Date64Builder).Append(arrow.Date64(1686981953117000))
 	recordBuilder.Field(i).(*array.Date64Builder).Append(arrow.Date64(1686981953118000))
 
+	i++
+	lb := recordBuilder.Field(i).(*array.ListBuilder)
+	lb.Append(true)
+	lb.ValueBuilder().(*array.Int64Builder).Append(1)
+	lb.ValueBuilder().(*array.Int64Builder).Append(-999231)
+
+	lb.Append(true)
+	lb.ValueBuilder().(*array.Int64Builder).Append(1)
+	lb.ValueBuilder().(*array.Int64Builder).Append(2)
+	lb.ValueBuilder().(*array.Int64Builder).Append(3)
+
 	record := recordBuilder.NewRecord()
 	defer record.Release()
 
@@ -208,6 +223,7 @@ func TestReadArrowRecord(t *testing.T) {
 		decimal128.FromI64(10000000), decimal256.FromI64(100000000),
 		"str1", []byte("bytes1"),
 		arrow.Timestamp(1686981953115000), arrow.Date64(1686981953117000),
+		[]any{int64(1), int64(-999231)},
 	},
 		values[0])
 	assert.Equal(t, []any{
@@ -216,6 +232,7 @@ func TestReadArrowRecord(t *testing.T) {
 		decimal128.FromI64(20000000), decimal256.FromI64(200000000),
 		"str2", []byte("bytes2"),
 		arrow.Timestamp(1686981953116000), arrow.Date64(1686981953118000),
+		[]any{int64(1), int64(2), int64(3)},
 	},
 		values[1])
 }
