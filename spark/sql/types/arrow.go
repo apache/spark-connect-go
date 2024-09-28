@@ -167,6 +167,39 @@ func readArrayData(t arrow.Type, data arrow.ArrayData) ([]any, error) {
 			// the right type.
 			buf = append(buf, res[start:end])
 		}
+	case arrow.MAP:
+		// For maps the data is stored as a list of key value pairs. So to extract the maps,
+		// we follow the same behavior as for lists but with two sub lists.
+		data := array.NewMapData(data)
+		keys := data.Keys()
+		values := data.Items()
+
+		keyValues, err := readArrayData(keys.DataType().ID(), keys.Data())
+		if err != nil {
+			return nil, err
+		}
+		valueValues, err := readArrayData(values.DataType().ID(), values.Data())
+		if err != nil {
+			return nil, err
+		}
+
+		for i := 0; i < data.Len(); i++ {
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+				continue
+			}
+			tmp := make(map[any]any)
+
+			start := data.Offsets()[i]
+			end := data.Offsets()[i+1]
+
+			k := keyValues[start:end]
+			v := valueValues[start:end]
+			for j := 0; j < len(k); j++ {
+				tmp[k[j]] = v[j]
+			}
+			buf = append(buf, tmp)
+		}
 	default:
 		return nil, fmt.Errorf("unsupported arrow data type %s", t.String())
 	}

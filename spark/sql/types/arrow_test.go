@@ -133,6 +133,10 @@ func TestReadArrowRecord(t *testing.T) {
 			Name: "array_int64_column",
 			Type: arrow.ListOf(arrow.PrimitiveTypes.Int64),
 		},
+		{
+			Name: "map_string_int32",
+			Type: arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32),
+		},
 	}
 	arrowSchema := arrow.NewSchema(arrowFields, nil)
 	var buf bytes.Buffer
@@ -210,6 +214,16 @@ func TestReadArrowRecord(t *testing.T) {
 	lb.ValueBuilder().(*array.Int64Builder).Append(2)
 	lb.ValueBuilder().(*array.Int64Builder).Append(3)
 
+	i++
+	mb := recordBuilder.Field(i).(*array.MapBuilder)
+	mb.Append(true)
+	mb.KeyBuilder().(*array.StringBuilder).Append("key1")
+	mb.ItemBuilder().(*array.Int32Builder).Append(1)
+
+	mb.Append(true)
+	mb.KeyBuilder().(*array.StringBuilder).Append("key2")
+	mb.ItemBuilder().(*array.Int32Builder).Append(2)
+
 	record := recordBuilder.NewRecord()
 	defer record.Release()
 
@@ -224,6 +238,7 @@ func TestReadArrowRecord(t *testing.T) {
 		"str1", []byte("bytes1"),
 		arrow.Timestamp(1686981953115000), arrow.Date64(1686981953117000),
 		[]any{int64(1), int64(-999231)},
+		map[any]any{"key1": int32(1)},
 	},
 		values[0].Values())
 	assert.Equal(t, []any{
@@ -233,6 +248,7 @@ func TestReadArrowRecord(t *testing.T) {
 		"str2", []byte("bytes2"),
 		arrow.Timestamp(1686981953116000), arrow.Date64(1686981953118000),
 		[]any{int64(1), int64(2), int64(3)},
+		map[any]any{"key2": int32(2)},
 	},
 		values[1].Values())
 }
