@@ -7,12 +7,19 @@
   # https://devenv.sh/packages/
   packages = with pkgs; [
     git
-    spark
+    (pkgs.spark.overrideAttrs (oldAttrs: {
+      version = "3.5.1";
+    }))
+
+    (pkgs.protobuf.overrideAttrs (oldAttrs: {
+      version = "24.4"; 
+    }))
   ];
 
   # https://devenv.sh/languages/
   languages.java.enable = true;
-  languages.java.jdk.package = pkgs.jdk11; 
+  languages.java.jdk.package = pkgs.jdk11;
+  languages.go.enable = true;
 
   # https://devenv.sh/processes/
   # processes.cargo-watch.exec = "cargo-watch";
@@ -21,13 +28,19 @@
   # services.postgres.enable = true;
 
   # https://devenv.sh/scripts/
-  scripts.hello.exec = ''
-    echo hello from $GREET
-  '';
+  scripts = {
+    hello.exec = ''
+      echo hello from $GREET
+    '';
+    run-spark-connect.exec = ''
+      sudo start-connect-server.sh --packages org.apache.spark:spark-connect_2.12:3.5.1
+    '';
+  };
 
   enterShell = ''
     hello
     spark-shell --version
+    run-spark-connect
   '';
 
   # https://devenv.sh/tests/
