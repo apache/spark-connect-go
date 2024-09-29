@@ -44,6 +44,31 @@ Step 5: Run the example Go application.
 go run cmd/spark-connect-example-spark-session/main.go
 ```
 
+### Using Devenv
+
+If you prefer using [Devenv](https://devenv.sh) for a streamlined development environment
+when working with Spark Connect Go,
+follow the steps below:
+
+1. **Install Devenv:** Make sure [Devenv is installed](https://devenv.sh/getting-started/#installation).
+
+2. **Enable Devenv:**
+
+   Run the following command to activate the development environment:
+
+   ```bash
+   devenv shell
+   ```
+
+3. Run the example Go application.
+
+    ```
+    go run cmd/spark-connect-example-spark-session/main.go
+    ```
+
+By using Devenv, you ensure a consistent environment across different machines,
+with dependencies pinned to specific versions as defined in
+your devenv.nix configuration.
 ## How to write Spark Connect Go Application in your own project
 
 See [Quick Start Guide](quick-start.md)
