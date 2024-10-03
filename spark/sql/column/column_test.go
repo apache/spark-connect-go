@@ -338,3 +338,35 @@ func TestColumnFunctions(t *testing.T) {
 		})
 	}
 }
+
+func TestColumn_Alias(t *testing.T) {
+	col1 := NewColumn(NewColumnReference("col1"))
+	col1Plan, _ := col1.ToProto(context.Background())
+
+	tests := []struct {
+		name string
+		arg  Convertible
+		want *proto.Expression
+	}{
+		{
+			name: "TestColumnAlias",
+			arg:  WithAlias("alias", col1),
+			want: &proto.Expression{
+				ExprType: &proto.Expression_Alias_{
+					Alias: &proto.Expression_Alias{
+						Expr: col1Plan,
+						Name: []string{"alias"},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.arg.ToProto(context.Background())
+			assert.NoError(t, err)
+			expected := tt.want
+			assert.Equalf(t, expected, got, "Input: %v", tt.arg)
+		})
+	}
+}
