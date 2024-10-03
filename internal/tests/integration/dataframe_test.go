@@ -224,10 +224,8 @@ func TestDataFrame_WithColumns(t *testing.T) {
 	ctx, spark := connect()
 	df, err := spark.Sql(ctx, "select * from range(10)")
 	assert.NoError(t, err)
-	df, err = df.WithColumns(ctx, map[string]column.Convertible{
-		"newCol1": functions.Lit(1),
-		"newCol2": functions.Lit(2),
-	})
+	df, err = df.WithColumns(ctx, column.WithAlias("newCol1", functions.Lit(1)),
+		column.WithAlias("newCol2", functions.Lit(2)))
 	assert.NoError(t, err)
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)

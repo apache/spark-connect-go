@@ -108,3 +108,30 @@ func OfDFWithRegex(df SchemaDataFrame, colRegex string) Column {
 	planId := df.PlanId()
 	return NewColumn(&unresolvedRegex{colRegex, &planId})
 }
+
+type Alias struct {
+	Name string
+	Col  Convertible
+}
+
+func (a Alias) ToProto(ctx context.Context) (*proto.Expression, error) {
+	col, err := a.Col.ToProto(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &proto.Expression{
+		ExprType: &proto.Expression_Alias_{
+			Alias: &proto.Expression_Alias{
+				Expr: col,
+				Name: []string{a.Name},
+			},
+		},
+	}, nil
+}
+
+func WithAlias(name string, col Convertible) Alias {
+	return Alias{
+		Name: name,
+		Col:  col,
+	}
+}

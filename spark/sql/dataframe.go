@@ -198,7 +198,7 @@ type DataFrame interface {
 	// plans which can cause performance issues and even `StackOverflowException`.
 	// To avoid this, use :func:`select` with multiple columns at once.
 	WithColumn(ctx context.Context, colName string, col column.Convertible) (DataFrame, error)
-	WithColumns(ctx context.Context, colsMap map[string]column.Convertible) (DataFrame, error)
+	WithColumns(ctx context.Context, alias ...column.Alias) (DataFrame, error)
 	// WithColumnRenamed returns a new DataFrame by renaming an existing column.
 	// This is a no-op if the schema doesn't contain the given column name.
 	WithColumnRenamed(ctx context.Context, existingName, newName string) (DataFrame, error)
@@ -665,21 +665,19 @@ func (df *dataFrameImpl) GroupBy(cols ...column.Convertible) *GroupedData {
 }
 
 func (df *dataFrameImpl) WithColumn(ctx context.Context, colName string, col column.Convertible) (DataFrame, error) {
-	return df.WithColumns(ctx, map[string]column.Convertible{colName: col})
+	return df.WithColumns(ctx, column.WithAlias(colName, col))
 }
 
-func (df *dataFrameImpl) WithColumns(ctx context.Context, colsMap map[string]column.Convertible) (DataFrame, error) {
+func (df *dataFrameImpl) WithColumns(ctx context.Context, cols ...column.Alias) (DataFrame, error) {
 	// Convert all columns to proto expressions and the corresponding alias:
-	aliases := make([]*proto.Expression_Alias, 0, len(colsMap))
-	for colName, col := range colsMap {
+	aliases := make([]*proto.Expression_Alias, 0, len(cols))
+	for _, col := range cols {
 		expr, err := col.ToProto(ctx)
 		if err != nil {
 			return nil, err
 		}
-		alias := &proto.Expression_Alias{
-			Expr: expr,
-			Name: []string{colName},
-		}
+		// The alias must be an alias expression.
+		alias := expr.GetAlias()
 		aliases = append(aliases, alias)
 	}
 
