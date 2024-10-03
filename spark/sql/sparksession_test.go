@@ -187,7 +187,7 @@ func TestWriteResultStreamsArrowResultToCollector(t *testing.T) {
 	assert.NoError(t, err)
 	rows, err := df.Collect(ctx)
 	assert.NoError(t, err)
-	vals, err := rows[1].Values()
+	vals := rows[1].Values()
 	assert.NoError(t, err)
 	assert.Equal(t, []any{"str2"}, vals)
 }

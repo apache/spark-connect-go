@@ -64,11 +64,11 @@ func TestShowArrowBatchData(t *testing.T) {
 	require.NoError(t, err)
 
 	table := array.NewTableFromRecords(arrowSchema, []arrow.Record{record})
-	values, err := types.ReadArrowTable(table)
+	values, err := types.ReadArrowTableToRows(table)
 	require.Nil(t, err)
 	assert.Equal(t, 2, len(values))
-	assert.Equal(t, []any{"str1a\nstr1b"}, values[0])
-	assert.Equal(t, []any{"str2"}, values[1])
+	assert.Equal(t, []any{"str1a\nstr1b"}, values[0].Values())
+	assert.Equal(t, []any{"str2"}, values[1].Values())
 }
 
 func TestReadArrowRecord(t *testing.T) {
@@ -128,6 +128,14 @@ func TestReadArrowRecord(t *testing.T) {
 		{
 			Name: "date64_column",
 			Type: &arrow.Date64Type{},
+		},
+		{
+			Name: "array_int64_column",
+			Type: arrow.ListOf(arrow.PrimitiveTypes.Int64),
+		},
+		{
+			Name: "map_string_int32",
+			Type: arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32),
 		},
 	}
 	arrowSchema := arrow.NewSchema(arrowFields, nil)
@@ -195,11 +203,32 @@ func TestReadArrowRecord(t *testing.T) {
 	recordBuilder.Field(i).(*array.Date64Builder).Append(arrow.Date64(1686981953117000))
 	recordBuilder.Field(i).(*array.Date64Builder).Append(arrow.Date64(1686981953118000))
 
+	i++
+	lb := recordBuilder.Field(i).(*array.ListBuilder)
+	lb.Append(true)
+	lb.ValueBuilder().(*array.Int64Builder).Append(1)
+	lb.ValueBuilder().(*array.Int64Builder).Append(-999231)
+
+	lb.Append(true)
+	lb.ValueBuilder().(*array.Int64Builder).Append(1)
+	lb.ValueBuilder().(*array.Int64Builder).Append(2)
+	lb.ValueBuilder().(*array.Int64Builder).Append(3)
+
+	i++
+	mb := recordBuilder.Field(i).(*array.MapBuilder)
+	mb.Append(true)
+	mb.KeyBuilder().(*array.StringBuilder).Append("key1")
+	mb.ItemBuilder().(*array.Int32Builder).Append(1)
+
+	mb.Append(true)
+	mb.KeyBuilder().(*array.StringBuilder).Append("key2")
+	mb.ItemBuilder().(*array.Int32Builder).Append(2)
+
 	record := recordBuilder.NewRecord()
 	defer record.Release()
 
 	table := array.NewTableFromRecords(arrowSchema, []arrow.Record{record})
-	values, err := types.ReadArrowTable(table)
+	values, err := types.ReadArrowTableToRows(table)
 	require.Nil(t, err)
 	assert.Equal(t, 2, len(values))
 	assert.Equal(t, []any{
@@ -208,16 +237,20 @@ func TestReadArrowRecord(t *testing.T) {
 		decimal128.FromI64(10000000), decimal256.FromI64(100000000),
 		"str1", []byte("bytes1"),
 		arrow.Timestamp(1686981953115000), arrow.Date64(1686981953117000),
+		[]any{int64(1), int64(-999231)},
+		map[any]any{"key1": int32(1)},
 	},
-		values[0])
+		values[0].Values())
 	assert.Equal(t, []any{
 		true, int8(2), int16(20), int32(200), int64(2000),
 		float16.New(20000.1), float32(200000.1), 2000000.1,
 		decimal128.FromI64(20000000), decimal256.FromI64(200000000),
 		"str2", []byte("bytes2"),
 		arrow.Timestamp(1686981953116000), arrow.Date64(1686981953118000),
+		[]any{int64(1), int64(2), int64(3)},
+		map[any]any{"key2": int32(2)},
 	},
-		values[1])
+		values[1].Values())
 }
 
 func TestReadArrowRecord_UnsupportedType(t *testing.T) {
@@ -242,7 +275,7 @@ func TestReadArrowRecord_UnsupportedType(t *testing.T) {
 	defer record.Release()
 
 	table := array.NewTableFromRecords(arrowSchema, []arrow.Record{record})
-	_, err := types.ReadArrowTable(table)
+	_, err := types.ReadArrowTableToRows(table)
 	require.NotNil(t, err)
 }
 
