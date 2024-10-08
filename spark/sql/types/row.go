@@ -46,7 +46,7 @@ func (r *rowImpl) Len() int {
 }
 
 func (r *rowImpl) FieldNames() []string {
-	names := make([]string, len(r.offsets))
+	names := make([]string, 0, len(r.offsets))
 	for name := range r.offsets {
 		names = append(names, name)
 	}
