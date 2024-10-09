@@ -173,6 +173,7 @@ type unresolvedExtractValue struct {
 func (u *unresolvedExtractValue) DebugString() string {
 	return fmt.Sprintf("%s(%s, %s)", u.name, u.child.DebugString(), u.extraction.DebugString())
 }
+
 func (u *unresolvedExtractValue) ToProto(ctx context.Context) (*proto.Expression, error) {
 	expr := newProtoExpression()
 	child, err := u.child.ToProto(ctx)
