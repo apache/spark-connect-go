@@ -77,6 +77,10 @@ func (c Column) Desc() Column {
 	})
 }
 
+func (c Column) GetItem(key any) Column {
+	return NewColumn(NewUnresolvedExtractValue("getItem", c.expr, NewLiteral(key)))
+}
+
 func (c Column) Asc() Column {
 	return NewColumn(&sortExpression{
 		child:        c.expr,
