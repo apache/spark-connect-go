@@ -39,3 +39,16 @@ func TestRelationContainsPathAndFormat(t *testing.T) {
 	assert.Equal(t, &formatSource, relation.GetRead().GetDataSource().Format)
 	assert.Equal(t, path, relation.GetRead().GetDataSource().Paths[0])
 }
+
+func TestRelationContainsPathAndFormatAndOptions(t *testing.T) {
+	formatSource := "source"
+	path := "path"
+	options := map[string]string{"key": "value"}
+	relation := newReadWithFormatAndPathAndOptions(path, formatSource, options)
+	assert.NotNil(t, relation)
+	assert.Equal(t, &formatSource, relation.GetRead().GetDataSource().Format)
+	assert.Equal(t, path, relation.GetRead().GetDataSource().Paths[0])
+	for i, v := range options {
+		assert.Equal(t, v, relation.GetRead().GetDataSource().Options[i])
+	}
+}

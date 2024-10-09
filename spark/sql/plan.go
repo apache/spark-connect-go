@@ -64,3 +64,19 @@ func newReadWithFormatAndPath(path, format string) *proto.Relation {
 		},
 	}
 }
+
+func newReadWithFormatAndPathAndOptions(path, format string, options map[string]string) *proto.Relation {
+	return &proto.Relation{
+		RelType: &proto.Relation_Read{
+			Read: &proto.Read{
+				ReadType: &proto.Read_DataSource_{
+					DataSource: &proto.Read_DataSource{
+						Format:  &format,
+						Paths:   []string{path},
+						Options: options,
+					},
+				},
+			},
+		},
+	}
+}
