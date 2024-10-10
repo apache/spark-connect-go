@@ -16,7 +16,11 @@
 
 package types
 
-import "github.com/apache/arrow-go/v18/arrow"
+import (
+	"fmt"
+
+	"github.com/apache/arrow-go/v18/arrow"
+)
 
 // StructField represents a field in a StructType.
 type StructField struct {
@@ -32,6 +36,13 @@ func (t *StructField) ToArrowType() arrow.Field {
 		Type:     t.DataType.ToArrowType(),
 		Nullable: t.Nullable,
 	}
+}
+
+func (t *StructField) buildFormattedString(prefix string, target *string) {
+	if target == nil {
+		return
+	}
+	*target += fmt.Sprintf("%s-- %s: %s (nullable = %t)\n", prefix, t.Name, t.DataType.TypeName(), t.Nullable)
 }
 
 // StructType represents a struct type.
@@ -53,6 +64,15 @@ func (t StructType) ToArrowType() arrow.DataType {
 		fields[i] = f.ToArrowType()
 	}
 	return arrow.StructOf(fields...)
+}
+
+func (t *StructType) TreeString() string {
+	tree := string("root\n")
+	prefix := " |"
+	for _, f := range t.Fields {
+		f.buildFormattedString(prefix, &tree)
+	}
+	return tree + "\n"
 }
 
 func StructOf(fields ...StructField) *StructType {
