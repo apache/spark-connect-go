@@ -3073,9 +3073,14 @@ func BitmapOrAgg(col column.Column) column.Column {
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("bitmap_or_agg", col))
 }
 
-// Ignore UDF: call_udf: (udfName: str, *cols: 'ColumnOrName') -> pyspark.sql.connect.column.Column
+// Ignore UDF: call_udf: (udfName: str, *cols: 'ColumnOrName') -> sql.connect.column.Column
 
-// Ignore UDT: unwrap_udt: (col: 'ColumnOrName') -> pyspark.sql.connect.column.Column
+// UnwrapUdt: (col: 'ColumnOrName') -> sql.connect.column.Column
+//
+// Unwraps the UDT so you can work with the internal data structure embedded in the type
+func UnwrapUdt(col column.Column) column.Column {
+	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("unwrap_udt", col))
+}
 
 // TODO: udf: (f: Union[Callable[..., Any], ForwardRef('DataTypeOrString'), NoneType] = None, returnType: 'DataTypeOrString' = StringType(), useArrow: Optional[bool] = None) -> Union[ForwardRef('UserDefinedFunctionLike'), Callable[[Callable[..., Any]], ForwardRef('UserDefinedFunctionLike')]]
 
