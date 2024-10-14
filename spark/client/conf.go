@@ -67,7 +67,6 @@ func (r runtimeConfig) Get(ctx context.Context, keys []string) (*map[string]stri
 	for _, k := range resp.GetPairs() {
 		m[k.Key] = *k.Value
 	}
-
 	return &m, nil
 }
 
@@ -98,7 +97,6 @@ func (r runtimeConfig) IsModifiable(ctx context.Context, keys []string) (*map[st
 	for _, k := range resp.GetPairs() {
 		m[k.Key] = *k.Value
 	}
-
 	return &m, nil
 }
 

@@ -87,5 +87,5 @@ func (t *TestExecutor) SemanticHash(ctx context.Context, plan *generated.Plan) (
 }
 
 func (t *TestExecutor) Config(ctx context.Context, configRequest *generated.ConfigRequest) (*generated.ConfigResponse, error) {
-	return nil, nil
+	return nil, errors.New("not implemented")
 }
