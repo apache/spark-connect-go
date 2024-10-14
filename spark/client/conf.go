@@ -14,6 +14,7 @@ type RuntimeConfig interface {
 	Get(ctx context.Context, keys []string) (*map[string]string, error)
 	Unset(ctx context.Context, keys []string) error
 	IsModifiable(ctx context.Context, keys []string) (*map[string]string, error)
+	GetWithDefault(ctx context.Context, keys map[string]string) (*map[string]string, error)
 }
 
 // private type with private member client
@@ -26,14 +27,15 @@ func (r runtimeConfig) GetAll(ctx context.Context) (*map[string]string, error) {
 	req := &proto.ConfigRequest_GetAll{}
 	operation := &proto.ConfigRequest_Operation_GetAll{GetAll: req}
 	op := &proto.ConfigRequest_Operation{OpType: operation}
-	request := &proto.ConfigRequest{Operation: op}
-	resp, err := (*r.client).Config(ctx, request)
+	resp, err := (*r.client).Config(ctx, op)
 	if err != nil {
 		return nil, err
 	}
 	m := make(map[string]string, 0)
 	for _, k := range resp.GetPairs() {
-		m[k.Key] = *k.Value
+		if k.Value != nil {
+			m[k.Key] = *k.Value
+		}
 	}
 	return &m, nil
 }
@@ -45,8 +47,7 @@ func (r runtimeConfig) Set(ctx context.Context, key string, value string) error 
 		Pairs: reqArr,
 	}
 	op := &proto.ConfigRequest_Operation{OpType: &proto.ConfigRequest_Operation_Set{Set: req}}
-	request := &proto.ConfigRequest{Operation: op}
-	_, err := (*r.client).Config(ctx, request)
+	_, err := (*r.client).Config(ctx, op)
 	if err != nil {
 		return err
 	}
@@ -58,14 +59,15 @@ func (r runtimeConfig) Get(ctx context.Context, keys []string) (*map[string]stri
 	req := &proto.ConfigRequest_Get{Keys: keys}
 	operation := &proto.ConfigRequest_Operation_Get{Get: req}
 	op := &proto.ConfigRequest_Operation{OpType: operation}
-	request := &proto.ConfigRequest{Operation: op}
-	resp, err := (*r.client).Config(ctx, request)
+	resp, err := (*r.client).Config(ctx, op)
 	if err != nil {
 		return nil, err
 	}
 	m := make(map[string]string, 0)
 	for _, k := range resp.GetPairs() {
-		m[k.Key] = *k.Value
+		if k.Value != nil {
+			m[k.Key] = *k.Value
+		}
 	}
 	return &m, nil
 }
@@ -75,8 +77,7 @@ func (r runtimeConfig) Unset(ctx context.Context, keys []string) error {
 	req := &proto.ConfigRequest_Unset{Keys: keys}
 	operation := &proto.ConfigRequest_Operation_Unset{Unset: req}
 	op := &proto.ConfigRequest_Operation{OpType: operation}
-	request := &proto.ConfigRequest{Operation: op}
-	_, err := (*r.client).Config(ctx, request)
+	_, err := (*r.client).Config(ctx, op)
 	if err != nil {
 		return err
 	}
@@ -88,8 +89,28 @@ func (r runtimeConfig) IsModifiable(ctx context.Context, keys []string) (*map[st
 	req := &proto.ConfigRequest_IsModifiable{Keys: keys}
 	operation := &proto.ConfigRequest_Operation_IsModifiable{IsModifiable: req}
 	op := &proto.ConfigRequest_Operation{OpType: operation}
-	request := &proto.ConfigRequest{Operation: op}
-	resp, err := (*r.client).Config(ctx, request)
+	resp, err := (*r.client).Config(ctx, op)
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]string, 0)
+	for _, k := range resp.GetPairs() {
+		if k.Value != nil {
+			m[k.Key] = *k.Value
+		}
+	}
+	return &m, nil
+}
+
+func (r runtimeConfig) GetWithDefault(ctx context.Context, keys map[string]string) (*map[string]string, error) {
+	p := make([]*proto.KeyValue, 0)
+	for i, v := range keys {
+		p = append(p, &proto.KeyValue{Key: i, Value: &v})
+	}
+	req := &proto.ConfigRequest_GetWithDefault{Pairs: p}
+	operation := &proto.ConfigRequest_Operation_GetWithDefault{GetWithDefault: req}
+	op := &proto.ConfigRequest_Operation{OpType: operation}
+	resp, err := (*r.client).Config(ctx, op)
 	if err != nil {
 		return nil, err
 	}

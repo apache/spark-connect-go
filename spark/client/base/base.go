@@ -43,7 +43,7 @@ type SparkConnectClient interface {
 	DDLParse(ctx context.Context, sql string) (*types.StructType, error)
 	SameSemantics(ctx context.Context, plan1 *generated.Plan, plan2 *generated.Plan) (bool, error)
 	SemanticHash(ctx context.Context, plan *generated.Plan) (int32, error)
-	Config(ctx context.Context, configRequest *generated.ConfigRequest) (*generated.ConfigResponse, error)
+	Config(ctx context.Context, configRequest *generated.ConfigRequest_Operation) (*generated.ConfigResponse, error)
 }
 
 type ExecuteResponseStream interface {
