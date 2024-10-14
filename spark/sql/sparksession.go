@@ -47,7 +47,7 @@ type SparkSession interface {
 	Table(name string) (DataFrame, error)
 	CreateDataFrameFromArrow(ctx context.Context, data arrow.Table) (DataFrame, error)
 	CreateDataFrame(ctx context.Context, data [][]any, schema *types.StructType) (DataFrame, error)
-	Conf() client.RuntimeConfig
+	Config() client.RuntimeConfig
 }
 
 // NewSessionBuilder creates a new session builder for starting a new spark session
@@ -104,7 +104,7 @@ type sparkSessionImpl struct {
 	client    base.SparkConnectClient
 }
 
-func (s *sparkSessionImpl) Conf() client.RuntimeConfig {
+func (s *sparkSessionImpl) Config() client.RuntimeConfig {
 	return client.NewRuntimeConfig(&s.client)
 }
 
