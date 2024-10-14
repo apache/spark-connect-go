@@ -331,6 +331,16 @@ func (s *sparkConnectClientImpl) SemanticHash(ctx context.Context, plan *proto.P
 	return response.GetSemanticHash().GetResult(), nil
 }
 
+func (s *sparkConnectClientImpl) Config(ctx context.Context, configRequest *proto.ConfigRequest) (*generated.ConfigResponse, error) {
+	configRequest.SessionId = s.sessionId
+	resp, err := s.client.Config(ctx, configRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 func NewSparkExecutor(conn *grpc.ClientConn, md metadata.MD, sessionId string, opts options.SparkClientOptions) base.SparkConnectClient {
 	var client base.SparkConnectRPCClient
 	if opts.ReattachExecution {

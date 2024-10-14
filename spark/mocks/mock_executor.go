@@ -85,3 +85,7 @@ func (t *TestExecutor) SameSemantics(ctx context.Context, plan1 *generated.Plan,
 func (t *TestExecutor) SemanticHash(ctx context.Context, plan *generated.Plan) (int32, error) {
 	return 0, errors.New("not implemented")
 }
+
+func (t *TestExecutor) Config(ctx context.Context, configRequest *generated.ConfigRequest) (*generated.ConfigResponse, error) {
+	return nil, nil
+}
