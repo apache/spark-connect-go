@@ -53,6 +53,7 @@ func (r runtimeConfig) Set(ctx context.Context, key string, value string) error 
 	}
 	return nil
 }
+
 func (r runtimeConfig) Get(ctx context.Context, key string) (map[string]string, error) {
 	req := &proto.ConfigRequest_Get{Keys: []string{key}}
 	operation := &proto.ConfigRequest_Operation_Get{Get: req}

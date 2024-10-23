@@ -736,7 +736,6 @@ func TestDataFrame_Config_Unset(t *testing.T) {
 	assert.NoError(t, err)
 	err = spark.Config().Unset(ctx, "spark.whatever")
 	assert.NoError(t, err)
-
 }
 
 func TestDataFrame_Config_e2e_test(t *testing.T) {
