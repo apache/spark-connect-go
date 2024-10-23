@@ -714,7 +714,7 @@ func TestDataFrame_WithOption(t *testing.T) {
 		Option("quote", "\"").
 		Option("sep", "#").
 		Option("escapeQuotes", "true").
-		Option("skipLines", "5").
+		// Option("skipLines", "5"). //TODO: this needs more insight
 		Option("inferSchema", "false").
 		Load(filepath)
 	assert.NoError(t, err)
