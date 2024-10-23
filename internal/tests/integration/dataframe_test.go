@@ -704,6 +704,7 @@ func TestDataFrame_WithOption(t *testing.T) {
 	assert.NoError(t, err)
 	defer file.Close()
 	_, err = file.WriteString("id#name,name\n")
+	assert.NoError(t, err)
 	for i := 0; i < 10; i++ {
 		_, err = file.WriteString(fmt.Sprintf("%d#alice,alice\n", i))
 		assert.NoError(t, err)
