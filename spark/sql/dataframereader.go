@@ -26,7 +26,7 @@ type DataFrameReader interface {
 	Load(path string) (DataFrame, error)
 	// Reads a table from the underlying data source.
 	Table(name string) (DataFrame, error)
-	Option(key string, value string) DataFrameReader
+	Option(key, value string) DataFrameReader
 }
 
 // dataFrameReaderImpl is an implementation of DataFrameReader interface.
