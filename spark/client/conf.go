@@ -9,12 +9,12 @@ import (
 
 // Public interface RuntimeConfig
 type RuntimeConfig interface {
-	GetAll(ctx context.Context) (*map[string]string, error)
+	GetAll(ctx context.Context) (map[string]string, error)
 	Set(ctx context.Context, key string, value string) error
-	Get(ctx context.Context, keys []string) (*map[string]string, error)
-	Unset(ctx context.Context, keys []string) error
-	IsModifiable(ctx context.Context, keys []string) (*map[string]string, error)
-	GetWithDefault(ctx context.Context, keys map[string]string) (*map[string]string, error)
+	Get(ctx context.Context, key string) (map[string]string, error)
+	Unset(ctx context.Context, key string) error
+	IsModifiable(ctx context.Context, key string) (map[string]string, error)
+	GetWithDefault(ctx context.Context, key string, default_value string) (map[string]string, error)
 }
 
 // private type with private member client
@@ -23,7 +23,7 @@ type runtimeConfig struct {
 }
 
 // GetAll returns all configured keys in a map of strings
-func (r runtimeConfig) GetAll(ctx context.Context) (*map[string]string, error) {
+func (r runtimeConfig) GetAll(ctx context.Context) (map[string]string, error) {
 	req := &proto.ConfigRequest_GetAll{}
 	operation := &proto.ConfigRequest_Operation_GetAll{GetAll: req}
 	op := &proto.ConfigRequest_Operation{OpType: operation}
@@ -37,7 +37,7 @@ func (r runtimeConfig) GetAll(ctx context.Context) (*map[string]string, error) {
 			m[k.Key] = *k.Value
 		}
 	}
-	return &m, nil
+	return m, nil
 }
 
 // Set takes a key and a value and sets it in the config
@@ -53,10 +53,8 @@ func (r runtimeConfig) Set(ctx context.Context, key string, value string) error 
 	}
 	return nil
 }
-
-// Get takes an array of keys and returns a pointer to map of strings
-func (r runtimeConfig) Get(ctx context.Context, keys []string) (*map[string]string, error) {
-	req := &proto.ConfigRequest_Get{Keys: keys}
+func (r runtimeConfig) Get(ctx context.Context, key string) (map[string]string, error) {
+	req := &proto.ConfigRequest_Get{Keys: []string{key}}
 	operation := &proto.ConfigRequest_Operation_Get{Get: req}
 	op := &proto.ConfigRequest_Operation{OpType: operation}
 	resp, err := (*r.client).Config(ctx, op)
@@ -69,12 +67,11 @@ func (r runtimeConfig) Get(ctx context.Context, keys []string) (*map[string]stri
 			m[k.Key] = *k.Value
 		}
 	}
-	return &m, nil
+	return m, nil
 }
 
-// Unset take an array of keys and unsets the keys in config
-func (r runtimeConfig) Unset(ctx context.Context, keys []string) error {
-	req := &proto.ConfigRequest_Unset{Keys: keys}
+func (r runtimeConfig) Unset(ctx context.Context, key string) error {
+	req := &proto.ConfigRequest_Unset{Keys: []string{key}}
 	operation := &proto.ConfigRequest_Operation_Unset{Unset: req}
 	op := &proto.ConfigRequest_Operation{OpType: operation}
 	_, err := (*r.client).Config(ctx, op)
@@ -84,29 +81,26 @@ func (r runtimeConfig) Unset(ctx context.Context, keys []string) error {
 	return nil
 }
 
-// IsModifiable take an array of keys and returns status per key in a map
-func (r runtimeConfig) IsModifiable(ctx context.Context, keys []string) (*map[string]string, error) {
-	req := &proto.ConfigRequest_IsModifiable{Keys: keys}
+func (r runtimeConfig) IsModifiable(ctx context.Context, key string) (map[string]string, error) {
+	req := &proto.ConfigRequest_IsModifiable{Keys: []string{key}}
 	operation := &proto.ConfigRequest_Operation_IsModifiable{IsModifiable: req}
 	op := &proto.ConfigRequest_Operation{OpType: operation}
 	resp, err := (*r.client).Config(ctx, op)
 	if err != nil {
 		return nil, err
 	}
-	m := make(map[string]string, 0)
+	m := make(map[string]string)
 	for _, k := range resp.GetPairs() {
 		if k.Value != nil {
 			m[k.Key] = *k.Value
 		}
 	}
-	return &m, nil
+	return m, nil
 }
 
-func (r runtimeConfig) GetWithDefault(ctx context.Context, keys map[string]string) (*map[string]string, error) {
+func (r runtimeConfig) GetWithDefault(ctx context.Context, key string, default_value string) (map[string]string, error) {
 	p := make([]*proto.KeyValue, 0)
-	for i, v := range keys {
-		p = append(p, &proto.KeyValue{Key: i, Value: &v})
-	}
+	p = append(p, &proto.KeyValue{Key: key, Value: &default_value})
 	req := &proto.ConfigRequest_GetWithDefault{Pairs: p}
 	operation := &proto.ConfigRequest_Operation_GetWithDefault{GetWithDefault: req}
 	op := &proto.ConfigRequest_Operation{OpType: operation}
@@ -118,7 +112,7 @@ func (r runtimeConfig) GetWithDefault(ctx context.Context, keys map[string]strin
 	for _, k := range resp.GetPairs() {
 		m[k.Key] = *k.Value
 	}
-	return &m, nil
+	return m, nil
 }
 
 // Constructor for runtimeConfig used by SparkSession

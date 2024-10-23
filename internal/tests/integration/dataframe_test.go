@@ -698,55 +698,60 @@ func TestDataFrame_FreqItems(t *testing.T) {
 func TestDataFrame_Config_GetAll(t *testing.T) {
 	ctx, spark := connect()
 	result, err := spark.Config().GetAll(ctx)
-	assert.NoError(t, err, "%+v", err)
-	assert.Equal(t, "driver", (*result)["spark.executor.id"])
+	assert.NoError(t, err)
+	assert.Equal(t, "driver", result["spark.executor.id"])
 }
 
 func TestDataFrame_Config_Get(t *testing.T) {
 	ctx, spark := connect()
-	keys := []string{
-		"spark.executor.id",
-	}
-	result, err := spark.Config().Get(ctx, keys)
-	assert.NoError(t, err, "%+v", err)
-	assert.Equal(t, "driver", (*result)["spark.executor.id"])
+	result, err := spark.Config().Get(ctx, "spark.executor.id")
+	assert.NoError(t, err)
+	assert.Equal(t, "driver", result["spark.executor.id"])
 }
 
 func TestDataFrame_Config_GetWithDefault(t *testing.T) {
 	ctx, spark := connect()
-	keys := map[string]string{
-		"spark.executor.id": "executor_id_not_set",
-		"spark.whatever":    "whatever_not_set",
-	}
-	result, err := spark.Config().GetWithDefault(ctx, keys)
-	assert.NoError(t, err, "%+v", err)
-	assert.Equal(t, "driver", (*result)["spark.executor.id"])
-	assert.Equal(t, "whatever_not_set", (*result)["spark.whatever"])
+
+	result, err := spark.Config().GetWithDefault(ctx, "spark.whatever", "whatever_not_set")
+	assert.NoError(t, err)
+	assert.Equal(t, "whatever_not_set", result["spark.whatever"])
 }
 
 func TestDataFrame_Config_Set(t *testing.T) {
 	ctx, spark := connect()
 	err := spark.Config().Set(ctx, "spark.whatever", "whatever_set")
-	assert.NoError(t, err, "%+v", err)
+	assert.NoError(t, err)
 }
 
 func TestDataFrame_Config_IsModifiable(t *testing.T) {
 	ctx, spark := connect()
-	keys := []string{
-		"spark.executor.id",
-	}
-	result, err := spark.Config().IsModifiable(ctx, keys)
-	assert.NoError(t, err, "%+v", err)
-	assert.Equal(t, "false", (*result)["spark.executor.id"])
+	result, err := spark.Config().IsModifiable(ctx, "spark.executor.id")
+	assert.NoError(t, err)
+	assert.Equal(t, "false", result["spark.executor.id"])
 }
 
 func TestDataFrame_Config_Unset(t *testing.T) {
 	ctx, spark := connect()
-	keys := []string{
-		"spark.magnus",
-	}
 	err := spark.Config().Set(ctx, "spark.whatever", "whatever_set")
-	assert.NoError(t, err, "%+v", err)
-	err = spark.Config().Unset(ctx, keys)
-	assert.NoError(t, err, "%+v", err)
+	assert.NoError(t, err)
+	err = spark.Config().Unset(ctx, "spark.whatever")
+	assert.NoError(t, err)
+
+}
+
+func TestDataFrame_Config_e2e_test(t *testing.T) {
+	ctx, spark := connect()
+	//  add keys that we know is "modifiable"
+	key := "spark.sql.ansi.enabled"
+	result, err := spark.Config().IsModifiable(ctx, key)
+	assert.NoError(t, err)
+	assert.Equal(t, "true", result[key])
+	_, err = spark.Config().Get(ctx, key)
+	assert.NoError(t, err)
+	err = spark.Config().Set(ctx, "spark.sql.ansi.enabled", "true")
+	assert.NoError(t, err)
+	m, err := spark.Config().Get(ctx, "spark.sql.ansi.enabled")
+	assert.NoError(t, err)
+	assert.Len(t, m, 1)
+	assert.Equal(t, "true", m["spark.sql.ansi.enabled"])
 }
