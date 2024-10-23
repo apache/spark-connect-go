@@ -20,7 +20,7 @@ go 1.22.0
 toolchain go1.23.2
 
 require (
-	github.com/apache/arrow-go/v18 v18.0.0-rc0
+	github.com/apache/arrow-go/v18 v18.0.0
 	github.com/go-errors/errors v1.5.1
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.9.0
