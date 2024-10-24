@@ -16,7 +16,7 @@
 
 package types
 
-import "github.com/apache/arrow/go/v17/arrow"
+import "github.com/apache/arrow-go/v18/arrow"
 
 // StructField represents a field in a StructType.
 type StructField struct {
