@@ -125,3 +125,18 @@ func TestStructType_ToArrowType_ReturnType(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, 1, concreteType.NumFields())
 }
+
+func TestTreeString(t *testing.T) {
+	c := NewStructField("col1", STRING)
+	c.Nullable = false
+	s := StructOf(
+		c,
+		NewStructField("col2", INTEGER),
+		NewStructField("col3", DATE),
+	)
+	assert.Len(t, s.Fields, 3)
+	ts := s.TreeString()
+	assert.Contains(t, ts, "|-- col1: string (nullable = false")
+	assert.Contains(t, ts, "|-- col2: integer (nullable = true)")
+	assert.Contains(t, ts, "|-- col3: date (nullable = true)")
+}
