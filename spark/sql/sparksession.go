@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/ipc"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/apache/spark-connect-go/v35/spark/client/base"
 
 	"github.com/apache/spark-connect-go/v35/spark/client/options"
