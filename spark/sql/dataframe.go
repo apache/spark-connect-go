@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 
-	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql/column"
