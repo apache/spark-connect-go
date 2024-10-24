@@ -18,6 +18,7 @@ package types
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/apache/arrow/go/v17/arrow"
 )
@@ -42,7 +43,7 @@ func (t *StructField) buildFormattedString(prefix string, target *string) {
 	if target == nil {
 		return
 	}
-	*target += fmt.Sprintf("%s-- %s: %s (nullable = %t)\n", prefix, t.Name, t.DataType.TypeName(), t.Nullable)
+	*target += fmt.Sprintf("%s-- %s: %s (nullable = %t)\n", prefix, t.Name, strings.ToLower(t.DataType.TypeName()), t.Nullable)
 }
 
 // StructType represents a struct type.
