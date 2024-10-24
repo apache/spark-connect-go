@@ -137,6 +137,7 @@ type DataFrame interface {
 	Offset(ctx context.Context, offset int32) DataFrame
 	// OrderBy is an alias for Sort
 	OrderBy(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
+	PrintSchema(ctx context.Context) error
 	Persist(ctx context.Context, storageLevel utils.StorageLevel) error
 	RandomSplit(ctx context.Context, weights []float64) ([]DataFrame, error)
 	// Repartition re-partitions a data frame.
@@ -1348,4 +1349,13 @@ func (df *dataFrameImpl) Summary(ctx context.Context, statistics ...string) Data
 		},
 	}
 	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) PrintSchema(ctx context.Context) error {
+	schema, err := df.Schema(ctx)
+	if err != nil {
+		return err
+	}
+	fmt.Print(schema.TreeString())
+	return nil
 }
