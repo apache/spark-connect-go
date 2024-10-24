@@ -11,10 +11,10 @@ import (
 type RuntimeConfig interface {
 	GetAll(ctx context.Context) (map[string]string, error)
 	Set(ctx context.Context, key string, value string) error
-	Get(ctx context.Context, key string) (map[string]string, error)
+	Get(ctx context.Context, key string) (string, error)
 	Unset(ctx context.Context, key string) error
-	IsModifiable(ctx context.Context, key string) (map[string]string, error)
-	GetWithDefault(ctx context.Context, key string, default_value string) (map[string]string, error)
+	IsModifiable(ctx context.Context, key string) (bool, error)
+	GetWithDefault(ctx context.Context, key string, default_value string) (string, error)
 }
 
 // private type with private member client
@@ -54,21 +54,15 @@ func (r runtimeConfig) Set(ctx context.Context, key string, value string) error 
 	return nil
 }
 
-func (r runtimeConfig) Get(ctx context.Context, key string) (map[string]string, error) {
+func (r runtimeConfig) Get(ctx context.Context, key string) (string, error) {
 	req := &proto.ConfigRequest_Get{Keys: []string{key}}
 	operation := &proto.ConfigRequest_Operation_Get{Get: req}
 	op := &proto.ConfigRequest_Operation{OpType: operation}
 	resp, err := (*r.client).Config(ctx, op)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	m := make(map[string]string, 0)
-	for _, k := range resp.GetPairs() {
-		if k.Value != nil {
-			m[k.Key] = *k.Value
-		}
-	}
-	return m, nil
+	return *resp.GetPairs()[0].Value, nil
 }
 
 func (r runtimeConfig) Unset(ctx context.Context, key string) error {
@@ -82,24 +76,23 @@ func (r runtimeConfig) Unset(ctx context.Context, key string) error {
 	return nil
 }
 
-func (r runtimeConfig) IsModifiable(ctx context.Context, key string) (map[string]string, error) {
+func (r runtimeConfig) IsModifiable(ctx context.Context, key string) (bool, error) {
 	req := &proto.ConfigRequest_IsModifiable{Keys: []string{key}}
 	operation := &proto.ConfigRequest_Operation_IsModifiable{IsModifiable: req}
 	op := &proto.ConfigRequest_Operation{OpType: operation}
 	resp, err := (*r.client).Config(ctx, op)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	m := make(map[string]string)
-	for _, k := range resp.GetPairs() {
-		if k.Value != nil {
-			m[k.Key] = *k.Value
-		}
+	re := *resp.GetPairs()[0].Value
+	if re == "true" {
+		return true, nil
+	} else {
+		return false, nil
 	}
-	return m, nil
 }
 
-func (r runtimeConfig) GetWithDefault(ctx context.Context, key string, default_value string) (map[string]string, error) {
+func (r runtimeConfig) GetWithDefault(ctx context.Context, key string, default_value string) (string, error) {
 	p := make([]*proto.KeyValue, 0)
 	p = append(p, &proto.KeyValue{Key: key, Value: &default_value})
 	req := &proto.ConfigRequest_GetWithDefault{Pairs: p}
@@ -107,13 +100,10 @@ func (r runtimeConfig) GetWithDefault(ctx context.Context, key string, default_v
 	op := &proto.ConfigRequest_Operation{OpType: operation}
 	resp, err := (*r.client).Config(ctx, op)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	m := make(map[string]string, 0)
-	for _, k := range resp.GetPairs() {
-		m[k.Key] = *k.Value
-	}
-	return m, nil
+
+	return *resp.GetPairs()[0].Value, nil
 }
 
 // Constructor for runtimeConfig used by SparkSession
