@@ -699,8 +699,8 @@ func TestDataFrame_FreqItems(t *testing.T) {
 
 func TestDataFrame_WithOption(t *testing.T) {
 	ctx, spark := connect()
-	filepath := "/tmp/test.csv"
-	file, err := os.Create(filepath)
+	file, err := os.CreateTemp("", "example")
+	defer os.Remove(file.Name())
 	assert.NoError(t, err)
 	defer file.Close()
 	_, err = file.WriteString("id#name,name\n")
@@ -716,11 +716,9 @@ func TestDataFrame_WithOption(t *testing.T) {
 		Option("escapeQuotes", "true").
 		// Option("skipLines", "5"). //TODO: this needs more insight
 		Option("inferSchema", "false").
-		Load(filepath)
+		Load(file.Name())
 	assert.NoError(t, err)
 	c, err := df.Count(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(10), c)
-	err = os.Remove(filepath)
-	assert.NoError(t, err)
 }
