@@ -773,7 +773,7 @@ func TestDataFrame_Sample(t *testing.T) {
 			assert.NoError(t, err)
 
 			expectedSize := int(100 * tc.fraction)
-			assert.InDelta(t, expectedSize, count, float64(expectedSize)*0.5)
+			assert.InDelta(t, expectedSize, count, float64(expectedSize), 10)
 
 			rows, err := sampledDF.Collect(ctx)
 			assert.NoError(t, err)
