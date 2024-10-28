@@ -722,3 +722,95 @@ func TestDataFrame_WithOption(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(10), c)
 }
+
+func TestDataFrame_Sample(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(100)")
+	assert.NoError(t, err)
+	testCases := []struct {
+		name            string
+		withReplacement *bool
+		fraction        float64
+		seed            *int64
+	}{
+		{
+			name:            "Default behavior",
+			withReplacement: nil,
+			fraction:        0.1,
+			seed:            nil,
+		},
+		{
+			name:            "With replacement",
+			withReplacement: boolPtr(true),
+			fraction:        0.1,
+			seed:            nil,
+		},
+		{
+			name:            "Without replacement",
+			withReplacement: boolPtr(false),
+			fraction:        0.1,
+			seed:            nil,
+		},
+		{
+			name:            "With specific seed",
+			withReplacement: nil,
+			fraction:        0.1,
+			seed:            int64Ptr(17),
+		},
+		{
+			name:            "Large fraction",
+			withReplacement: nil,
+			fraction:        0.9,
+			seed:            nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			sampledDF, err := df.Sample(ctx, tc.withReplacement, tc.fraction, tc.seed)
+			assert.NoError(t, err)
+
+			count, err := sampledDF.Count(ctx)
+			assert.NoError(t, err)
+
+			expectedSize := int(100 * tc.fraction)
+			assert.InDelta(t, expectedSize, count, float64(expectedSize)*0.5)
+
+			rows, err := sampledDF.Collect(ctx)
+			assert.NoError(t, err)
+
+			// If sampling without replacement, check for duplicates
+			if tc.withReplacement == nil || !*tc.withReplacement {
+				seen := make(map[int64]bool)
+				for _, row := range rows {
+					value := row.At(0).(int64)
+					if seen[value] {
+						t.Fatal("Found duplicate value when sampling without replacement")
+					}
+					seen[value] = true
+				}
+			}
+
+			if tc.seed != nil {
+				sampledDFRepeat, err := df.Sample(ctx, tc.withReplacement, tc.fraction, tc.seed)
+				assert.NoError(t, err)
+
+				count2, err := sampledDFRepeat.Count(ctx)
+				assert.NoError(t, err)
+
+				assert.Equal(t, count, count2)
+				rows2, err := sampledDFRepeat.Collect(ctx)
+				assert.NoError(t, err)
+
+				assert.Equal(t, rows, rows2)
+			}
+		})
+	}
+}
+
+func boolPtr(b bool) *bool {
+	return &b
+}
+
+func int64Ptr(i int64) *int64 {
+	return &i
+}

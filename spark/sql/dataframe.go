@@ -148,6 +148,8 @@ type DataFrame interface {
 	Rollup(ctx context.Context, cols ...column.Convertible) *GroupedData
 	// SameSemantics returns true if the other DataFrame has the same semantics.
 	SameSemantics(ctx context.Context, other DataFrame) (bool, error)
+	// Sample samples a data frame
+	Sample(ctx context.Context, withReplacement *bool, fraction float64, seed *int64) (DataFrame, error)
 	// Show uses WriteResult to write the data frames to the console output.
 	Show(ctx context.Context, numRows int, truncate bool) error
 	// Schema returns the schema for the current data frame.
@@ -1348,4 +1350,32 @@ func (df *dataFrameImpl) Summary(ctx context.Context, statistics ...string) Data
 		},
 	}
 	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) Sample(ctx context.Context, withReplacement *bool, fraction float64, seed *int64) (DataFrame, error) {
+	if seed == nil {
+		defaultSeed := rand.Int64()
+		seed = &defaultSeed
+	}
+
+	if withReplacement == nil {
+		defaultWithReplacement := false
+		withReplacement = &defaultWithReplacement
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Sample{
+			Sample: &proto.Sample{
+				Input:           df.relation,
+				LowerBound:      0,
+				UpperBound:      fraction,
+				WithReplacement: withReplacement,
+				Seed:            seed,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
 }
