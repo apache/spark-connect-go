@@ -755,7 +755,7 @@ func TestDataFrame_Config_e2e_test(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "true", m)
 }
-  
+
 func TestDataFrame_WithOption(t *testing.T) {
 	ctx, spark := connect()
 	file, err := os.CreateTemp("", "example")
