@@ -26,12 +26,14 @@ type DataFrameReader interface {
 	Load(path string) (DataFrame, error)
 	// Reads a table from the underlying data source.
 	Table(name string) (DataFrame, error)
+	Option(key, value string) DataFrameReader
 }
 
 // dataFrameReaderImpl is an implementation of DataFrameReader interface.
 type dataFrameReaderImpl struct {
 	sparkSession *sparkSessionImpl
 	formatSource string
+	options      map[string]string
 }
 
 // NewDataframeReader creates a new DataFrameReader
@@ -55,5 +57,16 @@ func (w *dataFrameReaderImpl) Load(path string) (DataFrame, error) {
 	if w.formatSource != "" {
 		format = w.formatSource
 	}
-	return NewDataFrame(w.sparkSession, newReadWithFormatAndPath(path, format)), nil
+	if w.options == nil {
+		return NewDataFrame(w.sparkSession, newReadWithFormatAndPath(path, format)), nil
+	}
+	return NewDataFrame(w.sparkSession, newReadWithFormatAndPathAndOptions(path, format, w.options)), nil
+}
+
+func (w *dataFrameReaderImpl) Option(key, value string) DataFrameReader {
+	if w.options == nil {
+		w.options = make(map[string]string)
+	}
+	w.options[key] = value
+	return w
 }

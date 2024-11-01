@@ -17,6 +17,8 @@ package integration
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
@@ -752,4 +754,30 @@ func TestDataFrame_Config_e2e_test(t *testing.T) {
 	m, err := spark.Config().Get(ctx, "spark.sql.ansi.enabled")
 	assert.NoError(t, err)
 	assert.Equal(t, "true", m)
+}
+  
+func TestDataFrame_WithOption(t *testing.T) {
+	ctx, spark := connect()
+	file, err := os.CreateTemp("", "example")
+	defer os.Remove(file.Name())
+	assert.NoError(t, err)
+	defer file.Close()
+	_, err = file.WriteString("id#name,name\n")
+	assert.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		_, err = file.WriteString(fmt.Sprintf("%d#alice,alice\n", i))
+		assert.NoError(t, err)
+	}
+	df, err := spark.Read().Format("csv").
+		Option("header", "true").
+		Option("quote", "\"").
+		Option("sep", "#").
+		Option("escapeQuotes", "true").
+		// Option("skipLines", "5"). //TODO: this needs more insight
+		Option("inferSchema", "false").
+		Load(file.Name())
+	assert.NoError(t, err)
+	c, err := df.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(10), c)
 }
