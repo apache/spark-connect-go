@@ -148,8 +148,14 @@ type DataFrame interface {
 	Rollup(ctx context.Context, cols ...column.Convertible) *GroupedData
 	// SameSemantics returns true if the other DataFrame has the same semantics.
 	SameSemantics(ctx context.Context, other DataFrame) (bool, error)
-	// Sample samples a data frame
-	Sample(ctx context.Context, withReplacement *bool, fraction float64, seed *int64) (DataFrame, error)
+	// Sample samples a data frame without replacement and random seed.
+	Sample(ctx context.Context, fraction float64) (DataFrame, error)
+	// SampleWithReplacement samples a data frame with random seed and with/without replacement.
+	SampleWithReplacement(ctx context.Context, withReplacement bool, fraction float64) (DataFrame, error)
+	// SampleWithSeed samples a data frame without replacement and given seed.
+	SampleWithSeed(ctx context.Context, fraction float64, seed int64) (DataFrame, error)
+	// SampleWithReplacementWithSeed samples a data frame with/without replacement and given seed.
+	SampleWithReplacementWithSeed(ctx context.Context, withReplacement bool, fraction float64, seed int64) (DataFrame, error)
 	// Show uses WriteResult to write the data frames to the console output.
 	Show(ctx context.Context, numRows int, truncate bool) error
 	// Schema returns the schema for the current data frame.
@@ -1352,7 +1358,23 @@ func (df *dataFrameImpl) Summary(ctx context.Context, statistics ...string) Data
 	return NewDataFrame(df.session, rel)
 }
 
-func (df *dataFrameImpl) Sample(ctx context.Context, withReplacement *bool, fraction float64, seed *int64) (DataFrame, error) {
+func (df *dataFrameImpl) Sample(ctx context.Context, fraction float64) (DataFrame, error) {
+	return df.sample(ctx, nil, fraction, nil)
+}
+
+func (df *dataFrameImpl) SampleWithReplacement(ctx context.Context, withReplacement bool, fraction float64) (DataFrame, error) {
+	return df.sample(ctx, &withReplacement, fraction, nil)
+}
+
+func (df *dataFrameImpl) SampleWithSeed(ctx context.Context, fraction float64, seed int64) (DataFrame, error) {
+	return df.sample(ctx, nil, fraction, &seed)
+}
+
+func (df *dataFrameImpl) SampleWithReplacementWithSeed(ctx context.Context, withReplacement bool, fraction float64, seed int64) (DataFrame, error) {
+	return df.sample(ctx, &withReplacement, fraction, &seed)
+}
+
+func (df *dataFrameImpl) sample(ctx context.Context, withReplacement *bool, fraction float64, seed *int64) (DataFrame, error) {
 	if seed == nil {
 		defaultSeed := rand.Int64()
 		seed = &defaultSeed
