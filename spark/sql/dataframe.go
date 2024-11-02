@@ -152,10 +152,10 @@ type DataFrame interface {
 	Sample(ctx context.Context, fraction float64) (DataFrame, error)
 	// SampleWithReplacement samples a data frame with random seed and with/without replacement.
 	SampleWithReplacement(ctx context.Context, withReplacement bool, fraction float64) (DataFrame, error)
-	// SampleWithSeed samples a data frame without replacement and given seed.
-	SampleWithSeed(ctx context.Context, fraction float64, seed int64) (DataFrame, error)
-	// SampleWithReplacementWithSeed samples a data frame with/without replacement and given seed.
-	SampleWithReplacementWithSeed(ctx context.Context, withReplacement bool, fraction float64, seed int64) (DataFrame, error)
+	// SampleSeed samples a data frame without replacement and given seed.
+	SampleSeed(ctx context.Context, fraction float64, seed int64) (DataFrame, error)
+	// SampleWithReplacementSeed samples a data frame with/without replacement and given seed.
+	SampleWithReplacementSeed(ctx context.Context, withReplacement bool, fraction float64, seed int64) (DataFrame, error)
 	// Show uses WriteResult to write the data frames to the console output.
 	Show(ctx context.Context, numRows int, truncate bool) error
 	// Schema returns the schema for the current data frame.
@@ -1366,11 +1366,11 @@ func (df *dataFrameImpl) SampleWithReplacement(ctx context.Context, withReplacem
 	return df.sample(ctx, &withReplacement, fraction, nil)
 }
 
-func (df *dataFrameImpl) SampleWithSeed(ctx context.Context, fraction float64, seed int64) (DataFrame, error) {
+func (df *dataFrameImpl) SampleSeed(ctx context.Context, fraction float64, seed int64) (DataFrame, error) {
 	return df.sample(ctx, nil, fraction, &seed)
 }
 
-func (df *dataFrameImpl) SampleWithReplacementWithSeed(ctx context.Context, withReplacement bool, fraction float64, seed int64) (DataFrame, error) {
+func (df *dataFrameImpl) SampleWithReplacementSeed(ctx context.Context, withReplacement bool, fraction float64, seed int64) (DataFrame, error) {
 	return df.sample(ctx, &withReplacement, fraction, &seed)
 }
 
