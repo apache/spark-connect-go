@@ -797,7 +797,7 @@ func TestDataFrame_SampleWithReplacement(t *testing.T) {
 	}
 }
 
-func TestDataFrame_SampleWithSeed(t *testing.T) {
+func TestDataFrame_SampleSeed(t *testing.T) {
 	ctx, spark := connect()
 	df, err := spark.Sql(ctx, "select * from range(100)")
 	assert.NoError(t, err)
@@ -831,7 +831,7 @@ func TestDataFrame_SampleWithSeed(t *testing.T) {
 	assert.Equal(t, rows, rows2)
 }
 
-func TestDataFrame_SampleWithReplacementWithSeed(t *testing.T) {
+func TestDataFrame_SampleWithReplacementSeed(t *testing.T) {
 	ctx, spark := connect()
 	df, err := spark.Sql(ctx, "select * from range(100)")
 	assert.NoError(t, err)
