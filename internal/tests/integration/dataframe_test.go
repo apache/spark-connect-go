@@ -748,6 +748,17 @@ func TestDataFrame_Sample(t *testing.T) {
 			assert.NoError(t, err)
 			expectedSize := int(100 * tc.fraction)
 			assert.InDelta(t, expectedSize, count, float64(expectedSize), 10)
+			rows, err := sampledDF.Collect(ctx)
+			assert.NoError(t, err)
+			// If sampling without replacement, check for duplicates
+			seen := make(map[int64]bool)
+			for _, row := range rows {
+				value := row.At(0).(int64)
+				if seen[value] {
+					t.Fatal("Found duplicate value when sampling without replacement")
+				}
+				seen[value] = true
+			}
 		})
 	}
 }
