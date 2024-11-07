@@ -332,7 +332,12 @@ func (s *sparkConnectClientImpl) SemanticHash(ctx context.Context, plan *proto.P
 }
 
 func (s *sparkConnectClientImpl) Config(ctx context.Context, operation *proto.ConfigRequest_Operation) (*generated.ConfigResponse, error) {
-	request := &proto.ConfigRequest{Operation: operation}
+	request := &proto.ConfigRequest{
+		Operation: operation,
+		UserContext: &proto.UserContext{
+			UserId: "na",
+		},
+	}
 	request.SessionId = s.sessionId
 	resp, err := s.client.Config(ctx, request)
 	if err != nil {
