@@ -32,7 +32,7 @@ on:
       - master
 
 env:
-  SPARK_VERSION: '3.5.2'
+  SPARK_VERSION: '3.5.4'
   HADOOP_VERSION: '3'
 
 permissions:
