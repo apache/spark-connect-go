@@ -832,6 +832,7 @@ func TestDataFrame_Replace(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, int32(20), rows[0].At(0))
+	assert.Equal(t, int32(20), rows[2].At(1))
 
 	res, err = df.Replace(ctx,
 		[]types.PrimitiveTypeLiteral{types.Int32(10)},
@@ -842,5 +843,32 @@ func TestDataFrame_Replace(t *testing.T) {
 	rows, err = res.Collect(ctx)
 	assert.NoError(t, err)
 	assert.Nil(t, rows[0].At(0))
+
+}
+
+func TestDataFrame_ReplaceWithColumn(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{{10, 80, "Alice"},
+		{5, nil, "Bob"},
+		{nil, 10, "Tom"},
+		{nil, nil, nil},
+	}
+	schema := types.StructOf(
+		types.NewStructField("age", types.INTEGER),
+		types.NewStructField("height", types.INTEGER),
+		types.NewStructField("name", types.STRING),
+	)
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+
+	res, err := df.ReplaceWithColumns(ctx, []types.PrimitiveTypeLiteral{types.Int32(10)},
+		[]types.PrimitiveTypeLiteral{types.Int32(20)}, []string{"age"})
+	assert.NoError(t, err)
+
+	rows, err := res.Collect(ctx)
+	assert.NoError(t, err)
+	// Should only repalce the age column but not the height column
+	assert.Equal(t, int32(20), rows[0].At(0))
+	assert.Equal(t, int32(10), rows[2].At(1))
 
 }
