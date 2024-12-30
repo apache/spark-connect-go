@@ -146,6 +146,17 @@ type DataFrame interface {
 	Repartition(ctx context.Context, numPartitions int, columns []string) (DataFrame, error)
 	// RepartitionByRange re-partitions a data frame by range partition.
 	RepartitionByRange(ctx context.Context, numPartitions int, columns ...column.Convertible) (DataFrame, error)
+	// Replace Returns a new DataFrame` replacing a value with another value.
+	// Values toReplace and Values must have the same type and can only be numerics, booleans,
+	// or strings. Value can have None. When replacing, the new value will be cast
+	// to the type of the existing column.
+	//
+	// For numeric replacements all values to be replaced should have unique
+	// floating point representation.
+	Replace(ctx context.Context, toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral) (DataFrame, error)
+	// ReplaceWithColumns is an alias for Replace but allows to specify a subset of columns that
+	// should be used for the replacement.
+	ReplaceWithColumns(ctx context.Context, toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral, cols []string) (DataFrame, error)
 	// Rollup creates a multi-dimensional rollup for the current DataFrame using
 	// the specified columns, so we can run aggregation on them.
 	Rollup(ctx context.Context, cols ...column.Convertible) *GroupedData
@@ -1425,4 +1436,57 @@ func (df *dataFrameImpl) Unpivot(ctx context.Context,
 		},
 	}
 	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) ReplaceWithColumns(ctx context.Context, toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral, cols []string) (DataFrame, error) {
+	if len(toReplace) != len(values) {
+		return nil, sparkerrors.WithType(fmt.Errorf("toReplace and values must have the same length"), sparkerrors.InvalidArgumentError)
+	}
+
+	toReplaceExprs := make([]*proto.Expression, 0, len(toReplace))
+	for _, c := range toReplace {
+		expr, err := c.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		toReplaceExprs = append(toReplaceExprs, expr)
+	}
+
+	valuesExprs := make([]*proto.Expression, 0, len(values))
+	for _, c := range values {
+		expr, err := c.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		valuesExprs = append(valuesExprs, expr)
+	}
+
+	// Create a list of NAReplace expressions.
+	replacements := make([]*proto.NAReplace_Replacement, 0, len(toReplace))
+	for i := 0; i < len(toReplace); i++ {
+		replacement := &proto.NAReplace_Replacement{
+			OldValue: toReplaceExprs[i].GetLiteral(),
+			NewValue: valuesExprs[i].GetLiteral(),
+		}
+		replacements = append(replacements, replacement)
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+
+		RelType: &proto.Relation_Replace{
+			Replace: &proto.NAReplace{
+				Input:        df.relation,
+				Replacements: replacements,
+				Cols:         cols,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) Replace(ctx context.Context, toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral) (DataFrame, error) {
+	return df.ReplaceWithColumns(ctx, toReplace, values, nil)
 }
