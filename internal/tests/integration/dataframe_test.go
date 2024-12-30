@@ -859,5 +859,4 @@ func TestDataFrame_FillNa(t *testing.T) {
 
 	_, err = df.FillNaWithValues(ctx, map[string]any{"int": nil})
 	assert.Error(t, err)
-
 }
