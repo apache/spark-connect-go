@@ -839,4 +839,8 @@ func TestDataFrame_Replace(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
+	rows, err = res.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Nil(t, rows[0].At(0))
+
 }
