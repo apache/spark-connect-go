@@ -108,6 +108,10 @@ type DataFrame interface {
 	ExceptAll(ctx context.Context, other DataFrame) DataFrame
 	// Explain returns the string explain plan for the current DataFrame according to the explainMode.
 	Explain(ctx context.Context, explainMode utils.ExplainMode) (string, error)
+	// FillNa replaces null values with specified value.
+	FillNa(ctx context.Context, value any, columns ...string) (DataFrame, error)
+	// FillNaValues replaces null values with specified values (number of values should match the number of columns).
+	FillNaValues(ctx context.Context, value []any, columns []string) (DataFrame, error)
 	// Filter filters the data frame by a column condition.
 	Filter(ctx context.Context, condition column.Convertible) (DataFrame, error)
 	// FilterByString filters the data frame by a string condition.
@@ -1425,4 +1429,78 @@ func (df *dataFrameImpl) Unpivot(ctx context.Context,
 		},
 	}
 	return NewDataFrame(df.session, rel), nil
+}
+
+func anyToFillNaSupportedExpressionLiteral(value any) (*proto.Expression_Literal, error) {
+	expr := &proto.Expression_Literal{}
+	// only bool, long, double, string are supported
+	switch v := value.(type) {
+	case int8:
+		expr.LiteralType = &proto.Expression_Literal_Byte{Byte: int32(v)}
+	case int16:
+		expr.LiteralType = &proto.Expression_Literal_Short{Short: int32(v)}
+	case int32:
+		expr.LiteralType = &proto.Expression_Literal_Integer{Integer: v}
+	case int64:
+		expr.LiteralType = &proto.Expression_Literal_Long{Long: v}
+	case uint8:
+		expr.LiteralType = &proto.Expression_Literal_Short{Short: int32(v)}
+	case uint16:
+		expr.LiteralType = &proto.Expression_Literal_Integer{Integer: int32(v)}
+	case uint32:
+		expr.LiteralType = &proto.Expression_Literal_Long{Long: int64(v)}
+	case float32:
+		expr.LiteralType = &proto.Expression_Literal_Float{Float: v}
+	case float64:
+		expr.LiteralType = &proto.Expression_Literal_Double{Double: v}
+	case string:
+		expr.LiteralType = &proto.Expression_Literal_String_{String_: v}
+	case bool:
+		expr.LiteralType = &proto.Expression_Literal_Boolean{Boolean: v}
+	case int:
+		expr.LiteralType = &proto.Expression_Literal_Long{Long: int64(v)}
+	default:
+		return nil, sparkerrors.WithType(fmt.Errorf("unsupported type %T", value), sparkerrors.InvalidArgumentError)
+	}
+	return expr, nil
+}
+
+func makeDataframeWithFillNaRelation(df *dataFrameImpl, values []*proto.Expression_Literal, columns []string) DataFrame {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_FillNa{
+			FillNa: &proto.NAFill{
+				Input:  df.relation,
+				Cols:   columns,
+				Values: values,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) FillNa(ctx context.Context, value any, columns ...string) (DataFrame, error) {
+	valueLiteral, err := anyToFillNaSupportedExpressionLiteral(value)
+	if err != nil {
+		return nil, err
+	}
+	return makeDataframeWithFillNaRelation(df, []*proto.Expression_Literal{valueLiteral}, columns), nil
+}
+
+func (df *dataFrameImpl) FillNaValues(ctx context.Context, value []any, columns []string) (DataFrame, error) {
+	if len(value) != len(columns) {
+		return nil, sparkerrors.WithType(fmt.Errorf("value and columns length must be equal: (%d != %d)", len(value), len(columns)),
+			sparkerrors.InvalidArgumentError)
+	}
+	valueLiterals := make([]*proto.Expression_Literal, 0, len(value))
+	for _, v := range value {
+		valueLiteral, err := anyToFillNaSupportedExpressionLiteral(v)
+		if err != nil {
+			return nil, err
+		}
+		valueLiterals = append(valueLiterals, valueLiteral)
+	}
+	return makeDataframeWithFillNaRelation(df, valueLiterals, columns), nil
 }
