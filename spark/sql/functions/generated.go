@@ -15,9 +15,7 @@
 
 package functions
 
-import (
-	"github.com/apache/spark-connect-go/v35/spark/sql/column"
-)
+import "github.com/apache/spark-connect-go/v35/spark/sql/column"
 
 // BitwiseNOT - Computes bitwise not.
 //
@@ -137,7 +135,7 @@ func Nanvl(col1 column.Column, col2 column.Column) column.Column {
 //
 // Rand is the Golang equivalent of rand: (seed: Optional[int] = None) -> pyspark.sql.connect.column.Column
 func Rand(seed int64) column.Column {
-	lit_seed := Lit(seed)
+	lit_seed := Int64Lit(seed)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("rand", lit_seed))
 }
 
@@ -146,7 +144,7 @@ func Rand(seed int64) column.Column {
 //
 // Randn is the Golang equivalent of randn: (seed: Optional[int] = None) -> pyspark.sql.connect.column.Column
 func Randn(seed int64) column.Column {
-	lit_seed := Lit(seed)
+	lit_seed := Int64Lit(seed)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("randn", lit_seed))
 }
 
@@ -273,7 +271,7 @@ func Bin(col column.Column) column.Column {
 //
 // Bround is the Golang equivalent of bround: (col: 'ColumnOrName', scale: int = 0) -> pyspark.sql.connect.column.Column
 func Bround(col column.Column, scale int64) column.Column {
-	lit_scale := Lit(scale)
+	lit_scale := Int64Lit(scale)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("bround", col, lit_scale))
 }
 
@@ -302,8 +300,8 @@ func Ceiling(col column.Column) column.Column {
 //
 // Conv is the Golang equivalent of conv: (col: 'ColumnOrName', fromBase: int, toBase: int) -> pyspark.sql.connect.column.Column
 func Conv(col column.Column, fromBase int64, toBase int64) column.Column {
-	lit_fromBase := Lit(fromBase)
-	lit_toBase := Lit(toBase)
+	lit_fromBase := Int64Lit(fromBase)
+	lit_toBase := Int64Lit(toBase)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("conv", col, lit_fromBase, lit_toBase))
 }
 
@@ -503,7 +501,7 @@ func Rint(col column.Column) column.Column {
 //
 // Round is the Golang equivalent of round: (col: 'ColumnOrName', scale: int = 0) -> pyspark.sql.connect.column.Column
 func Round(col column.Column, scale int64) column.Column {
-	lit_scale := Lit(scale)
+	lit_scale := Int64Lit(scale)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("round", col, lit_scale))
 }
 
@@ -518,7 +516,7 @@ func Sec(col column.Column) column.Column {
 //
 // ShiftLeft is the Golang equivalent of shiftLeft: (col: 'ColumnOrName', numBits: int) -> pyspark.sql.connect.column.Column
 func ShiftLeft(col column.Column, numBits int64) column.Column {
-	lit_numBits := Lit(numBits)
+	lit_numBits := Int64Lit(numBits)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("shiftLeft", col, lit_numBits))
 }
 
@@ -526,7 +524,7 @@ func ShiftLeft(col column.Column, numBits int64) column.Column {
 //
 // Shiftleft is the Golang equivalent of shiftleft: (col: 'ColumnOrName', numBits: int) -> pyspark.sql.connect.column.Column
 func Shiftleft(col column.Column, numBits int64) column.Column {
-	lit_numBits := Lit(numBits)
+	lit_numBits := Int64Lit(numBits)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("shiftleft", col, lit_numBits))
 }
 
@@ -534,7 +532,7 @@ func Shiftleft(col column.Column, numBits int64) column.Column {
 //
 // ShiftRight is the Golang equivalent of shiftRight: (col: 'ColumnOrName', numBits: int) -> pyspark.sql.connect.column.Column
 func ShiftRight(col column.Column, numBits int64) column.Column {
-	lit_numBits := Lit(numBits)
+	lit_numBits := Int64Lit(numBits)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("shiftRight", col, lit_numBits))
 }
 
@@ -542,7 +540,7 @@ func ShiftRight(col column.Column, numBits int64) column.Column {
 //
 // Shiftright is the Golang equivalent of shiftright: (col: 'ColumnOrName', numBits: int) -> pyspark.sql.connect.column.Column
 func Shiftright(col column.Column, numBits int64) column.Column {
-	lit_numBits := Lit(numBits)
+	lit_numBits := Int64Lit(numBits)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("shiftright", col, lit_numBits))
 }
 
@@ -550,7 +548,7 @@ func Shiftright(col column.Column, numBits int64) column.Column {
 //
 // ShiftRightUnsigned is the Golang equivalent of shiftRightUnsigned: (col: 'ColumnOrName', numBits: int) -> pyspark.sql.connect.column.Column
 func ShiftRightUnsigned(col column.Column, numBits int64) column.Column {
-	lit_numBits := Lit(numBits)
+	lit_numBits := Int64Lit(numBits)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("shiftRightUnsigned", col, lit_numBits))
 }
 
@@ -558,7 +556,7 @@ func ShiftRightUnsigned(col column.Column, numBits int64) column.Column {
 //
 // Shiftrightunsigned is the Golang equivalent of shiftrightunsigned: (col: 'ColumnOrName', numBits: int) -> pyspark.sql.connect.column.Column
 func Shiftrightunsigned(col column.Column, numBits int64) column.Column {
-	lit_numBits := Lit(numBits)
+	lit_numBits := Int64Lit(numBits)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("shiftrightunsigned", col, lit_numBits))
 }
 
@@ -684,7 +682,7 @@ func Unhex(col column.Column) column.Column {
 //
 // ApproxCountDistinct is the Golang equivalent of approx_count_distinct: (col: 'ColumnOrName', rsd: Optional[float] = None) -> pyspark.sql.connect.column.Column
 func ApproxCountDistinct(col column.Column, rsd float64) column.Column {
-	lit_rsd := Lit(rsd)
+	lit_rsd := Float64Lit(rsd)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("approx_count_distinct", col, lit_rsd))
 }
 
@@ -1122,7 +1120,7 @@ func HistogramNumeric(col column.Column, nBins column.Column) column.Column {
 //
 // Ntile is the Golang equivalent of ntile: (n: int) -> pyspark.sql.connect.column.Column
 func Ntile(n int64) column.Column {
-	lit_n := Lit(n)
+	lit_n := Int64Lit(n)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("ntile", lit_n))
 }
 
@@ -1207,8 +1205,8 @@ func ArrayCompact(col column.Column) column.Column {
 //
 // ArrayJoin is the Golang equivalent of array_join: (col: 'ColumnOrName', delimiter: str, null_replacement: Optional[str] = None) -> pyspark.sql.connect.column.Column
 func ArrayJoin(col column.Column, delimiter string, null_replacement string) column.Column {
-	lit_delimiter := Lit(delimiter)
-	lit_null_replacement := Lit(null_replacement)
+	lit_delimiter := StringLit(delimiter)
+	lit_null_replacement := StringLit(null_replacement)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("array_join", col, lit_delimiter, lit_null_replacement))
 }
 
@@ -1366,7 +1364,7 @@ func Get(col column.Column, index column.Column) column.Column {
 //
 // GetJsonObject is the Golang equivalent of get_json_object: (col: 'ColumnOrName', path: str) -> pyspark.sql.connect.column.Column
 func GetJsonObject(col column.Column, path string) column.Column {
-	lit_path := Lit(path)
+	lit_path := StringLit(path)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("get_json_object", col, lit_path))
 }
 
@@ -1406,7 +1404,7 @@ func InlineOuter(col column.Column) column.Column {
 //
 // JsonTuple is the Golang equivalent of json_tuple: (col: 'ColumnOrName', *fields: str) -> pyspark.sql.connect.column.Column
 func JsonTuple(col column.Column, fields string) column.Column {
-	lit_fields := Lit(fields)
+	lit_fields := StringLit(fields)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("json_tuple", col, lit_fields))
 }
 
@@ -1619,7 +1617,7 @@ func Trim(col column.Column) column.Column {
 //
 // ConcatWs is the Golang equivalent of concat_ws: (sep: str, *cols: 'ColumnOrName') -> pyspark.sql.connect.column.Column
 func ConcatWs(sep string, cols ...column.Column) column.Column {
-	lit_sep := Lit(sep)
+	lit_sep := StringLit(sep)
 	vals := make([]column.Column, 0)
 	vals = append(vals, lit_sep)
 	vals = append(vals, cols...)
@@ -1631,7 +1629,7 @@ func ConcatWs(sep string, cols ...column.Column) column.Column {
 //
 // Decode is the Golang equivalent of decode: (col: 'ColumnOrName', charset: str) -> pyspark.sql.connect.column.Column
 func Decode(col column.Column, charset string) column.Column {
-	lit_charset := Lit(charset)
+	lit_charset := StringLit(charset)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("decode", col, lit_charset))
 }
 
@@ -1640,7 +1638,7 @@ func Decode(col column.Column, charset string) column.Column {
 //
 // Encode is the Golang equivalent of encode: (col: 'ColumnOrName', charset: str) -> pyspark.sql.connect.column.Column
 func Encode(col column.Column, charset string) column.Column {
-	lit_charset := Lit(charset)
+	lit_charset := StringLit(charset)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("encode", col, lit_charset))
 }
 
@@ -1649,7 +1647,7 @@ func Encode(col column.Column, charset string) column.Column {
 //
 // FormatNumber is the Golang equivalent of format_number: (col: 'ColumnOrName', d: int) -> pyspark.sql.connect.column.Column
 func FormatNumber(col column.Column, d int64) column.Column {
-	lit_d := Lit(d)
+	lit_d := Int64Lit(d)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("format_number", col, lit_d))
 }
 
@@ -1657,7 +1655,7 @@ func FormatNumber(col column.Column, d int64) column.Column {
 //
 // FormatString is the Golang equivalent of format_string: (format: str, *cols: 'ColumnOrName') -> pyspark.sql.connect.column.Column
 func FormatString(format string, cols ...column.Column) column.Column {
-	lit_format := Lit(format)
+	lit_format := StringLit(format)
 	vals := make([]column.Column, 0)
 	vals = append(vals, lit_format)
 	vals = append(vals, cols...)
@@ -1669,7 +1667,7 @@ func FormatString(format string, cols ...column.Column) column.Column {
 //
 // Instr is the Golang equivalent of instr: (str: 'ColumnOrName', substr: str) -> pyspark.sql.connect.column.Column
 func Instr(str column.Column, substr string) column.Column {
-	lit_substr := Lit(substr)
+	lit_substr := StringLit(substr)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("instr", str, lit_substr))
 }
 
@@ -1695,8 +1693,8 @@ func Sentences(string column.Column, language column.Column, country column.Colu
 //
 // Substring is the Golang equivalent of substring: (str: 'ColumnOrName', pos: int, len: int) -> pyspark.sql.connect.column.Column
 func Substring(str column.Column, pos int64, len int64) column.Column {
-	lit_pos := Lit(pos)
-	lit_len := Lit(len)
+	lit_pos := Int64Lit(pos)
+	lit_len := Int64Lit(len)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("substring", str, lit_pos, lit_len))
 }
 
@@ -1707,8 +1705,8 @@ func Substring(str column.Column, pos int64, len int64) column.Column {
 //
 // SubstringIndex is the Golang equivalent of substring_index: (str: 'ColumnOrName', delim: str, count: int) -> pyspark.sql.connect.column.Column
 func SubstringIndex(str column.Column, delim string, count int64) column.Column {
-	lit_delim := Lit(delim)
-	lit_count := Lit(count)
+	lit_delim := StringLit(delim)
+	lit_count := Int64Lit(count)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("substring_index", str, lit_delim, lit_count))
 }
 
@@ -1716,7 +1714,7 @@ func SubstringIndex(str column.Column, delim string, count int64) column.Column 
 //
 // Levenshtein is the Golang equivalent of levenshtein: (left: 'ColumnOrName', right: 'ColumnOrName', threshold: Optional[int] = None) -> pyspark.sql.connect.column.Column
 func Levenshtein(left column.Column, right column.Column, threshold int64) column.Column {
-	lit_threshold := Lit(threshold)
+	lit_threshold := Int64Lit(threshold)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("levenshtein", left, right, lit_threshold))
 }
 
@@ -1724,8 +1722,8 @@ func Levenshtein(left column.Column, right column.Column, threshold int64) colum
 //
 // Locate is the Golang equivalent of locate: (substr: str, str: 'ColumnOrName', pos: int = 1) -> pyspark.sql.connect.column.Column
 func Locate(substr string, str column.Column, pos int64) column.Column {
-	lit_substr := Lit(substr)
-	lit_pos := Lit(pos)
+	lit_substr := StringLit(substr)
+	lit_pos := Int64Lit(pos)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("locate", lit_substr, str, lit_pos))
 }
 
@@ -1733,8 +1731,8 @@ func Locate(substr string, str column.Column, pos int64) column.Column {
 //
 // Lpad is the Golang equivalent of lpad: (col: 'ColumnOrName', len: int, pad: str) -> pyspark.sql.connect.column.Column
 func Lpad(col column.Column, len int64, pad string) column.Column {
-	lit_len := Lit(len)
-	lit_pad := Lit(pad)
+	lit_len := Int64Lit(len)
+	lit_pad := StringLit(pad)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("lpad", col, lit_len, lit_pad))
 }
 
@@ -1742,8 +1740,8 @@ func Lpad(col column.Column, len int64, pad string) column.Column {
 //
 // Rpad is the Golang equivalent of rpad: (col: 'ColumnOrName', len: int, pad: str) -> pyspark.sql.connect.column.Column
 func Rpad(col column.Column, len int64, pad string) column.Column {
-	lit_len := Lit(len)
-	lit_pad := Lit(pad)
+	lit_len := Int64Lit(len)
+	lit_pad := StringLit(pad)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("rpad", col, lit_len, lit_pad))
 }
 
@@ -1751,7 +1749,7 @@ func Rpad(col column.Column, len int64, pad string) column.Column {
 //
 // Repeat is the Golang equivalent of repeat: (col: 'ColumnOrName', n: int) -> pyspark.sql.connect.column.Column
 func Repeat(col column.Column, n int64) column.Column {
-	lit_n := Lit(n)
+	lit_n := Int64Lit(n)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("repeat", col, lit_n))
 }
 
@@ -1759,8 +1757,8 @@ func Repeat(col column.Column, n int64) column.Column {
 //
 // Split is the Golang equivalent of split: (str: 'ColumnOrName', pattern: str, limit: int = -1) -> pyspark.sql.connect.column.Column
 func Split(str column.Column, pattern string, limit int64) column.Column {
-	lit_pattern := Lit(pattern)
-	lit_limit := Lit(limit)
+	lit_pattern := StringLit(pattern)
+	lit_limit := Int64Lit(limit)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("split", str, lit_pattern, lit_limit))
 }
 
@@ -1798,8 +1796,8 @@ func RegexpCount(str column.Column, regexp column.Column) column.Column {
 //
 // RegexpExtract is the Golang equivalent of regexp_extract: (str: 'ColumnOrName', pattern: str, idx: int) -> pyspark.sql.connect.column.Column
 func RegexpExtract(str column.Column, pattern string, idx int64) column.Column {
-	lit_pattern := Lit(pattern)
-	lit_idx := Lit(idx)
+	lit_pattern := StringLit(pattern)
+	lit_idx := Int64Lit(idx)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("regexp_extract", str, lit_pattern, lit_idx))
 }
 
@@ -1861,8 +1859,8 @@ func BitLength(col column.Column) column.Column {
 //
 // Translate is the Golang equivalent of translate: (srcCol: 'ColumnOrName', matching: str, replace: str) -> pyspark.sql.connect.column.Column
 func Translate(srcCol column.Column, matching string, replace string) column.Column {
-	lit_matching := Lit(matching)
-	lit_replace := Lit(replace)
+	lit_matching := StringLit(matching)
+	lit_replace := StringLit(replace)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("translate", srcCol, lit_matching, lit_replace))
 }
 
@@ -2214,7 +2212,7 @@ func Localtimestamp() column.Column {
 //
 // DateFormat is the Golang equivalent of date_format: (date: 'ColumnOrName', format: str) -> pyspark.sql.connect.column.Column
 func DateFormat(date column.Column, format string) column.Column {
-	lit_format := Lit(format)
+	lit_format := StringLit(format)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("date_format", date, lit_format))
 }
 
@@ -2391,7 +2389,7 @@ func AddMonths(start column.Column, months column.Column) column.Column {
 //
 // ToDate is the Golang equivalent of to_date: (col: 'ColumnOrName', format: Optional[str] = None) -> pyspark.sql.connect.column.Column
 func ToDate(col column.Column, format string) column.Column {
-	lit_format := Lit(format)
+	lit_format := StringLit(format)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("to_date", col, lit_format))
 }
 
@@ -2432,7 +2430,7 @@ func UnixSeconds(col column.Column) column.Column {
 //
 // ToTimestamp is the Golang equivalent of to_timestamp: (col: 'ColumnOrName', format: Optional[str] = None) -> pyspark.sql.connect.column.Column
 func ToTimestamp(col column.Column, format string) column.Column {
-	lit_format := Lit(format)
+	lit_format := StringLit(format)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("to_timestamp", col, lit_format))
 }
 
@@ -2518,7 +2516,7 @@ func XpathString(xml column.Column, path column.Column) column.Column {
 //
 // Trunc is the Golang equivalent of trunc: (date: 'ColumnOrName', format: str) -> pyspark.sql.connect.column.Column
 func Trunc(date column.Column, format string) column.Column {
-	lit_format := Lit(format)
+	lit_format := StringLit(format)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("trunc", date, lit_format))
 }
 
@@ -2526,7 +2524,7 @@ func Trunc(date column.Column, format string) column.Column {
 //
 // DateTrunc is the Golang equivalent of date_trunc: (format: str, timestamp: 'ColumnOrName') -> pyspark.sql.connect.column.Column
 func DateTrunc(format string, timestamp column.Column) column.Column {
-	lit_format := Lit(format)
+	lit_format := StringLit(format)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("date_trunc", lit_format, timestamp))
 }
 
@@ -2535,7 +2533,7 @@ func DateTrunc(format string, timestamp column.Column) column.Column {
 //
 // NextDay is the Golang equivalent of next_day: (date: 'ColumnOrName', dayOfWeek: str) -> pyspark.sql.connect.column.Column
 func NextDay(date column.Column, dayOfWeek string) column.Column {
-	lit_dayOfWeek := Lit(dayOfWeek)
+	lit_dayOfWeek := StringLit(dayOfWeek)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("next_day", date, lit_dayOfWeek))
 }
 
@@ -2552,7 +2550,7 @@ func LastDay(date column.Column) column.Column {
 //
 // FromUnixtime is the Golang equivalent of from_unixtime: (timestamp: 'ColumnOrName', format: str = 'yyyy-MM-dd HH:mm:ss') -> pyspark.sql.connect.column.Column
 func FromUnixtime(timestamp column.Column, format string) column.Column {
-	lit_format := Lit(format)
+	lit_format := StringLit(format)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("from_unixtime", timestamp, lit_format))
 }
 
@@ -2564,7 +2562,7 @@ func FromUnixtime(timestamp column.Column, format string) column.Column {
 //
 // UnixTimestamp is the Golang equivalent of unix_timestamp: (timestamp: Optional[ForwardRef('ColumnOrName')] = None, format: str = 'yyyy-MM-dd HH:mm:ss') -> pyspark.sql.connect.column.Column
 func UnixTimestamp(timestamp column.Column, format string) column.Column {
-	lit_format := Lit(format)
+	lit_format := StringLit(format)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("unix_timestamp", timestamp, lit_format))
 }
 
@@ -2646,9 +2644,9 @@ func TimestampMicros(col column.Column) column.Column {
 //
 // Window is the Golang equivalent of window: (timeColumn: 'ColumnOrName', windowDuration: str, slideDuration: Optional[str] = None, startTime: Optional[str] = None) -> pyspark.sql.connect.column.Column
 func Window(timeColumn column.Column, windowDuration string, slideDuration string, startTime string) column.Column {
-	lit_windowDuration := Lit(windowDuration)
-	lit_slideDuration := Lit(slideDuration)
-	lit_startTime := Lit(startTime)
+	lit_windowDuration := StringLit(windowDuration)
+	lit_slideDuration := StringLit(slideDuration)
+	lit_startTime := StringLit(startTime)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("window", timeColumn,
 		lit_windowDuration, lit_slideDuration, lit_startTime))
 }
@@ -2873,7 +2871,7 @@ func Sha1(col column.Column) column.Column {
 //
 // Sha2 is the Golang equivalent of sha2: (col: 'ColumnOrName', numBits: int) -> pyspark.sql.connect.column.Column
 func Sha2(col column.Column, numBits int64) column.Column {
-	lit_numBits := Lit(numBits)
+	lit_numBits := Int64Lit(numBits)
 	return column.NewColumn(column.NewUnresolvedFunctionWithColumns("sha2", col, lit_numBits))
 }
 
@@ -3085,7 +3083,7 @@ func BitmapOrAgg(col column.Column) column.Column {
 //
 // CallFunction is the Golang equivalent of call_function: (funcName: str, *cols: 'ColumnOrName') -> pyspark.sql.connect.column.Column
 func CallFunction(funcName string, cols ...column.Column) column.Column {
-	lit_funcName := Lit(funcName)
+	lit_funcName := StringLit(funcName)
 	vals := make([]column.Column, 0)
 	vals = append(vals, lit_funcName)
 	vals = append(vals, cols...)

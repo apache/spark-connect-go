@@ -75,77 +75,137 @@ func readArrayData(t arrow.Type, data arrow.ArrayData) ([]any, error) {
 	case arrow.BOOL:
 		data := array.NewBooleanData(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.INT8:
 		data := array.NewInt8Data(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.INT16:
 		data := array.NewInt16Data(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.INT32:
 		data := array.NewInt32Data(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.INT64:
 		data := array.NewInt64Data(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.FLOAT16:
 		data := array.NewFloat16Data(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.FLOAT32:
 		data := array.NewFloat32Data(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.FLOAT64:
 		data := array.NewFloat64Data(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.DECIMAL | arrow.DECIMAL128:
 		data := array.NewDecimal128Data(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.DECIMAL256:
 		data := array.NewDecimal256Data(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.STRING:
 		data := array.NewStringData(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.BINARY:
 		data := array.NewBinaryData(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.TIMESTAMP:
 		data := array.NewTimestampData(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.DATE64:
 		data := array.NewDate64Data(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.DATE32:
 		data := array.NewDate32Data(data)
 		for i := 0; i < data.Len(); i++ {
-			buf = append(buf, data.Value(i))
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+			} else {
+				buf = append(buf, data.Value(i))
+			}
 		}
 	case arrow.LIST:
 		data := array.NewListData(data)

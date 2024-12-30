@@ -41,7 +41,7 @@ func TestDataFrameImpl_GroupBy(t *testing.T) {
 
 	assert.Equal(t, gd.groupType, "groupby")
 
-	df, err := gd.Agg(ctx, functions.Count(functions.Lit(1)))
+	df, err := gd.Agg(ctx, functions.Count(functions.Int64Lit(1)))
 	assert.Nil(t, err)
 	impl := df.(*dataFrameImpl)
 	assert.NotNil(t, impl)

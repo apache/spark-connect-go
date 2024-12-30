@@ -19,6 +19,8 @@ package sql
 import (
 	"context"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 	"github.com/apache/spark-connect-go/v35/spark/sql/column"
@@ -29,7 +31,7 @@ type GroupedData struct {
 	df           *dataFrameImpl
 	groupType    string
 	groupingCols []column.Convertible
-	pivotValues  []any
+	pivotValues  []types.LiteralType
 	pivotCol     column.Convertible
 }
 
@@ -171,7 +173,7 @@ func (gd *GroupedData) Sum(ctx context.Context, cols ...string) (DataFrame, erro
 
 // Count Computes the count value for each group.
 func (gd *GroupedData) Count(ctx context.Context) (DataFrame, error) {
-	return gd.Agg(ctx, functions.Count(functions.Lit(1)).Alias("count"))
+	return gd.Agg(ctx, functions.Count(functions.Lit(types.Int64(1))).Alias("count"))
 }
 
 // Mean Computes the average value for each numeric column for each group.
@@ -179,7 +181,7 @@ func (gd *GroupedData) Mean(ctx context.Context, cols ...string) (DataFrame, err
 	return gd.Avg(ctx, cols...)
 }
 
-func (gd *GroupedData) Pivot(ctx context.Context, pivotCol string, pivotValues []any) (*GroupedData, error) {
+func (gd *GroupedData) Pivot(ctx context.Context, pivotCol string, pivotValues []types.LiteralType) (*GroupedData, error) {
 	if gd.groupType != "groupby" {
 		if gd.groupType == "pivot" {
 			return nil, sparkerrors.WithString(sparkerrors.InvalidInputError, "pivot cannot be applied on pivot")
