@@ -74,6 +74,9 @@ jobs:
           path: |
             /home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
 
+      - name: Setup SBT
+        uses: sbt/setup-sbt@v1
+
       - name: Setup Apache Spark
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
