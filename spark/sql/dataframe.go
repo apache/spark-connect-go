@@ -110,8 +110,8 @@ type DataFrame interface {
 	Explain(ctx context.Context, explainMode utils.ExplainMode) (string, error)
 	// FillNa replaces null values with specified value.
 	FillNa(ctx context.Context, value any, columns ...string) (DataFrame, error)
-	// FillNaValues replaces null values with specified values (number of values should match the number of columns).
-	FillNaValues(ctx context.Context, value []any, columns []string) (DataFrame, error)
+	// FillNaWithValues replaces null values in specified columns (key of the map) with values.
+	FillNaWithValues(ctx context.Context, values map[string]any) (DataFrame, error)
 	// Filter filters the data frame by a column condition.
 	Filter(ctx context.Context, condition column.Convertible) (DataFrame, error)
 	// FilterByString filters the data frame by a string condition.
@@ -1489,18 +1489,16 @@ func (df *dataFrameImpl) FillNa(ctx context.Context, value any, columns ...strin
 	return makeDataframeWithFillNaRelation(df, []*proto.Expression_Literal{valueLiteral}, columns), nil
 }
 
-func (df *dataFrameImpl) FillNaValues(ctx context.Context, value []any, columns []string) (DataFrame, error) {
-	if len(value) != len(columns) {
-		return nil, sparkerrors.WithType(fmt.Errorf("value and columns length must be equal: (%d != %d)", len(value), len(columns)),
-			sparkerrors.InvalidArgumentError)
-	}
-	valueLiterals := make([]*proto.Expression_Literal, 0, len(value))
-	for _, v := range value {
+func (df *dataFrameImpl) FillNaWithValues(ctx context.Context, values map[string]any) (DataFrame, error) {
+	valueLiterals := make([]*proto.Expression_Literal, 0, len(values))
+	columns := make([]string, 0, len(values))
+	for k, v := range values {
 		valueLiteral, err := anyToFillNaSupportedExpressionLiteral(v)
 		if err != nil {
 			return nil, err
 		}
 		valueLiterals = append(valueLiterals, valueLiteral)
+		columns = append(columns, k)
 	}
 	return makeDataframeWithFillNaRelation(df, valueLiterals, columns), nil
 }

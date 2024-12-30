@@ -18,6 +18,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"testing"
 
@@ -801,4 +802,29 @@ func TestDataFrame_Unpivot(t *testing.T) {
 	cnt, err := udf.Count(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(4), cnt)
+}
+
+func TestDataFrame_FillNa(t *testing.T) {
+	ctx, spark := connect()
+	file, err := os.CreateTemp("", "fillna")
+	defer os.Remove(file.Name())
+	assert.NoError(t, err)
+	defer file.Close()
+	_, err = file.WriteString(`{"id":1,"int":null, "int2": 1}
+{"id":null,"int":12, "int2": null}
+`)
+	assert.NoError(t, err)
+
+	df, err := spark.Read().Format("json").
+		Option("inferSchema", "true").
+		Load(file.Name())
+	assert.NoError(t, err)
+
+	filled, err := df.FillNa(ctx, 0)
+	assert.NoError(t, err)
+	sorted, err := filled.Sort(ctx, functions.Col("id").Asc())
+	assert.NoError(t, err)
+	collected, err := sorted.Collect(ctx)
+	assert.NoError(t, err)
+	log.Printf("data: %v", collected)
 }
