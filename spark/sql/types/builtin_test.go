@@ -17,45 +17,46 @@
 package types
 
 import (
-	"github.com/stretchr/testify/assert"
+	"context"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBuiltinTypes(t *testing.T) {
-
-	p, err := Int8(1).ToProto(nil)
+	p, err := Int8(1).ToProto(context.TODO())
 	assert.NoError(t, err)
 	assert.Equal(t, p.GetLiteral().GetByte(), int32(1))
 
-	p, err = Int16(1).ToProto(nil)
+	p, err = Int16(1).ToProto(context.TODO())
 	assert.NoError(t, err)
 	assert.Equal(t, p.GetLiteral().GetShort(), int32(1))
 
-	p, err = Int32(1).ToProto(nil)
+	p, err = Int32(1).ToProto(context.TODO())
 	assert.NoError(t, err)
 	assert.Equal(t, p.GetLiteral().GetInteger(), int32(1))
 
-	p, err = Int64(1).ToProto(nil)
+	p, err = Int64(1).ToProto(context.TODO())
 	assert.NoError(t, err)
 	assert.Equal(t, p.GetLiteral().GetLong(), int64(1))
 
-	p, err = Float32(1.0).ToProto(nil)
+	p, err = Float32(1.0).ToProto(context.TODO())
 	assert.NoError(t, err)
 	assert.Equal(t, p.GetLiteral().GetFloat(), float32(1.0))
 
-	p, err = Float64(1.0).ToProto(nil)
+	p, err = Float64(1.0).ToProto(context.TODO())
 	assert.NoError(t, err)
 	assert.Equal(t, p.GetLiteral().GetDouble(), float64(1.0))
 
-	p, err = String("1").ToProto(nil)
+	p, err = String("1").ToProto(context.TODO())
 	assert.NoError(t, err)
 	assert.Equal(t, p.GetLiteral().GetString_(), "1")
 
-	p, err = Boolean(true).ToProto(nil)
+	p, err = Boolean(true).ToProto(context.TODO())
 	assert.NoError(t, err)
 	assert.Equal(t, p.GetLiteral().GetBoolean(), true)
 
-	p, err = Binary([]byte{1}).ToProto(nil)
+	p, err = Binary([]byte{1}).ToProto(context.TODO())
 	assert.NoError(t, err)
 	assert.Equal(t, p.GetLiteral().GetBinary(), []byte{1})
 }

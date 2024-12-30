@@ -20,8 +20,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 	"log"
+
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
 

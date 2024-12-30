@@ -18,8 +18,9 @@ package column
 import (
 	"context"
 	"fmt"
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 	"strings"
+
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 

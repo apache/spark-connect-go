@@ -230,6 +230,10 @@ func (s *sparkSessionImpl) CreateDataFrame(ctx context.Context, data [][]any, sc
 	// Iterate over all fields and add the values:
 	for _, row := range data {
 		for i, field := range schema.Fields {
+			if row[i] == nil {
+				rb.Field(i).AppendNull()
+				continue
+			}
 			switch field.DataType {
 			case types.BOOLEAN:
 				rb.Field(i).(*array.BooleanBuilder).Append(row[i].(bool))

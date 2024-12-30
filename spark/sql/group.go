@@ -18,6 +18,7 @@ package sql
 
 import (
 	"context"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
