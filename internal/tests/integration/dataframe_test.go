@@ -805,7 +805,8 @@ func TestDataFrame_Unpivot(t *testing.T) {
 
 func TestDataFrame_Replace(t *testing.T) {
 	ctx, spark := connect()
-	data := [][]any{{10, 80, "Alice"},
+	data := [][]any{
+		{10, 80, "Alice"},
 		{5, nil, "Bob"},
 		{nil, 10, "Tom"},
 		{nil, nil, nil},
@@ -843,12 +844,12 @@ func TestDataFrame_Replace(t *testing.T) {
 	rows, err = res.Collect(ctx)
 	assert.NoError(t, err)
 	assert.Nil(t, rows[0].At(0))
-
 }
 
 func TestDataFrame_ReplaceWithColumn(t *testing.T) {
 	ctx, spark := connect()
-	data := [][]any{{10, 80, "Alice"},
+	data := [][]any{
+		{10, 80, "Alice"},
 		{5, nil, "Bob"},
 		{nil, 10, "Tom"},
 		{nil, nil, nil},
@@ -870,5 +871,4 @@ func TestDataFrame_ReplaceWithColumn(t *testing.T) {
 	// Should only repalce the age column but not the height column
 	assert.Equal(t, int32(20), rows[0].At(0))
 	assert.Equal(t, int32(10), rows[2].At(1))
-
 }

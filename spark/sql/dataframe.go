@@ -153,10 +153,12 @@ type DataFrame interface {
 	//
 	// For numeric replacements all values to be replaced should have unique
 	// floating point representation.
-	Replace(ctx context.Context, toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral) (DataFrame, error)
+	Replace(ctx context.Context, toReplace []types.PrimitiveTypeLiteral,
+		values []types.PrimitiveTypeLiteral) (DataFrame, error)
 	// ReplaceWithColumns is an alias for Replace but allows to specify a subset of columns that
 	// should be used for the replacement.
-	ReplaceWithColumns(ctx context.Context, toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral, cols []string) (DataFrame, error)
+	ReplaceWithColumns(ctx context.Context, toReplace []types.PrimitiveTypeLiteral,
+		values []types.PrimitiveTypeLiteral, cols []string) (DataFrame, error)
 	// Rollup creates a multi-dimensional rollup for the current DataFrame using
 	// the specified columns, so we can run aggregation on them.
 	Rollup(ctx context.Context, cols ...column.Convertible) *GroupedData
@@ -1438,9 +1440,12 @@ func (df *dataFrameImpl) Unpivot(ctx context.Context,
 	return NewDataFrame(df.session, rel), nil
 }
 
-func (df *dataFrameImpl) ReplaceWithColumns(ctx context.Context, toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral, cols []string) (DataFrame, error) {
+func (df *dataFrameImpl) ReplaceWithColumns(ctx context.Context,
+	toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral, cols []string,
+) (DataFrame, error) {
 	if len(toReplace) != len(values) {
-		return nil, sparkerrors.WithType(fmt.Errorf("toReplace and values must have the same length"), sparkerrors.InvalidArgumentError)
+		return nil, sparkerrors.WithType(fmt.Errorf(
+			"toReplace and values must have the same length"), sparkerrors.InvalidArgumentError)
 	}
 
 	toReplaceExprs := make([]*proto.Expression, 0, len(toReplace))
