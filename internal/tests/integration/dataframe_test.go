@@ -18,7 +18,6 @@ package integration
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"testing"
 
@@ -32,6 +31,7 @@ import (
 
 	"github.com/apache/spark-connect-go/v35/spark/sql"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDataFrame_Select(t *testing.T) {
@@ -820,11 +820,44 @@ func TestDataFrame_FillNa(t *testing.T) {
 		Load(file.Name())
 	assert.NoError(t, err)
 
-	filled, err := df.FillNa(ctx, 0)
+	// all columns
+	filled, err := df.FillNa(ctx, 10)
 	assert.NoError(t, err)
 	sorted, err := filled.Sort(ctx, functions.Col("id").Asc())
 	assert.NoError(t, err)
-	collected, err := sorted.Collect(ctx)
+	res, err := sorted.Collect(ctx)
 	assert.NoError(t, err)
-	log.Printf("data: %v", collected)
+	require.Equal(t, 2, len(res))
+	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[0].Values())
+	assert.Equal(t, []any{int64(10), int64(12), int64(10)}, res[1].Values())
+
+	// specific columns
+	filled, err = df.FillNa(ctx, 10, "int", "int2")
+	assert.NoError(t, err)
+	sorted, err = filled.Sort(ctx, functions.Col("id").Asc())
+	assert.NoError(t, err)
+	res, err = sorted.Collect(ctx)
+	assert.NoError(t, err)
+	require.Equal(t, 2, len(res))
+	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[0].Values())
+	assert.Equal(t, []any{nil, int64(12), int64(10)}, res[1].Values())
+
+	// specific columns with map
+	filled, err = df.FillNa(ctx, map[string]any{"int": 10, "int2": 20})
+	assert.NoError(t, err)
+	sorted, err = filled.Sort(ctx, functions.Col("id").Asc())
+	assert.NoError(t, err)
+	res, err = sorted.Collect(ctx)
+	assert.NoError(t, err)
+	require.Equal(t, 2, len(res))
+	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[0].Values())
+	assert.Equal(t, []any{nil, int64(12), int64(20)}, res[1].Values())
+
+	// errors handling
+	_, err = df.FillNa(ctx, nil)
+	assert.Error(t, err)
+
+	_, err = df.FillNaWithValues(ctx, map[string]any{"int": nil})
+	assert.Error(t, err)
+
 }
