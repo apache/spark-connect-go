@@ -183,13 +183,15 @@ func (t Binary) ToProto(ctx context.Context) (*proto.Expression, error) {
 	}, nil
 }
 
-type Int8Nil struct{}
+type Int8NilType struct{}
 
-func (t Int8Nil) isNumericLiteral() {}
+var Int8Nil = Int8NilType{}
 
-func (t Int8Nil) isPrimitiveTypeLiteral() {}
+func (t Int8NilType) isNumericLiteral() {}
 
-func (t Int8Nil) ToProto(ctx context.Context) (*proto.Expression, error) {
+func (t Int8NilType) isPrimitiveTypeLiteral() {}
+
+func (t Int8NilType) ToProto(ctx context.Context) (*proto.Expression, error) {
 	return &proto.Expression{
 		ExprType: &proto.Expression_Literal_{
 			Literal: &proto.Expression_Literal{
@@ -205,13 +207,15 @@ func (t Int8Nil) ToProto(ctx context.Context) (*proto.Expression, error) {
 	}, nil
 }
 
-type Int16Nil struct{}
+type Int16NilType struct{}
 
-func (t Int16Nil) isNumericLiteral() {}
+var Int16Nil = Int16NilType{}
 
-func (t Int16Nil) isPrimitiveTypeLiteral() {}
+func (t Int16NilType) isNumericLiteral() {}
 
-func (t Int16Nil) ToProto(ctx context.Context) (*proto.Expression, error) {
+func (t Int16NilType) isPrimitiveTypeLiteral() {}
+
+func (t Int16NilType) ToProto(ctx context.Context) (*proto.Expression, error) {
 	return &proto.Expression{
 		ExprType: &proto.Expression_Literal_{
 			Literal: &proto.Expression_Literal{
@@ -227,13 +231,15 @@ func (t Int16Nil) ToProto(ctx context.Context) (*proto.Expression, error) {
 	}, nil
 }
 
-type Int32Nil struct{}
+type Int32NilType struct{}
 
-func (t Int32Nil) isNumericLiteral() {}
+var Int32Nil = Int32NilType{}
 
-func (t Int32Nil) isPrimitiveTypeLiteral() {}
+func (t Int32NilType) isNumericLiteral() {}
 
-func (t Int32Nil) ToProto(ctx context.Context) (*proto.Expression, error) {
+func (t Int32NilType) isPrimitiveTypeLiteral() {}
+
+func (t Int32NilType) ToProto(ctx context.Context) (*proto.Expression, error) {
 	return &proto.Expression{
 		ExprType: &proto.Expression_Literal_{
 			Literal: &proto.Expression_Literal{
@@ -249,13 +255,15 @@ func (t Int32Nil) ToProto(ctx context.Context) (*proto.Expression, error) {
 	}, nil
 }
 
-type Int64Nil struct{}
+type Int64NilType struct{}
 
-func (t Int64Nil) isNumericLiteral() {}
+var Int64Nil = Int64NilType{}
 
-func (t Int64Nil) isPrimitiveTypeLiteral() {}
+func (t Int64NilType) isNumericLiteral() {}
 
-func (t Int64Nil) ToProto(ctx context.Context) (*proto.Expression, error) {
+func (t Int64NilType) isPrimitiveTypeLiteral() {}
+
+func (t Int64NilType) ToProto(ctx context.Context) (*proto.Expression, error) {
 	return &proto.Expression{
 		ExprType: &proto.Expression_Literal_{
 			Literal: &proto.Expression_Literal{
@@ -271,23 +279,27 @@ func (t Int64Nil) ToProto(ctx context.Context) (*proto.Expression, error) {
 	}, nil
 }
 
-type IntNil struct{}
+type IntNilType struct{}
 
-func (t IntNil) isNumericLiteral() {}
+var IntNil = IntNilType{}
 
-func (t IntNil) isPrimitiveTypeLiteral() {}
+func (t IntNilType) isNumericLiteral() {}
 
-func (t IntNil) ToProto(ctx context.Context) (*proto.Expression, error) {
-	return Int64Nil{}.ToProto(ctx)
+func (t IntNilType) isPrimitiveTypeLiteral() {}
+
+func (t IntNilType) ToProto(ctx context.Context) (*proto.Expression, error) {
+	return Int64NilType{}.ToProto(ctx)
 }
 
-type Float32Nil struct{}
+type Float32NilType struct{}
 
-func (t Float32Nil) isNumericLiteral() {}
+var Float32Nil = Float32NilType{}
 
-func (t Float32Nil) isPrimitiveTypeLiteral() {}
+func (t Float32NilType) isNumericLiteral() {}
 
-func (t Float32Nil) ToProto(ctx context.Context) (*proto.Expression, error) {
+func (t Float32NilType) isPrimitiveTypeLiteral() {}
+
+func (t Float32NilType) ToProto(ctx context.Context) (*proto.Expression, error) {
 	return &proto.Expression{
 		ExprType: &proto.Expression_Literal_{
 			Literal: &proto.Expression_Literal{
@@ -303,13 +315,15 @@ func (t Float32Nil) ToProto(ctx context.Context) (*proto.Expression, error) {
 	}, nil
 }
 
-type Float64Nil struct{}
+type Float64NilType struct{}
 
-func (t Float64Nil) isNumericLiteral() {}
+var Float64Nil = Float64NilType{}
 
-func (t Float64Nil) isPrimitiveTypeLiteral() {}
+func (t Float64NilType) isNumericLiteral() {}
 
-func (t Float64Nil) ToProto(ctx context.Context) (*proto.Expression, error) {
+func (t Float64NilType) isPrimitiveTypeLiteral() {}
+
+func (t Float64NilType) ToProto(ctx context.Context) (*proto.Expression, error) {
 	return &proto.Expression{
 		ExprType: &proto.Expression_Literal_{
 			Literal: &proto.Expression_Literal{
@@ -325,11 +339,13 @@ func (t Float64Nil) ToProto(ctx context.Context) (*proto.Expression, error) {
 	}, nil
 }
 
-type StringNil struct{}
+type StringNilType struct{}
 
-func (t StringNil) isPrimitiveTypeLiteral() {}
+var StringNil = StringNilType{}
 
-func (t StringNil) ToProto(ctx context.Context) (*proto.Expression, error) {
+func (t StringNilType) isPrimitiveTypeLiteral() {}
+
+func (t StringNilType) ToProto(ctx context.Context) (*proto.Expression, error) {
 	return &proto.Expression{
 		ExprType: &proto.Expression_Literal_{
 			Literal: &proto.Expression_Literal{
@@ -345,11 +361,13 @@ func (t StringNil) ToProto(ctx context.Context) (*proto.Expression, error) {
 	}, nil
 }
 
-type BooleanNil struct{}
+type BooleanNilType struct{}
 
-func (t BooleanNil) isPrimitiveTypeLiteral() {}
+var BooleanNil = BooleanNilType{}
 
-func (t BooleanNil) ToProto(ctx context.Context) (*proto.Expression, error) {
+func (t BooleanNilType) isPrimitiveTypeLiteral() {}
+
+func (t BooleanNilType) ToProto(ctx context.Context) (*proto.Expression, error) {
 	return &proto.Expression{
 		ExprType: &proto.Expression_Literal_{
 			Literal: &proto.Expression_Literal{
@@ -365,9 +383,11 @@ func (t BooleanNil) ToProto(ctx context.Context) (*proto.Expression, error) {
 	}, nil
 }
 
-type BinaryNil struct{}
+type BinaryNilType struct{}
 
-func (t BinaryNil) ToProto(ctx context.Context) (*proto.Expression, error) {
+var BinaryNil = BinaryNilType{}
+
+func (t BinaryNilType) ToProto(ctx context.Context) (*proto.Expression, error) {
 	return &proto.Expression{
 		ExprType: &proto.Expression_Literal_{
 			Literal: &proto.Expression_Literal{
