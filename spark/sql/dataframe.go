@@ -133,6 +133,9 @@ type DataFrame interface {
 	Join(ctx context.Context, other DataFrame, on column.Convertible, joinType utils.JoinType) (DataFrame, error)
 	// Limit applies a limit on the DataFrame
 	Limit(ctx context.Context, limit int32) DataFrame
+	// Melt is an alias for Unpivot.
+	Melt(ctx context.Context, ids []column.Convertible, values []column.Convertible,
+		variableColumnName string, valueColumnName string) (DataFrame, error)
 	// Offset returns a new DataFrame by skipping the first `offset` rows.
 	Offset(ctx context.Context, offset int32) DataFrame
 	// OrderBy is an alias for Sort
@@ -188,6 +191,27 @@ type DataFrame interface {
 	// Unpersist resets the storage level for this data frame, and if necessary removes it
 	// from server-side caches.
 	Unpersist(ctx context.Context) error
+	// Unpivot a DataFrame from wide format to long format, optionally leaving
+	// identifier columns set. This is the reverse to `groupBy(...).pivot(...).agg(...)`,
+	// except for the aggregation, which cannot be reversed.
+	//
+	// This function is useful to massage a DataFrame into a format where some
+	// columns are identifier columns ("ids"), while all other columns ("values")
+	// are "unpivoted" to the rows, leaving just two non-id columns, named as given
+	// by `variableColumnName` and `valueColumnName`.
+	//
+	// When no "id" columns are given, the unpivoted DataFrame consists of only the
+	// "variable" and "value" columns.
+	//
+	// The `values` columns must not be empty so at least one value must be given to be unpivoted.
+	// When `values` is `None`, all non-id columns will be unpivoted.
+	//
+	// All "value" columns must share a least common data type. Unless they are the same data type,
+	// all "value" columns are cast to the nearest common data type. For instance, types
+	// `IntegerType` and `LongType` are cast to `LongType`, while `IntegerType` and `StringType`
+	// do not have a common data type and `unpivot` fails.
+	Unpivot(ctx context.Context, ids []column.Convertible, values []column.Convertible,
+		variableColumnName string, valueColumnName string) (DataFrame, error)
 	// WithColumn returns a new DataFrame by adding a column or replacing the
 	// existing column that has the same name. The column expression must be an
 	// expression over this DataFrame; attempting to add a column from some other
@@ -1348,4 +1372,57 @@ func (df *dataFrameImpl) Summary(ctx context.Context, statistics ...string) Data
 		},
 	}
 	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) Melt(ctx context.Context,
+	ids []column.Convertible,
+	values []column.Convertible,
+	variableColumnName string,
+	valueColumnName string,
+) (DataFrame, error) {
+	return df.Unpivot(ctx, ids, values, variableColumnName, valueColumnName)
+}
+
+func (df *dataFrameImpl) Unpivot(ctx context.Context,
+	ids []column.Convertible,
+	values []column.Convertible,
+	variableColumnName string,
+	valueColumnName string,
+) (DataFrame, error) {
+	idExprs := make([]*proto.Expression, 0, len(ids))
+	for _, id := range ids {
+		expr, err := id.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		idExprs = append(idExprs, expr)
+	}
+
+	valueExprs := make([]*proto.Expression, 0, len(values))
+	for _, value := range values {
+		expr, err := value.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		valueExprs = append(valueExprs, expr)
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+
+		RelType: &proto.Relation_Unpivot{
+			Unpivot: &proto.Unpivot{
+				Input: df.relation,
+				Ids:   idExprs,
+				Values: &proto.Unpivot_Values{
+					Values: valueExprs,
+				},
+				VariableColumnName: variableColumnName,
+				ValueColumnName:    valueColumnName,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
 }

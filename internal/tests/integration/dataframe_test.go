@@ -781,3 +781,24 @@ func TestDataFrame_WithOption(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(10), c)
 }
+
+func TestDataFrame_Unpivot(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{{1, 11, 1.1}, {2, 12, 1.2}}
+	schema := types.StructOf(
+		types.NewStructField("id", types.INTEGER),
+		types.NewStructField("int", types.INTEGER),
+		types.NewStructField("double", types.DOUBLE),
+	)
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+
+	udf, err := df.Unpivot(ctx, []column.Convertible{functions.Col("id")},
+		[]column.Convertible{functions.Col("int"), functions.Col("double")},
+		"type", "value")
+
+	assert.NoError(t, err)
+	cnt, err := udf.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(4), cnt)
+}

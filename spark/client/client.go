@@ -331,7 +331,9 @@ func (s *sparkConnectClientImpl) SemanticHash(ctx context.Context, plan *proto.P
 	return response.GetSemanticHash().GetResult(), nil
 }
 
-func (s *sparkConnectClientImpl) Config(ctx context.Context, operation *proto.ConfigRequest_Operation) (*generated.ConfigResponse, error) {
+func (s *sparkConnectClientImpl) Config(ctx context.Context,
+	operation *proto.ConfigRequest_Operation,
+) (*generated.ConfigResponse, error) {
 	request := &proto.ConfigRequest{
 		Operation: operation,
 		UserContext: &proto.UserContext{
