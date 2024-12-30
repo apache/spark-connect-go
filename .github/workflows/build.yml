@@ -101,6 +101,13 @@ jobs:
           make gen
           make
           make test
+      - name: Run Example Spark Submit Application
+        run: |
+          export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
+          make
+          cd java
+          sbt publishLocal
+          ./run.sh ../cmd/spark-connect-example-spark-session/spark-connect-example-spark-session
       - name: Run Integration Test
         run: |
           export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
@@ -110,13 +117,6 @@ jobs:
         run: |
           export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
           make coverage
-      - name: Run Example Spark Submit Application
-        run: |
-          export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
-          make
-          cd java
-          sbt publishLocal
-          ./run.sh ../cmd/spark-connect-example-spark-session/spark-connect-example-spark-session
       - uses: PaloAltoNetworks/cov@3.0.0
         with:
           cov_mode: coverage
