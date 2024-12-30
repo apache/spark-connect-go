@@ -46,7 +46,7 @@ func TestIntegration_RunSQLCommand(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 100, len(res))
 
-	df, err = df.Filter(ctx, column.OfDF(df, "id").Lt(functions.Lit(10)))
+	df, err = df.Filter(ctx, column.OfDF(df, "id").Lt(functions.IntLit(10)))
 	assert.NoError(t, err)
 	res, err = df.Collect(ctx)
 	assert.NoErrorf(t, err, "Must be able to collect the rows.")

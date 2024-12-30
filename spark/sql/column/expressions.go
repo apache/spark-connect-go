@@ -18,6 +18,7 @@ package column
 import (
 	"context"
 	"fmt"
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
 	"strings"
 
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
@@ -308,52 +309,17 @@ func (s *sqlExression) ToProto(context.Context) (*proto.Expression, error) {
 }
 
 type literalExpression struct {
-	value any
+	value types.LiteralType
 }
 
 func (l *literalExpression) DebugString() string {
 	return fmt.Sprintf("%v", l.value)
 }
 
-func (l *literalExpression) ToProto(context.Context) (*proto.Expression, error) {
-	expr := newProtoExpression()
-	expr.ExprType = &proto.Expression_Literal_{
-		Literal: &proto.Expression_Literal{},
-	}
-	switch v := l.value.(type) {
-	case int8:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_Byte{Byte: int32(v)}
-	case int16:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_Short{Short: int32(v)}
-	case int32:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_Integer{Integer: v}
-	case int64:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_Long{Long: v}
-	case uint8:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_Short{Short: int32(v)}
-	case uint16:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_Integer{Integer: int32(v)}
-	case uint32:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_Long{Long: int64(v)}
-	case float32:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_Float{Float: v}
-	case float64:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_Double{Double: v}
-	case string:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_String_{String_: v}
-	case bool:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_Boolean{Boolean: v}
-	case []byte:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_Binary{Binary: v}
-	case int:
-		expr.GetLiteral().LiteralType = &proto.Expression_Literal_Long{Long: int64(v)}
-	default:
-		return nil, sparkerrors.WithType(sparkerrors.InvalidPlanError,
-			fmt.Errorf("unsupported literal type %T", v))
-	}
-	return expr, nil
+func (l *literalExpression) ToProto(ctx context.Context) (*proto.Expression, error) {
+	return l.value.ToProto(ctx)
 }
 
-func NewLiteral(value any) expression {
+func NewLiteral(value types.LiteralType) expression {
 	return &literalExpression{value: value}
 }

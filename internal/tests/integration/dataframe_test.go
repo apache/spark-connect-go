@@ -39,7 +39,7 @@ func TestDataFrame_Select(t *testing.T) {
 	assert.NoError(t, err)
 	df, err := spark.Sql(ctx, "select * from range(100)")
 	assert.NoError(t, err)
-	df, err = df.Select(ctx, functions.Lit("1"), functions.Lit("2"))
+	df, err = df.Select(ctx, functions.StringLit("1"), functions.StringLit("2"))
 	assert.NoError(t, err)
 
 	res, err := df.Collect(ctx)
@@ -210,7 +210,7 @@ func TestDataFrame_WithColumn(t *testing.T) {
 	ctx, spark := connect()
 	df, err := spark.Sql(ctx, "select * from range(10)")
 	assert.NoError(t, err)
-	df, err = df.WithColumn(ctx, "newCol", functions.Lit(1))
+	df, err = df.WithColumn(ctx, "newCol", functions.IntLit(1))
 	assert.NoError(t, err)
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)
@@ -226,8 +226,8 @@ func TestDataFrame_WithColumns(t *testing.T) {
 	ctx, spark := connect()
 	df, err := spark.Sql(ctx, "select * from range(10)")
 	assert.NoError(t, err)
-	df, err = df.WithColumns(ctx, column.WithAlias("newCol1", functions.Lit(1)),
-		column.WithAlias("newCol2", functions.Lit(2)))
+	df, err = df.WithColumns(ctx, column.WithAlias("newCol1", functions.IntLit(1)),
+		column.WithAlias("newCol2", functions.IntLit(2)))
 	assert.NoError(t, err)
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)
@@ -592,7 +592,7 @@ func TestDataFrame_Pivot(t *testing.T) {
 	df, err := spark.CreateDataFrame(ctx, data, schema)
 	assert.NoError(t, err)
 	gd := df.GroupBy(functions.Col("year"))
-	gd, err = gd.Pivot(ctx, "course", []any{"Java", "dotNET"})
+	gd, err = gd.Pivot(ctx, "course", []types.LiteralType{types.String("Java"), types.String("dotNET")})
 	assert.NoError(t, err)
 	df, err = gd.Sum(ctx, "earnings")
 	assert.NoError(t, err)
