@@ -839,7 +839,7 @@ func TestDataFrame_FillNa(t *testing.T) {
 	res, err = sorted.Collect(ctx)
 	assert.NoError(t, err)
 	require.Equal(t, 2, len(res))
-	assert.Equal(t, []any{0, int64(12), int64(10)}, res[0].Values())
+	assert.Equal(t, []any{int64(0), int64(12), int64(10)}, res[0].Values())
 	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[1].Values())
 
 	// specific columns with map
@@ -850,7 +850,7 @@ func TestDataFrame_FillNa(t *testing.T) {
 	res, err = sorted.Collect(ctx)
 	assert.NoError(t, err)
 	require.Equal(t, 2, len(res))
-	assert.Equal(t, []any{0, int64(12), int64(20)}, res[0].Values())
+	assert.Equal(t, []any{int64(0), int64(12), int64(20)}, res[0].Values())
 	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[1].Values())
 
 	// errors handling
