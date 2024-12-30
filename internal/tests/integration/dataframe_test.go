@@ -835,7 +835,7 @@ func TestDataFrame_Replace(t *testing.T) {
 
 	res, err = df.Replace(ctx,
 		[]types.PrimitiveTypeLiteral{types.Int32(10)},
-		[]types.PrimitiveTypeLiteral{types.Int32Nil{}},
+		[]types.PrimitiveTypeLiteral{types.Int32Nil},
 	)
 	assert.NoError(t, err)
 
