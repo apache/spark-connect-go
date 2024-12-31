@@ -804,6 +804,76 @@ func TestDataFrame_Unpivot(t *testing.T) {
 	assert.Equal(t, int64(4), cnt)
 }
 
+func TestDataFrame_Replace(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{
+		{10, 80, "Alice"},
+		{5, nil, "Bob"},
+		{nil, 10, "Tom"},
+		{nil, nil, nil},
+	}
+	schema := types.StructOf(
+		types.NewStructField("age", types.INTEGER),
+		types.NewStructField("height", types.INTEGER),
+		types.NewStructField("name", types.STRING),
+	)
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+
+	res, err := df.Replace(ctx,
+		[]types.PrimitiveTypeLiteral{types.Int32(10)},
+		[]types.PrimitiveTypeLiteral{types.Int32(20)},
+	)
+	assert.NoError(t, err)
+
+	cnt, err := res.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(4), cnt)
+
+	rows, err := res.Collect(ctx)
+	assert.NoError(t, err)
+
+	assert.Equal(t, int32(20), rows[0].At(0))
+	assert.Equal(t, int32(20), rows[2].At(1))
+
+	res, err = df.Replace(ctx,
+		[]types.PrimitiveTypeLiteral{types.Int32(10)},
+		[]types.PrimitiveTypeLiteral{types.Int32Nil},
+	)
+	assert.NoError(t, err)
+
+	rows, err = res.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Nil(t, rows[0].At(0))
+}
+
+func TestDataFrame_ReplaceWithColumn(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{
+		{10, 80, "Alice"},
+		{5, nil, "Bob"},
+		{nil, 10, "Tom"},
+		{nil, nil, nil},
+	}
+	schema := types.StructOf(
+		types.NewStructField("age", types.INTEGER),
+		types.NewStructField("height", types.INTEGER),
+		types.NewStructField("name", types.STRING),
+	)
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+
+	res, err := df.Replace(ctx, []types.PrimitiveTypeLiteral{types.Int32(10)},
+		[]types.PrimitiveTypeLiteral{types.Int32(20)}, "age")
+	assert.NoError(t, err)
+
+	rows, err := res.Collect(ctx)
+	assert.NoError(t, err)
+	// Should only repalce the age column but not the height column
+	assert.Equal(t, int32(20), rows[0].At(0))
+	assert.Equal(t, int32(10), rows[2].At(1))
+}
+
 func TestDataFrame_FillNa(t *testing.T) {
 	ctx, spark := connect()
 	file, err := os.CreateTemp("", "fillna")
