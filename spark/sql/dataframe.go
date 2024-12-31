@@ -156,13 +156,10 @@ type DataFrame interface {
 	// to the type of the existing column.
 	//
 	// For numeric replacements all values to be replaced should have unique
-	// floating point representation.
+	// floating point representation. If cols is set allows to specify a subset of columns to
+	// perform the replacement.
 	Replace(ctx context.Context, toReplace []types.PrimitiveTypeLiteral,
-		values []types.PrimitiveTypeLiteral) (DataFrame, error)
-	// ReplaceWithColumns is an alias for Replace but allows to specify a subset of columns that
-	// should be used for the replacement.
-	ReplaceWithColumns(ctx context.Context, toReplace []types.PrimitiveTypeLiteral,
-		values []types.PrimitiveTypeLiteral, cols []string) (DataFrame, error)
+		values []types.PrimitiveTypeLiteral, cols ...string) (DataFrame, error)
 	// Rollup creates a multi-dimensional rollup for the current DataFrame using
 	// the specified columns, so we can run aggregation on them.
 	Rollup(ctx context.Context, cols ...column.Convertible) *GroupedData
@@ -1391,8 +1388,8 @@ func (df *dataFrameImpl) Summary(ctx context.Context, statistics ...string) Data
 	return NewDataFrame(df.session, rel)
 }
 
-func (df *dataFrameImpl) ReplaceWithColumns(ctx context.Context,
-	toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral, cols []string,
+func (df *dataFrameImpl) Replace(ctx context.Context,
+	toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral, cols ...string,
 ) (DataFrame, error) {
 	if len(toReplace) != len(values) {
 		return nil, sparkerrors.WithType(fmt.Errorf(
@@ -1441,10 +1438,6 @@ func (df *dataFrameImpl) ReplaceWithColumns(ctx context.Context,
 		},
 	}
 	return NewDataFrame(df.session, rel), nil
-}
-
-func (df *dataFrameImpl) Replace(ctx context.Context, toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral) (DataFrame, error) {
-	return df.ReplaceWithColumns(ctx, toReplace, values, nil)
 }
 
 func (df *dataFrameImpl) Melt(ctx context.Context,

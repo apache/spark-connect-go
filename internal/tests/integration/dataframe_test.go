@@ -863,8 +863,8 @@ func TestDataFrame_ReplaceWithColumn(t *testing.T) {
 	df, err := spark.CreateDataFrame(ctx, data, schema)
 	assert.NoError(t, err)
 
-	res, err := df.ReplaceWithColumns(ctx, []types.PrimitiveTypeLiteral{types.Int32(10)},
-		[]types.PrimitiveTypeLiteral{types.Int32(20)}, []string{"age"})
+	res, err := df.Replace(ctx, []types.PrimitiveTypeLiteral{types.Int32(10)},
+		[]types.PrimitiveTypeLiteral{types.Int32(20)}, "age")
 	assert.NoError(t, err)
 
 	rows, err := res.Collect(ctx)
