@@ -47,7 +47,8 @@ object Runner extends Logging {
 
     // Fetch the local path of the binary.
     val path = SparkFiles.get(bin)
-    path.! // Run the binary
+    val process = Process(path, None, "SPARK_REMOTE" -> s"sc://localhost:$port")
+    process.!
     logWarning("Stopping Spark Connect service")
     SparkConnectService.stop()
     ctx.stop()
