@@ -20,6 +20,7 @@ sbt package
 The `run.sh` script is a simple script that can be used to submit a Spark Connect Go application to a Spark Cluster. The script can be called as follows:
 
 ```bash
+export SPARK_HOME=/path/to/spark
 ./run.sh ../cmd/spark-connect-example-spark-session/spark-connect-example-spark-session
 ```
 
