@@ -33,3 +33,5 @@ target
 lib
 
 deps
+
+.DS_Store

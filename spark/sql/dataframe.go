@@ -108,6 +108,10 @@ type DataFrame interface {
 	ExceptAll(ctx context.Context, other DataFrame) DataFrame
 	// Explain returns the string explain plan for the current DataFrame according to the explainMode.
 	Explain(ctx context.Context, explainMode utils.ExplainMode) (string, error)
+	// FillNa replaces null values with specified value.
+	FillNa(ctx context.Context, value types.PrimitiveTypeLiteral, columns ...string) (DataFrame, error)
+	// FillNaWithValues replaces null values in specified columns (key of the map) with values.
+	FillNaWithValues(ctx context.Context, values map[string]types.PrimitiveTypeLiteral) (DataFrame, error)
 	// Filter filters the data frame by a column condition.
 	Filter(ctx context.Context, condition column.Convertible) (DataFrame, error)
 	// FilterByString filters the data frame by a string condition.
@@ -1494,4 +1498,46 @@ func (df *dataFrameImpl) Unpivot(ctx context.Context,
 		},
 	}
 	return NewDataFrame(df.session, rel), nil
+}
+
+func makeDataframeWithFillNaRelation(df *dataFrameImpl, values []*proto.Expression_Literal, columns []string) DataFrame {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_FillNa{
+			FillNa: &proto.NAFill{
+				Input:  df.relation,
+				Cols:   columns,
+				Values: values,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) FillNa(ctx context.Context, value types.PrimitiveTypeLiteral, columns ...string) (DataFrame, error) {
+	valueLiteral, err := value.ToProto(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return makeDataframeWithFillNaRelation(df, []*proto.Expression_Literal{
+		valueLiteral.GetLiteral(),
+	}, columns), nil
+}
+
+func (df *dataFrameImpl) FillNaWithValues(ctx context.Context,
+	values map[string]types.PrimitiveTypeLiteral,
+) (DataFrame, error) {
+	valueLiterals := make([]*proto.Expression_Literal, 0, len(values))
+	columns := make([]string, 0, len(values))
+	for k, v := range values {
+		valueLiteral, err := v.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		valueLiterals = append(valueLiterals, valueLiteral.GetLiteral())
+		columns = append(columns, k)
+	}
+	return makeDataframeWithFillNaRelation(df, valueLiterals, columns), nil
 }

@@ -44,6 +44,12 @@ Step 5: Run the example Go application.
 go run cmd/spark-connect-example-spark-session/main.go
 ```
 
+## Runnning Spark Connect Go Application in a Spark Cluster
+
+To run the Spark Connect Go application in a Spark Cluster, you need to build the Go application and submit it to the Spark Cluster. You can find a more detailed example runner and wrapper script in the `java` directory.
+
+See the guide here: [Sample Spark-Submit Wrapper](java/README.md).
+
 ## How to write Spark Connect Go Application in your own project
 
 See [Quick Start Guide](quick-start.md)

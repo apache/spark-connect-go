@@ -31,6 +31,7 @@ import (
 
 	"github.com/apache/spark-connect-go/v35/spark/sql"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDataFrame_Select(t *testing.T) {
@@ -871,4 +872,56 @@ func TestDataFrame_ReplaceWithColumn(t *testing.T) {
 	// Should only repalce the age column but not the height column
 	assert.Equal(t, int32(20), rows[0].At(0))
 	assert.Equal(t, int32(10), rows[2].At(1))
+}
+
+func TestDataFrame_FillNa(t *testing.T) {
+	ctx, spark := connect()
+	file, err := os.CreateTemp("", "fillna")
+	defer os.Remove(file.Name())
+	assert.NoError(t, err)
+	defer file.Close()
+	_, err = file.WriteString(`{"id":1,"int":null, "int2": 1}
+{"id":null,"int":12, "int2": null}
+`)
+	assert.NoError(t, err)
+
+	df, err := spark.Read().Format("json").
+		Option("inferSchema", "true").
+		Load(file.Name())
+	assert.NoError(t, err)
+
+	// all columns
+	filled, err := df.FillNa(ctx, types.Int64(10))
+	assert.NoError(t, err)
+	sorted, err := filled.Sort(ctx, functions.Col("id").Asc())
+	assert.NoError(t, err)
+	res, err := sorted.Collect(ctx)
+	assert.NoError(t, err)
+	require.Equal(t, 2, len(res))
+	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[0].Values())
+	assert.Equal(t, []any{int64(10), int64(12), int64(10)}, res[1].Values())
+
+	// specific columns
+	filled, err = df.FillNa(ctx, types.Int64(10), "int", "int2")
+	assert.NoError(t, err)
+	sorted, err = filled.Sort(ctx, functions.Col("id").Asc())
+	assert.NoError(t, err)
+	res, err = sorted.Collect(ctx)
+	assert.NoError(t, err)
+	require.Equal(t, 2, len(res))
+	assert.Equal(t, []any{nil, int64(12), int64(10)}, res[0].Values())
+	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[1].Values())
+
+	// specific columns with map
+	filled, err = df.FillNaWithValues(ctx, map[string]types.PrimitiveTypeLiteral{
+		"int": types.Int64(10), "int2": types.Int64(20),
+	})
+	assert.NoError(t, err)
+	sorted, err = filled.Sort(ctx, functions.Col("id").Asc())
+	assert.NoError(t, err)
+	res, err = sorted.Collect(ctx)
+	assert.NoError(t, err)
+	require.Equal(t, 2, len(res))
+	assert.Equal(t, []any{nil, int64(12), int64(20)}, res[0].Values())
+	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[1].Values())
 }
