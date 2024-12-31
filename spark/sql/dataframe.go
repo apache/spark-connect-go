@@ -1387,59 +1387,6 @@ func (df *dataFrameImpl) Summary(ctx context.Context, statistics ...string) Data
 	return NewDataFrame(df.session, rel)
 }
 
-func (df *dataFrameImpl) Melt(ctx context.Context,
-	ids []column.Convertible,
-	values []column.Convertible,
-	variableColumnName string,
-	valueColumnName string,
-) (DataFrame, error) {
-	return df.Unpivot(ctx, ids, values, variableColumnName, valueColumnName)
-}
-
-func (df *dataFrameImpl) Unpivot(ctx context.Context,
-	ids []column.Convertible,
-	values []column.Convertible,
-	variableColumnName string,
-	valueColumnName string,
-) (DataFrame, error) {
-	idExprs := make([]*proto.Expression, 0, len(ids))
-	for _, id := range ids {
-		expr, err := id.ToProto(ctx)
-		if err != nil {
-			return nil, err
-		}
-		idExprs = append(idExprs, expr)
-	}
-
-	valueExprs := make([]*proto.Expression, 0, len(values))
-	for _, value := range values {
-		expr, err := value.ToProto(ctx)
-		if err != nil {
-			return nil, err
-		}
-		valueExprs = append(valueExprs, expr)
-	}
-
-	rel := &proto.Relation{
-		Common: &proto.RelationCommon{
-			PlanId: newPlanId(),
-		},
-
-		RelType: &proto.Relation_Unpivot{
-			Unpivot: &proto.Unpivot{
-				Input: df.relation,
-				Ids:   idExprs,
-				Values: &proto.Unpivot_Values{
-					Values: valueExprs,
-				},
-				VariableColumnName: variableColumnName,
-				ValueColumnName:    valueColumnName,
-			},
-		},
-	}
-	return NewDataFrame(df.session, rel), nil
-}
-
 func (df *dataFrameImpl) ReplaceWithColumns(ctx context.Context,
 	toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral, cols []string,
 ) (DataFrame, error) {
@@ -1494,4 +1441,57 @@ func (df *dataFrameImpl) ReplaceWithColumns(ctx context.Context,
 
 func (df *dataFrameImpl) Replace(ctx context.Context, toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral) (DataFrame, error) {
 	return df.ReplaceWithColumns(ctx, toReplace, values, nil)
+}
+
+func (df *dataFrameImpl) Melt(ctx context.Context,
+	ids []column.Convertible,
+	values []column.Convertible,
+	variableColumnName string,
+	valueColumnName string,
+) (DataFrame, error) {
+	return df.Unpivot(ctx, ids, values, variableColumnName, valueColumnName)
+}
+
+func (df *dataFrameImpl) Unpivot(ctx context.Context,
+	ids []column.Convertible,
+	values []column.Convertible,
+	variableColumnName string,
+	valueColumnName string,
+) (DataFrame, error) {
+	idExprs := make([]*proto.Expression, 0, len(ids))
+	for _, id := range ids {
+		expr, err := id.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		idExprs = append(idExprs, expr)
+	}
+
+	valueExprs := make([]*proto.Expression, 0, len(values))
+	for _, value := range values {
+		expr, err := value.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		valueExprs = append(valueExprs, expr)
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+
+		RelType: &proto.Relation_Unpivot{
+			Unpivot: &proto.Unpivot{
+				Input: df.relation,
+				Ids:   idExprs,
+				Values: &proto.Unpivot_Values{
+					Values: valueExprs,
+				},
+				VariableColumnName: variableColumnName,
+				ValueColumnName:    valueColumnName,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
 }
