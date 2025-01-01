@@ -166,6 +166,37 @@ func (c *caseWhenExpression) ToProto(ctx context.Context) (*proto.Expression, er
 	return fun.ToProto(ctx)
 }
 
+type unresolvedExtractValue struct {
+	name       string
+	child      expression
+	extraction expression
+}
+
+func (u *unresolvedExtractValue) DebugString() string {
+	return fmt.Sprintf("%s(%s, %s)", u.name, u.child.DebugString(), u.extraction.DebugString())
+}
+
+func (u *unresolvedExtractValue) ToProto(ctx context.Context) (*proto.Expression, error) {
+	expr := newProtoExpression()
+	child, err := u.child.ToProto(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	extraction, err := u.extraction.ToProto(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	expr.ExprType = &proto.Expression_UnresolvedExtractValue_{
+		UnresolvedExtractValue: &proto.Expression_UnresolvedExtractValue{
+			Child:      child,
+			Extraction: extraction,
+		},
+	}
+	return expr, nil
+}
+
 type unresolvedFunction struct {
 	name       string
 	args       []expression
@@ -209,6 +240,10 @@ func (u *unresolvedFunction) ToProto(ctx context.Context) (*proto.Expression, er
 		},
 	}
 	return expr, nil
+}
+
+func NewUnresolvedExtractValue(name string, child expression, extraction expression) expression {
+	return &unresolvedExtractValue{name: name, child: child, extraction: extraction}
 }
 
 func NewUnresolvedFunction(name string, args []expression, isDistinct bool) expression {
