@@ -188,6 +188,10 @@ func TestDataFrame_Corr(t *testing.T) {
 	res, err := df.Corr(ctx, "c1", "c2")
 	assert.NoError(t, err)
 	assert.Equal(t, -0.3592106040535498, res)
+
+	res2, err := df.Stat().Corr(ctx, "c1", "c2")
+	assert.NoError(t, err)
+	assert.Equal(t, res, res2)
 }
 
 func TestDataFrame_Cov(t *testing.T) {
@@ -205,6 +209,10 @@ func TestDataFrame_Cov(t *testing.T) {
 	res, err := df.Cov(ctx, "c1", "c2")
 	assert.NoError(t, err)
 	assert.Equal(t, -18.0, res)
+
+	res2, err := df.Stat().Cov(ctx, "c1", "c2")
+	assert.NoError(t, err)
+	assert.Equal(t, res, res2)
 }
 
 func TestDataFrame_WithColumn(t *testing.T) {
@@ -668,6 +676,16 @@ func TestDataFrame_CrossTab(t *testing.T) {
 	assert.Equal(t, int64(0), res[0].At(1))
 	assert.Equal(t, int64(2), res[0].At(2))
 	assert.Equal(t, int64(0), res[0].At(3))
+
+	df, err = spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+	df = df.Stat().CrossTab(ctx, "c1", "c2")
+	df, err = df.Sort(ctx, column.OfDF(df, "c1_c2").Asc())
+	assert.NoError(t, err)
+	res2, err := df.Collect(ctx)
+	assert.NoError(t, err)
+
+	assert.Equal(t, res, res2)
 }
 
 func TestDataFrame_SameSemantics(t *testing.T) {
@@ -696,6 +714,10 @@ func TestDataFrame_FreqItems(t *testing.T) {
 	res, err := df.FreqItems(ctx, "id").Collect(ctx)
 	assert.NoErrorf(t, err, "%+v", err)
 	assert.Len(t, res, 1)
+
+	res2, err := df.Stat().FreqItems(ctx, "id").Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, res, res2)
 }
 
 func TestDataFrame_Config_GetAll(t *testing.T) {
@@ -924,4 +946,44 @@ func TestDataFrame_FillNa(t *testing.T) {
 	require.Equal(t, 2, len(res))
 	assert.Equal(t, []any{nil, int64(12), int64(20)}, res[0].Values())
 	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[1].Values())
+}
+
+func TestDataFrame_ApproxQuantile(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select id, 1 as id2 from range(100)")
+	assert.NoError(t, err)
+	res, err := df.ApproxQuantile(ctx, []float64{float64(0.5)}, float64(0.1), "id")
+	assert.NoError(t, err)
+	assert.Len(t, res, 1)
+
+	data := [][]any{
+		{"bob", "Developer", 125000, 1},
+		{"mark", "Developer", 108000, 2},
+		{"carl", "Tester", 70000, 2},
+		{"peter", "Developer", 185000, 2},
+		{"jon", "Tester", 65000, 1},
+		{"roman", "Tester", 82000, 2},
+		{"simon", "Developer", 98000, 1},
+		{"eric", "Developer", 144000, 2},
+		{"carlos", "Tester", 75000, 1},
+		{"henry", "Developer", 110000, 1},
+	}
+	schema := types.StructOf(
+		types.NewStructField("Name", types.STRING),
+		types.NewStructField("Role", types.STRING),
+		types.NewStructField("Salary", types.LONG),
+		types.NewStructField("Performance", types.LONG),
+	)
+
+	df, err = spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+	med, err := df.ApproxQuantile(ctx, []float64{float64(0.5)}, float64(0.25), "Salary")
+
+	assert.NoError(t, err)
+	assert.Len(t, med, 1)
+	assert.Equal(t, 75000.0, med[0][0])
+
+	med2, err := df.Stat().ApproxQuantile(ctx, []float64{0.5}, 0.25, "Salary")
+	assert.NoError(t, err)
+	assert.Equal(t, med, med2)
 }

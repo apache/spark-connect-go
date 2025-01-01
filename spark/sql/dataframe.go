@@ -44,6 +44,7 @@ type DataFrame interface {
 	PlanId() int64
 	// Alias creates a new DataFrame with the specified subquery alias
 	Alias(ctx context.Context, alias string) DataFrame
+	ApproxQuantile(ctx context.Context, probabilities []float64, relativeError float64, cols ...string) ([][]float64, error)
 	// Cache persists the DataFrame with the default storage level.
 	Cache(ctx context.Context) error
 	// Coalesce returns a new DataFrame that has exactly numPartitions partitions.DataFrame
@@ -178,6 +179,7 @@ type DataFrame interface {
 	SemanticHash(ctx context.Context) (int32, error)
 	// Sort returns a new DataFrame sorted by the specified columns.
 	Sort(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
+	Stat() DataFrameStatFunctions
 	// Subtract subtracts the other DataFrame from the current DataFrame. And only returns
 	// distinct rows.
 	Subtract(ctx context.Context, other DataFrame) DataFrame
@@ -1533,4 +1535,52 @@ func (df *dataFrameImpl) FillNaWithValues(ctx context.Context,
 		columns = append(columns, k)
 	}
 	return makeDataframeWithFillNaRelation(df, valueLiterals, columns), nil
+}
+
+func (df *dataFrameImpl) Stat() DataFrameStatFunctions {
+	return &dataFrameStatFunctionsImpl{df: df}
+}
+
+func (df *dataFrameImpl) ApproxQuantile(ctx context.Context, probabilities []float64,
+	relativeError float64, cols ...string,
+) ([][]float64, error) {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_ApproxQuantile{
+			ApproxQuantile: &proto.StatApproxQuantile{
+				Input:         df.relation,
+				Probabilities: probabilities,
+				RelativeError: relativeError,
+				Cols:          cols,
+			},
+		},
+	}
+	data := NewDataFrame(df.session, rel)
+	rows, err := data.Collect(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// The result structure is a bit weird here, essentially it returns exactly one row with
+	// the quantiles.
+	// Inside the row is a list of nested arroys that contain the quantiles. The first column is the
+	// first nested array, the second column is the second nested array and so on.
+
+	nested := rows[0].At(0).([]interface{})
+	result := make([][]float64, len(nested))
+	for i := 0; i < len(nested); i++ {
+		tmp := nested[i].([]interface{})
+		result[i] = make([]float64, len(tmp))
+		for j := 0; j < len(tmp); j++ {
+			f, ok := tmp[j].(float64)
+			if !ok {
+				return nil, sparkerrors.WithType(fmt.Errorf(
+					"failed to cast to float64"), sparkerrors.ExecutionError)
+			}
+			result[i][j] = f
+		}
+	}
+	return result, nil
 }
