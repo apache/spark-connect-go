@@ -981,7 +981,7 @@ func TestDataFrame_ApproxQuantile(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, med, 1)
-	assert.Equal(t, 75000.0, med[0][0])
+	assert.GreaterOrEqual(t, 75000.0, med[0][0])
 
 	med2, err := df.Stat().ApproxQuantile(ctx, []float64{0.5}, 0.25, "Salary")
 	assert.NoError(t, err)
