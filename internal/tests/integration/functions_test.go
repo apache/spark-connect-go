@@ -38,3 +38,22 @@ func TestIntegration_BuiltinFunctions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 10, len(res))
 }
+
+func TestAggregationFunctions_Agg(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select id, 1, 2, 3 from range(100)")
+	assert.NoError(t, err)
+
+	res, err := df.Agg(ctx, functions.Count(functions.Col("id")))
+	assert.NoError(t, err)
+	cnt, err := res.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), cnt)
+
+	res, err = df.AggWithMap(ctx, map[string]string{"id": "sum"})
+	assert.NoError(t, err)
+	rows, err := res.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, rows, 1)
+	assert.Equal(t, int64(4950), rows[0].At(0))
+}
