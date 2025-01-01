@@ -19,6 +19,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql"
@@ -47,7 +49,7 @@ func TestIntegration_ColumnGetItem(t *testing.T) {
 	}
 
 	df, _ := spark.Sql(ctx, "select sequence(1,10) as s")
-	df, err = df.Select(ctx, functions.Col("s").GetItem(2))
+	df, err = df.Select(ctx, functions.Col("s").GetItem(types.Int64(2)))
 	assert.NoError(t, err)
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)

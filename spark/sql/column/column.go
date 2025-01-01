@@ -77,7 +77,7 @@ func (c Column) Desc() Column {
 	})
 }
 
-func (c Column) GetItem(key any) Column {
+func (c Column) GetItem(key types.LiteralType) Column {
 	return NewColumn(NewUnresolvedExtractValue("getItem", c.expr, NewLiteral(key)))
 }
 
