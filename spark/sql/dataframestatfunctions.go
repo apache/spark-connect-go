@@ -25,10 +25,34 @@ type DataFrameStatFunctions interface {
 	CrossTab(ctx context.Context, col1, col2 string) DataFrame
 	FreqItems(ctx context.Context, cols ...string) DataFrame
 	FreqItemsWithSupport(ctx context.Context, support float64, cols ...string) DataFrame
+	Sample(ctx context.Context, fraction float64) (DataFrame, error)
+	SampleWithReplacement(ctx context.Context, withReplacement bool, fraction float64) (DataFrame, error)
+	SampleWithSeed(ctx context.Context, fraction float64, seed int64) (DataFrame, error)
+	SampleWithReplacementAndSeed(ctx context.Context, withReplacement bool, fraction float64, seed int64) (DataFrame, error)
 }
 
 type dataFrameStatFunctionsImpl struct {
 	df DataFrame
+}
+
+func (d *dataFrameStatFunctionsImpl) Sample(ctx context.Context, fraction float64) (DataFrame, error) {
+	return d.df.Sample(ctx, fraction)
+}
+
+func (d *dataFrameStatFunctionsImpl) SampleWithReplacement(ctx context.Context,
+	withReplacement bool, fraction float64,
+) (DataFrame, error) {
+	return d.df.SampleWithReplacement(ctx, withReplacement, fraction)
+}
+
+func (d *dataFrameStatFunctionsImpl) SampleWithSeed(ctx context.Context, fraction float64, seed int64) (DataFrame, error) {
+	return d.df.SampleWithSeed(ctx, fraction, seed)
+}
+
+func (d *dataFrameStatFunctionsImpl) SampleWithReplacementAndSeed(ctx context.Context,
+	withReplacement bool, fraction float64, seed int64,
+) (DataFrame, error) {
+	return d.df.SampleWithReplacementAndSeed(ctx, withReplacement, fraction, seed)
 }
 
 func (d *dataFrameStatFunctionsImpl) ApproxQuantile(ctx context.Context, probabilities []float64,

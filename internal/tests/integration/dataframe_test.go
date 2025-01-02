@@ -896,7 +896,7 @@ func TestDataFrame_SampleSeed(t *testing.T) {
 	assert.NoError(t, err)
 	fraction := 0.1
 	seed := int64(17)
-	sampledDF, err := df.SampleSeed(ctx, fraction, seed)
+	sampledDF, err := df.SampleWithSeed(ctx, fraction, seed)
 	assert.NoError(t, err)
 	count, err := sampledDF.Count(ctx)
 	assert.NoError(t, err)
@@ -914,7 +914,7 @@ func TestDataFrame_SampleSeed(t *testing.T) {
 		seen[value] = true
 	}
 	// same seed should return same output
-	sampledDFRepeat, err := df.SampleSeed(ctx, fraction, seed)
+	sampledDFRepeat, err := df.SampleWithSeed(ctx, fraction, seed)
 	assert.NoError(t, err)
 	count2, err := sampledDFRepeat.Count(ctx)
 	assert.NoError(t, err)
@@ -930,7 +930,7 @@ func TestDataFrame_SampleWithReplacementSeed(t *testing.T) {
 	assert.NoError(t, err)
 	fraction := 0.1
 	seed := int64(17)
-	sampledDF, err := df.SampleWithReplacementSeed(ctx, true, fraction, seed)
+	sampledDF, err := df.SampleWithReplacementAndSeed(ctx, true, fraction, seed)
 	assert.NoError(t, err)
 	count, err := sampledDF.Count(ctx)
 	assert.NoError(t, err)
@@ -939,7 +939,7 @@ func TestDataFrame_SampleWithReplacementSeed(t *testing.T) {
 	rows, err := sampledDF.Collect(ctx)
 	assert.NoError(t, err)
 	// same seed should return same output
-	sampledDFRepeat, err := df.SampleWithReplacementSeed(ctx, true, fraction, seed)
+	sampledDFRepeat, err := df.SampleWithReplacementAndSeed(ctx, true, fraction, seed)
 	assert.NoError(t, err)
 	count2, err := sampledDFRepeat.Count(ctx)
 	assert.NoError(t, err)
