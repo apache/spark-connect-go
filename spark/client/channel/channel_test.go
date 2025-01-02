@@ -96,3 +96,19 @@ func TestChannelBuildConnect(t *testing.T) {
 	assert.Nil(t, err, "no error for proper connection")
 	assert.NotNil(t, conn)
 }
+
+func TestChannelBulder_UserAgent(t *testing.T) {
+	cb, err := channel.NewBuilder("sc://localhost")
+	assert.NoError(t, err)
+	assert.True(t, strings.Contains(cb.UserAgent(), "_SPARK_CONNECT_GO"))
+	assert.True(t, strings.Contains(cb.UserAgent(), "go/"))
+	assert.True(t, strings.Contains(cb.UserAgent(), "spark/"))
+	assert.True(t, strings.Contains(cb.UserAgent(), "os/"))
+
+	cb, err = channel.NewBuilder("sc://localhost/;user_agent=custom")
+	assert.NoError(t, err)
+	assert.True(t, strings.Contains(cb.UserAgent(), "custom"))
+	assert.True(t, strings.Contains(cb.UserAgent(), "go/"))
+	assert.True(t, strings.Contains(cb.UserAgent(), "spark/"))
+	assert.True(t, strings.Contains(cb.UserAgent(), "os/"))
+}
