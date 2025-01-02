@@ -21,7 +21,7 @@ require (
 	github.com/apache/arrow-go/v18 v18.0.0
 	github.com/go-errors/errors v1.5.1
 	github.com/google/uuid v1.6.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53
 	google.golang.org/grpc v1.69.2
 	google.golang.org/protobuf v1.36.1
