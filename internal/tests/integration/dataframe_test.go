@@ -1039,3 +1039,24 @@ func TestDataFrame_DFNaFunctions(t *testing.T) {
 
 	assert.Equal(t, "Bob", rows[0].At(2))
 }
+
+func TestDataFrame_RangeIter(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	cnt := 0
+	for row, err := range df.All(ctx) {
+		assert.NoError(t, err)
+		assert.NotNil(t, row)
+		cnt++
+	}
+	assert.Equal(t, 10, cnt)
+
+	// Check that errors are properly propagated
+	df, err = spark.Sql(ctx, "select if(id = 5, raise_error('handle'), false) from range(10)")
+	assert.NoError(t, err)
+	for _, err := range df.All(ctx) {
+		// The error is immediately thrown:
+		assert.Error(t, err)
+	}
+}
