@@ -18,6 +18,7 @@ package sql
 import (
 	"context"
 	"fmt"
+	"iter"
 	"math/rand/v2"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -41,6 +42,7 @@ type ResultCollector interface {
 type DataFrame interface {
 	// PlanId returns the plan id of the data frame.
 	PlanId() int64
+	All(ctx context.Context) iter.Seq2[types.Row, error]
 	Agg(ctx context.Context, exprs ...column.Convertible) (DataFrame, error)
 	AggWithMap(ctx context.Context, exprs map[string]string) (DataFrame, error)
 	// Alias creates a new DataFrame with the specified subquery alias
@@ -1647,4 +1649,19 @@ func (df *dataFrameImpl) DropNaWithThreshold(ctx context.Context, thresh int32, 
 
 func (df *dataFrameImpl) Na() DataFrameNaFunctions {
 	return &dataFrameNaFunctionsImpl{dataFrame: df}
+}
+
+func (df *dataFrameImpl) All(ctx context.Context) iter.Seq2[types.Row, error] {
+	data, err := df.Collect(ctx)
+	return func(yield func(types.Row, error) bool) {
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+		for _, row := range data {
+			if !yield(row, nil) {
+				break
+			}
+		}
+	}
 }
