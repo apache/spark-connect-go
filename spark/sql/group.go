@@ -19,6 +19,8 @@ package sql
 import (
 	"context"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+
 	proto "github.com/apache/spark-connect-go/v35/internal/generated"
 	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
 	"github.com/apache/spark-connect-go/v35/spark/sql/column"
@@ -29,13 +31,13 @@ type GroupedData struct {
 	df           *dataFrameImpl
 	groupType    string
 	groupingCols []column.Convertible
-	pivotValues  []any
+	pivotValues  []types.LiteralType
 	pivotCol     column.Convertible
 }
 
 // Agg compute aggregates and returns the result as a DataFrame. The aggegrate expressions
 // are passed as column.Column arguments.
-func (gd *GroupedData) Agg(ctx context.Context, exprs ...column.Column) (DataFrame, error) {
+func (gd *GroupedData) Agg(ctx context.Context, exprs ...column.Convertible) (DataFrame, error) {
 	if len(exprs) == 0 {
 		return nil, sparkerrors.WithString(sparkerrors.InvalidInputError, "exprs should not be empty")
 	}
@@ -142,7 +144,7 @@ func (gd *GroupedData) numericAgg(ctx context.Context, name string, cols ...stri
 		aggCols = numericCols
 	}
 
-	finalColumns := make([]column.Column, len(aggCols))
+	finalColumns := make([]column.Convertible, len(aggCols))
 	for i, col := range aggCols {
 		finalColumns[i] = column.NewColumn(column.NewUnresolvedFunctionWithColumns(name, functions.Col(col)))
 	}
@@ -171,7 +173,7 @@ func (gd *GroupedData) Sum(ctx context.Context, cols ...string) (DataFrame, erro
 
 // Count Computes the count value for each group.
 func (gd *GroupedData) Count(ctx context.Context) (DataFrame, error) {
-	return gd.Agg(ctx, functions.Count(functions.Lit(1)).Alias("count"))
+	return gd.Agg(ctx, functions.Count(functions.Lit(types.Int64(1))).Alias("count"))
 }
 
 // Mean Computes the average value for each numeric column for each group.
@@ -179,7 +181,7 @@ func (gd *GroupedData) Mean(ctx context.Context, cols ...string) (DataFrame, err
 	return gd.Avg(ctx, cols...)
 }
 
-func (gd *GroupedData) Pivot(ctx context.Context, pivotCol string, pivotValues []any) (*GroupedData, error) {
+func (gd *GroupedData) Pivot(ctx context.Context, pivotCol string, pivotValues []types.LiteralType) (*GroupedData, error) {
 	if gd.groupType != "groupby" {
 		if gd.groupType == "pivot" {
 			return nil, sparkerrors.WithString(sparkerrors.InvalidInputError, "pivot cannot be applied on pivot")

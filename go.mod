@@ -15,9 +15,7 @@
 
 module github.com/apache/spark-connect-go/v35
 
-go 1.22.0
-
-toolchain go1.23.2
+go 1.23.2
 
 require (
 	github.com/apache/arrow-go/v18 v18.0.0

@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+
 	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
 
 	"github.com/apache/spark-connect-go/v35/spark/sql"
@@ -68,7 +70,7 @@ func main() {
 	}
 
 	df, _ = spark.Sql(ctx, "select * from range(100)")
-	df, err = df.Filter(ctx, functions.Col("id").Lt(functions.Lit(20)))
+	df, err = df.Filter(ctx, functions.Col("id").Lt(functions.Lit(types.Int64(20))))
 	if err != nil {
 		log.Fatalf("Failed: %s", err)
 	}

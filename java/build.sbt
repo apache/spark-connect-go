@@ -14,36 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sql
+ThisBuild / version := "0.1.0-SNAPSHOT"
 
-import (
-	"context"
-	"testing"
+ThisBuild / scalaVersion := "2.12.19"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
-	"github.com/stretchr/testify/assert"
-)
+lazy val root = (project in file("."))
+  .settings(
+    name := "SparkConnectGoRunner"
+  )
 
-func TestDataFrameImpl_GroupBy(t *testing.T) {
-	ctx := context.Background()
-	rel := &proto.Relation{
-		RelType: &proto.Relation_Range{
-			Range: &proto.Range{
-				End:  10,
-				Step: 1,
-			},
-		},
-	}
-	df := NewDataFrame(nil, rel)
-	gd := df.GroupBy(functions.Col("id"))
-	assert.NotNil(t, gd)
-
-	assert.Equal(t, gd.groupType, "groupby")
-
-	df, err := gd.Agg(ctx, functions.Count(functions.Int64Lit(1)))
-	assert.Nil(t, err)
-	impl := df.(*dataFrameImpl)
-	assert.NotNil(t, impl)
-	assert.IsType(t, impl.relation.RelType, &proto.Relation_Aggregate{})
-}
+libraryDependencies += "org.apache.spark" %% "spark-sql-api" % "3.5.4"
+libraryDependencies += "org.apache.spark" %% "spark-sql" % "3.5.4"
+libraryDependencies += "org.apache.spark" %% "spark-core" % "3.5.4"
+libraryDependencies += "org.apache.spark" %% "spark-connect-common" % "3.5.4"
+libraryDependencies += "org.apache.spark" %% "spark-connect" % "3.5.4"
