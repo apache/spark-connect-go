@@ -1569,10 +1569,10 @@ func (df *dataFrameImpl) AggWithMap(ctx context.Context, exprs map[string]string
 func (df *dataFrameImpl) ApproxQuantile(ctx context.Context, probabilities []float64,
 	relativeError float64, cols ...string,
 ) ([][]float64, error) {
-  rel := &proto.Relation{
-	  Common: &proto.RelationCommon{
-		  PlanId: newPlanId(),
-		},    
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
 		RelType: &proto.Relation_ApproxQuantile{
 			ApproxQuantile: &proto.StatApproxQuantile{
 				Input:         df.relation,
@@ -1611,9 +1611,9 @@ func (df *dataFrameImpl) ApproxQuantile(ctx context.Context, probabilities []flo
 }
 
 func (df *dataFrameImpl) DropNa(ctx context.Context, subset ...string) (DataFrame, error) {
-  rel := &proto.Relation{
-	  Common: &proto.RelationCommon{
-	    PlanId: newPlanId(),
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
 		},
 		RelType: &proto.Relation_DropNa{
 			DropNa: &proto.NADrop{
