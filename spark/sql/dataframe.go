@@ -1,4 +1,3 @@
-//
 // Licensed to the Apache Software Foundation (ASF) under one or more
 // contributor license agreements.  See the NOTICE file distributed with
 // this work for additional information regarding copyright ownership.
@@ -104,6 +103,13 @@ type DataFrame interface {
 	DropByName(ctx context.Context, columns ...string) (DataFrame, error)
 	// DropDuplicates returns a new DataFrame that contains only the unique rows from this DataFrame.
 	DropDuplicates(ctx context.Context, columns ...string) (DataFrame, error)
+	// Drops all rows containing any null or NaN values. This is similar to PySparks dropna with how=any
+	DropNa(ctx context.Context, cols ...string) (DataFrame, error)
+	// Drops all rows containing all null or NaN values in the specified columns. This is
+	// similar to PySparks dropna with how=all
+	DropNaAll(ctx context.Context, cols ...string) (DataFrame, error)
+	// Drops all rows containing null or NaN values in the specified columns. with a max threshold.
+	DropNaWithThreshold(ctx context.Context, threshold int32, cols ...string) (DataFrame, error)
 	// ExceptAll is similar to Substract but does not perform the distinct operation.
 	ExceptAll(ctx context.Context, other DataFrame) DataFrame
 	// Explain returns the string explain plan for the current DataFrame according to the explainMode.
@@ -140,6 +146,7 @@ type DataFrame interface {
 	// Melt is an alias for Unpivot.
 	Melt(ctx context.Context, ids []column.Convertible, values []column.Convertible,
 		variableColumnName string, valueColumnName string) (DataFrame, error)
+	Na() DataFrameNaFunctions
 	// Offset returns a new DataFrame by skipping the first `offset` rows.
 	Offset(ctx context.Context, offset int32) DataFrame
 	// OrderBy is an alias for Sort
@@ -1533,4 +1540,43 @@ func (df *dataFrameImpl) FillNaWithValues(ctx context.Context,
 		columns = append(columns, k)
 	}
 	return makeDataframeWithFillNaRelation(df, valueLiterals, columns), nil
+}
+
+func (df *dataFrameImpl) DropNa(ctx context.Context, subset ...string) (DataFrame, error) {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_DropNa{
+			DropNa: &proto.NADrop{
+				Input: df.relation,
+				Cols:  subset,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) DropNaAll(ctx context.Context, subset ...string) (DataFrame, error) {
+	return df.DropNaWithThreshold(ctx, 1, subset...)
+}
+
+func (df *dataFrameImpl) DropNaWithThreshold(ctx context.Context, thresh int32, subset ...string) (DataFrame, error) {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_DropNa{
+			DropNa: &proto.NADrop{
+				Input:       df.relation,
+				MinNonNulls: &thresh,
+				Cols:        subset,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) Na() DataFrameNaFunctions {
+	return &dataFrameNaFunctionsImpl{dataFrame: df}
 }
