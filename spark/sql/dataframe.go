@@ -41,6 +41,8 @@ type ResultCollector interface {
 type DataFrame interface {
 	// PlanId returns the plan id of the data frame.
 	PlanId() int64
+	Agg(ctx context.Context, exprs ...column.Convertible) (DataFrame, error)
+	AggWithMap(ctx context.Context, exprs map[string]string) (DataFrame, error)
 	// Alias creates a new DataFrame with the specified subquery alias
 	Alias(ctx context.Context, alias string) DataFrame
 	// Cache persists the DataFrame with the default storage level.
@@ -1540,6 +1542,22 @@ func (df *dataFrameImpl) FillNaWithValues(ctx context.Context,
 		columns = append(columns, k)
 	}
 	return makeDataframeWithFillNaRelation(df, valueLiterals, columns), nil
+}
+
+func (df *dataFrameImpl) Agg(ctx context.Context, cols ...column.Convertible) (DataFrame, error) {
+	return df.GroupBy().Agg(ctx, cols...)
+}
+
+func (df *dataFrameImpl) AggWithMap(ctx context.Context, exprs map[string]string) (DataFrame, error) {
+	funs := make([]column.Convertible, 0)
+	for k, v := range exprs {
+		// Convert the column name to a column expression.
+		col := column.OfDF(df, k)
+		// Convert the value string to an unresolved function name.
+		fun := column.NewUnresolvedFunctionWithColumns(v, col)
+		funs = append(funs, fun)
+	}
+	return df.Agg(ctx, funs...)
 }
 
 func (df *dataFrameImpl) DropNa(ctx context.Context, subset ...string) (DataFrame, error) {

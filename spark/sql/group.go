@@ -37,7 +37,7 @@ type GroupedData struct {
 
 // Agg compute aggregates and returns the result as a DataFrame. The aggegrate expressions
 // are passed as column.Column arguments.
-func (gd *GroupedData) Agg(ctx context.Context, exprs ...column.Column) (DataFrame, error) {
+func (gd *GroupedData) Agg(ctx context.Context, exprs ...column.Convertible) (DataFrame, error) {
 	if len(exprs) == 0 {
 		return nil, sparkerrors.WithString(sparkerrors.InvalidInputError, "exprs should not be empty")
 	}
@@ -144,7 +144,7 @@ func (gd *GroupedData) numericAgg(ctx context.Context, name string, cols ...stri
 		aggCols = numericCols
 	}
 
-	finalColumns := make([]column.Column, len(aggCols))
+	finalColumns := make([]column.Convertible, len(aggCols))
 	for i, col := range aggCols {
 		finalColumns[i] = column.NewColumn(column.NewUnresolvedFunctionWithColumns(name, functions.Col(col)))
 	}
