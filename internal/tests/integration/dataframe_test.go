@@ -925,3 +925,56 @@ func TestDataFrame_FillNa(t *testing.T) {
 	assert.Equal(t, []any{nil, int64(12), int64(20)}, res[0].Values())
 	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[1].Values())
 }
+
+func TestDataFrame_DFNaFunctions(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{
+		{10, 80.5, "Alice", true},
+		{5, nil, "Bob", nil},
+		{nil, nil, "Tom", nil},
+		{nil, nil, nil, nil},
+	}
+	schema := types.StructOf(
+		types.NewStructField("age", types.INTEGER),
+		types.NewStructField("height", types.DOUBLE),
+		types.NewStructField("name", types.STRING),
+		types.NewStructField("bool", types.BOOLEAN),
+	)
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+
+	res, err := df.Na().Drop(ctx)
+	assert.NoError(t, err)
+	rows, err := res.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, rows, 1)
+	assert.Equal(t, rows[0].At(2), "Alice")
+
+	res, err = df.Na().DropAll(ctx)
+	assert.NoError(t, err)
+	rows, err = res.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, rows, 3)
+
+	// Fill must only use long types
+	res, err = df.Na().Fill(ctx, types.Int64(50))
+	assert.NoError(t, err)
+	rows, err = res.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, rows, 4)
+
+	assert.Equal(t, int32(50), rows[2].At(0))
+	assert.Equal(t, int32(50), rows[3].At(0))
+	assert.Equal(t, float64(50), rows[2].At(1))
+	assert.Equal(t, float64(50), rows[3].At(1))
+
+	res, err = df.Na().Replace(ctx, []types.PrimitiveTypeLiteral{types.String("Alice")}, []types.PrimitiveTypeLiteral{
+		types.String("Bob"),
+	})
+	assert.NoError(t, err)
+	rows, err = res.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, rows, 4)
+
+	assert.Equal(t, "Bob", rows[0].At(2))
+}
