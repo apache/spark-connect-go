@@ -26,11 +26,11 @@ import (
 var rowImplSample rowImpl = rowImpl{
 	values: []any{1, 2, 3, 4, 5},
 	offsets: map[string]int{
+		"five":  4,
 		"one":   0,
 		"two":   1,
-		"three": 2,
 		"four":  3,
-		"five":  4,
+		"three": 2,
 	},
 }
 

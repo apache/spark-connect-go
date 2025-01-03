@@ -16,6 +16,10 @@
 
 package types
 
+import (
+	"maps"
+)
+
 type Row interface {
 	// At returns field's value at the given index within a [Row].
 	// It returns nil for invalid indices.
@@ -59,9 +63,10 @@ func (r *rowImpl) Len() int {
 }
 
 func (r *rowImpl) FieldNames() []string {
-	names := make([]string, 0, len(r.offsets))
-	for name := range r.offsets {
-		names = append(names, name)
+	names := make([]string, len(r.offsets))
+	// Sort the field names to make the output deterministic.
+	for k, v := range maps.All(r.offsets) {
+		names[v] = k
 	}
 	return names
 }
