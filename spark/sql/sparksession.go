@@ -93,9 +93,15 @@ func (s *SparkSessionBuilder) Build(ctx context.Context) (SparkSession, error) {
 	}
 
 	sessionId := uuid.NewString()
+
+	// Update the options according to the configuration.
+	opts := options.NewSparkClientOptions(options.DefaultSparkClientOptions.ReattachExecution)
+	opts.UserAgent = s.channelBuilder.UserAgent()
+	opts.UserId = s.channelBuilder.User()
+
 	return &sparkSessionImpl{
 		sessionId: sessionId,
-		client:    client.NewSparkExecutor(conn, meta, sessionId, options.DefaultSparkClientOptions),
+		client:    client.NewSparkExecutor(conn, meta, sessionId, opts),
 	}, nil
 }
 
