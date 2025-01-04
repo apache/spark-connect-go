@@ -1204,3 +1204,27 @@ func TestDataFrame_RangeIter(t *testing.T) {
 		assert.Error(t, err)
 	}
 }
+
+func TestDataFrame_Dtypes(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{
+		{"bob", "Developer", 125000, 1},
+	}
+	schema := types.StructOf(
+		types.NewStructField("Name", types.STRING),
+		types.NewStructField("Role", types.STRING),
+		types.NewStructField("Salary", types.LONG),
+		types.NewStructField("Performance", types.LONG),
+	)
+
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	require.NoError(t, err)
+	dtypes, err := df.Dtypes(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []sql.DataTypeInfo{
+		{Name: "Name", Type: "string"},
+		{Name: "Role", Type: "string"},
+		{Name: "Salary", Type: "bigint"},
+		{Name: "Performance", Type: "bigint"},
+	}, dtypes)
+}
