@@ -137,6 +137,22 @@ func TestReadArrowRecord(t *testing.T) {
 			Name: "map_string_int32",
 			Type: arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32),
 		},
+		{
+			Name: "struct",
+			Type: arrow.StructOf(
+				arrow.Field{Name: "field1", Type: arrow.PrimitiveTypes.Int32},
+				arrow.Field{Name: "field2", Type: arrow.BinaryTypes.String},
+			),
+		},
+		{
+			Name: "nested_struct",
+			Type: arrow.StructOf(
+				arrow.Field{Name: "field1", Type: arrow.StructOf(
+					arrow.Field{Name: "nested_field1", Type: arrow.PrimitiveTypes.Int32},
+					arrow.Field{Name: "nested_field2", Type: arrow.BinaryTypes.String},
+				)},
+			),
+		},
 	}
 	arrowSchema := arrow.NewSchema(arrowFields, nil)
 	var buf bytes.Buffer
@@ -224,6 +240,30 @@ func TestReadArrowRecord(t *testing.T) {
 	mb.KeyBuilder().(*array.StringBuilder).Append("key2")
 	mb.ItemBuilder().(*array.Int32Builder).Append(2)
 
+	i++
+	sb := recordBuilder.Field(i).(*array.StructBuilder)
+	sb.Append(true)
+	sb.FieldBuilder(0).(*array.Int32Builder).Append(1)
+	sb.FieldBuilder(1).(*array.StringBuilder).Append("str1")
+
+	sb.Append(true)
+	sb.FieldBuilder(0).(*array.Int32Builder).Append(2)
+	sb.FieldBuilder(1).(*array.StringBuilder).Append("str2")
+
+	i++
+	sb = recordBuilder.Field(i).(*array.StructBuilder)
+	sb.Append(true)
+	nsb := sb.FieldBuilder(0).(*array.StructBuilder)
+	nsb.Append(true)
+	nsb.FieldBuilder(0).(*array.Int32Builder).Append(1)
+	nsb.FieldBuilder(1).(*array.StringBuilder).Append("str1_nested")
+
+	sb.Append(true)
+	nsb = sb.FieldBuilder(0).(*array.StructBuilder)
+	nsb.Append(true)
+	nsb.FieldBuilder(0).(*array.Int32Builder).Append(2)
+	nsb.FieldBuilder(1).(*array.StringBuilder).Append("str2_nested")
+
 	record := recordBuilder.NewRecord()
 	defer record.Release()
 
@@ -239,6 +279,13 @@ func TestReadArrowRecord(t *testing.T) {
 		arrow.Timestamp(1686981953115000), arrow.Date64(1686981953117000),
 		[]any{int64(1), int64(-999231)},
 		map[any]any{"key1": int32(1)},
+		map[string]any{"field1": int32(1), "field2": "str1"},
+		map[string]any{
+			"field1": map[string]any{
+				"nested_field1": int32(1),
+				"nested_field2": "str1_nested",
+			},
+		},
 	},
 		values[0].Values())
 	assert.Equal(t, []any{
@@ -249,6 +296,13 @@ func TestReadArrowRecord(t *testing.T) {
 		arrow.Timestamp(1686981953116000), arrow.Date64(1686981953118000),
 		[]any{int64(1), int64(2), int64(3)},
 		map[any]any{"key2": int32(2)},
+		map[string]any{"field1": int32(2), "field2": "str2"},
+		map[string]any{
+			"field1": map[string]any{
+				"nested_field1": int32(2),
+				"nested_field2": "str2_nested",
+			},
+		},
 	},
 		values[1].Values())
 }
