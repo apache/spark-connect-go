@@ -271,7 +271,7 @@ func readArrayData(t arrow.Type, data arrow.ArrayData) ([]any, error) {
 			}
 			tmp := make(map[string]any)
 
-			for j := 0; j < data.NumField(); j++ {
+			for j := range data.NumField() {
 				field := data.Field(j)
 				fieldValues, err := readArrayData(field.DataType().ID(), field.Data())
 				if err != nil {
