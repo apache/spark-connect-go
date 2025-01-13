@@ -260,6 +260,27 @@ func readArrayData(t arrow.Type, data arrow.ArrayData) ([]any, error) {
 			}
 			buf = append(buf, tmp)
 		}
+	case arrow.STRUCT:
+		data := array.NewStructData(data)
+		schema := data.DataType().(*arrow.StructType)
+
+		for i := 0; i < data.Len(); i++ {
+			if data.IsNull(i) {
+				buf = append(buf, nil)
+				continue
+			}
+			tmp := make(map[string]any)
+
+			for j := range data.NumField() {
+				field := data.Field(j)
+				fieldValues, err := readArrayData(field.DataType().ID(), field.Data())
+				if err != nil {
+					return nil, err
+				}
+				tmp[schema.Field(j).Name] = fieldValues[i]
+			}
+			buf = append(buf, tmp)
+		}
 	default:
 		return nil, fmt.Errorf("unsupported arrow data type %s", t.String())
 	}
