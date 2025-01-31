@@ -67,7 +67,7 @@ jobs:
           distribution: zulu
 
       - name: Cache Spark Installation
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         id: cache
         with:
           key: v2-spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
