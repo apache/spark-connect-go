@@ -117,11 +117,12 @@ jobs:
         run: |
           export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
           make coverage
-      - uses: PaloAltoNetworks/cov@3.0.0
-        with:
-          cov_mode: coverage
-          main_branch: master
-          cov_threshold: 60
+# Disable the code coverage check for now until https://github.com/PaloAltoNetworks/cov/issues/8 is fixed.
+#      - uses: PaloAltoNetworks/cov@3.0.0
+#        with:
+#          cov_mode: coverage
+#          main_branch: master
+#          cov_threshold: 60
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
