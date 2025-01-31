@@ -53,7 +53,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         name: Setup Go
         with:
           go-version-file: 'go.mod'
@@ -67,7 +67,7 @@ jobs:
           distribution: zulu
 
       - name: Cache Spark Installation
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         id: cache
         with:
           key: v2-spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
@@ -117,11 +117,12 @@ jobs:
         run: |
           export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
           make coverage
-      - uses: PaloAltoNetworks/cov@3.0.0
-        with:
-          cov_mode: coverage
-          main_branch: master
-          cov_threshold: 60
+# Disable the code coverage check for now until https://github.com/PaloAltoNetworks/cov/issues/8 is fixed.
+#      - uses: PaloAltoNetworks/cov@3.0.0
+#        with:
+#          cov_mode: coverage
+#          main_branch: master
+#          cov_threshold: 60
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
