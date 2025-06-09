@@ -180,6 +180,836 @@ func (x *ResourceInformation) GetAddresses() []string {
 	return nil
 }
 
+// An executor resource request.
+type ExecutorResourceRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// (Required) resource name.
+	ResourceName string `protobuf:"bytes,1,opt,name=resource_name,json=resourceName,proto3" json:"resource_name,omitempty"`
+	// (Required) resource amount requesting.
+	Amount int64 `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	// Optional script used to discover the resources.
+	DiscoveryScript *string `protobuf:"bytes,3,opt,name=discovery_script,json=discoveryScript,proto3,oneof" json:"discovery_script,omitempty"`
+	// Optional vendor, required for some cluster managers.
+	Vendor *string `protobuf:"bytes,4,opt,name=vendor,proto3,oneof" json:"vendor,omitempty"`
+}
+
+func (x *ExecutorResourceRequest) Reset() {
+	*x = ExecutorResourceRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ExecutorResourceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecutorResourceRequest) ProtoMessage() {}
+
+func (x *ExecutorResourceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecutorResourceRequest.ProtoReflect.Descriptor instead.
+func (*ExecutorResourceRequest) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ExecutorResourceRequest) GetResourceName() string {
+	if x != nil {
+		return x.ResourceName
+	}
+	return ""
+}
+
+func (x *ExecutorResourceRequest) GetAmount() int64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
+func (x *ExecutorResourceRequest) GetDiscoveryScript() string {
+	if x != nil && x.DiscoveryScript != nil {
+		return *x.DiscoveryScript
+	}
+	return ""
+}
+
+func (x *ExecutorResourceRequest) GetVendor() string {
+	if x != nil && x.Vendor != nil {
+		return *x.Vendor
+	}
+	return ""
+}
+
+// A task resource request.
+type TaskResourceRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// (Required) resource name.
+	ResourceName string `protobuf:"bytes,1,opt,name=resource_name,json=resourceName,proto3" json:"resource_name,omitempty"`
+	// (Required) resource amount requesting as a double to support fractional
+	// resource requests.
+	Amount float64 `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
+}
+
+func (x *TaskResourceRequest) Reset() {
+	*x = TaskResourceRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *TaskResourceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskResourceRequest) ProtoMessage() {}
+
+func (x *TaskResourceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskResourceRequest.ProtoReflect.Descriptor instead.
+func (*TaskResourceRequest) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *TaskResourceRequest) GetResourceName() string {
+	if x != nil {
+		return x.ResourceName
+	}
+	return ""
+}
+
+func (x *TaskResourceRequest) GetAmount() float64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
+type ResourceProfile struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// (Optional) Resource requests for executors. Mapped from the resource name
+	// (e.g., cores, memory, CPU) to its specific request.
+	ExecutorResources map[string]*ExecutorResourceRequest `protobuf:"bytes,1,rep,name=executor_resources,json=executorResources,proto3" json:"executor_resources,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// (Optional) Resource requests for tasks. Mapped from the resource name
+	// (e.g., cores, memory, CPU) to its specific request.
+	TaskResources map[string]*TaskResourceRequest `protobuf:"bytes,2,rep,name=task_resources,json=taskResources,proto3" json:"task_resources,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (x *ResourceProfile) Reset() {
+	*x = ResourceProfile{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ResourceProfile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResourceProfile) ProtoMessage() {}
+
+func (x *ResourceProfile) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResourceProfile.ProtoReflect.Descriptor instead.
+func (*ResourceProfile) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ResourceProfile) GetExecutorResources() map[string]*ExecutorResourceRequest {
+	if x != nil {
+		return x.ExecutorResources
+	}
+	return nil
+}
+
+func (x *ResourceProfile) GetTaskResources() map[string]*TaskResourceRequest {
+	if x != nil {
+		return x.TaskResources
+	}
+	return nil
+}
+
+type Origin struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// (Required) Indicate the origin type.
+	//
+	// Types that are assignable to Function:
+	//
+	//	*Origin_PythonOrigin
+	//	*Origin_JvmOrigin
+	Function isOrigin_Function `protobuf_oneof:"function"`
+}
+
+func (x *Origin) Reset() {
+	*x = Origin{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Origin) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Origin) ProtoMessage() {}
+
+func (x *Origin) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Origin.ProtoReflect.Descriptor instead.
+func (*Origin) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{5}
+}
+
+func (m *Origin) GetFunction() isOrigin_Function {
+	if m != nil {
+		return m.Function
+	}
+	return nil
+}
+
+func (x *Origin) GetPythonOrigin() *PythonOrigin {
+	if x, ok := x.GetFunction().(*Origin_PythonOrigin); ok {
+		return x.PythonOrigin
+	}
+	return nil
+}
+
+func (x *Origin) GetJvmOrigin() *JvmOrigin {
+	if x, ok := x.GetFunction().(*Origin_JvmOrigin); ok {
+		return x.JvmOrigin
+	}
+	return nil
+}
+
+type isOrigin_Function interface {
+	isOrigin_Function()
+}
+
+type Origin_PythonOrigin struct {
+	PythonOrigin *PythonOrigin `protobuf:"bytes,1,opt,name=python_origin,json=pythonOrigin,proto3,oneof"`
+}
+
+type Origin_JvmOrigin struct {
+	JvmOrigin *JvmOrigin `protobuf:"bytes,2,opt,name=jvm_origin,json=jvmOrigin,proto3,oneof"`
+}
+
+func (*Origin_PythonOrigin) isOrigin_Function() {}
+
+func (*Origin_JvmOrigin) isOrigin_Function() {}
+
+type PythonOrigin struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// (Required) Name of the origin, for example, the name of the function
+	Fragment string `protobuf:"bytes,1,opt,name=fragment,proto3" json:"fragment,omitempty"`
+	// (Required) Callsite to show to end users, for example, stacktrace.
+	CallSite string `protobuf:"bytes,2,opt,name=call_site,json=callSite,proto3" json:"call_site,omitempty"`
+}
+
+func (x *PythonOrigin) Reset() {
+	*x = PythonOrigin{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PythonOrigin) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PythonOrigin) ProtoMessage() {}
+
+func (x *PythonOrigin) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PythonOrigin.ProtoReflect.Descriptor instead.
+func (*PythonOrigin) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *PythonOrigin) GetFragment() string {
+	if x != nil {
+		return x.Fragment
+	}
+	return ""
+}
+
+func (x *PythonOrigin) GetCallSite() string {
+	if x != nil {
+		return x.CallSite
+	}
+	return ""
+}
+
+type JvmOrigin struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// (Optional) Line number in the source file.
+	Line *int32 `protobuf:"varint,1,opt,name=line,proto3,oneof" json:"line,omitempty"`
+	// (Optional) Start position in the source file.
+	StartPosition *int32 `protobuf:"varint,2,opt,name=start_position,json=startPosition,proto3,oneof" json:"start_position,omitempty"`
+	// (Optional) Start index in the source file.
+	StartIndex *int32 `protobuf:"varint,3,opt,name=start_index,json=startIndex,proto3,oneof" json:"start_index,omitempty"`
+	// (Optional) Stop index in the source file.
+	StopIndex *int32 `protobuf:"varint,4,opt,name=stop_index,json=stopIndex,proto3,oneof" json:"stop_index,omitempty"`
+	// (Optional) SQL text.
+	SqlText *string `protobuf:"bytes,5,opt,name=sql_text,json=sqlText,proto3,oneof" json:"sql_text,omitempty"`
+	// (Optional) Object type.
+	ObjectType *string `protobuf:"bytes,6,opt,name=object_type,json=objectType,proto3,oneof" json:"object_type,omitempty"`
+	// (Optional) Object name.
+	ObjectName *string `protobuf:"bytes,7,opt,name=object_name,json=objectName,proto3,oneof" json:"object_name,omitempty"`
+	// (Optional) Stack trace.
+	StackTrace []*StackTraceElement `protobuf:"bytes,8,rep,name=stack_trace,json=stackTrace,proto3" json:"stack_trace,omitempty"`
+}
+
+func (x *JvmOrigin) Reset() {
+	*x = JvmOrigin{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *JvmOrigin) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JvmOrigin) ProtoMessage() {}
+
+func (x *JvmOrigin) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JvmOrigin.ProtoReflect.Descriptor instead.
+func (*JvmOrigin) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *JvmOrigin) GetLine() int32 {
+	if x != nil && x.Line != nil {
+		return *x.Line
+	}
+	return 0
+}
+
+func (x *JvmOrigin) GetStartPosition() int32 {
+	if x != nil && x.StartPosition != nil {
+		return *x.StartPosition
+	}
+	return 0
+}
+
+func (x *JvmOrigin) GetStartIndex() int32 {
+	if x != nil && x.StartIndex != nil {
+		return *x.StartIndex
+	}
+	return 0
+}
+
+func (x *JvmOrigin) GetStopIndex() int32 {
+	if x != nil && x.StopIndex != nil {
+		return *x.StopIndex
+	}
+	return 0
+}
+
+func (x *JvmOrigin) GetSqlText() string {
+	if x != nil && x.SqlText != nil {
+		return *x.SqlText
+	}
+	return ""
+}
+
+func (x *JvmOrigin) GetObjectType() string {
+	if x != nil && x.ObjectType != nil {
+		return *x.ObjectType
+	}
+	return ""
+}
+
+func (x *JvmOrigin) GetObjectName() string {
+	if x != nil && x.ObjectName != nil {
+		return *x.ObjectName
+	}
+	return ""
+}
+
+func (x *JvmOrigin) GetStackTrace() []*StackTraceElement {
+	if x != nil {
+		return x.StackTrace
+	}
+	return nil
+}
+
+// A message to hold a [[java.lang.StackTraceElement]].
+type StackTraceElement struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// (Optional) Class loader name
+	ClassLoaderName *string `protobuf:"bytes,1,opt,name=class_loader_name,json=classLoaderName,proto3,oneof" json:"class_loader_name,omitempty"`
+	// (Optional) Module name
+	ModuleName *string `protobuf:"bytes,2,opt,name=module_name,json=moduleName,proto3,oneof" json:"module_name,omitempty"`
+	// (Optional) Module version
+	ModuleVersion *string `protobuf:"bytes,3,opt,name=module_version,json=moduleVersion,proto3,oneof" json:"module_version,omitempty"`
+	// (Required) Declaring class
+	DeclaringClass string `protobuf:"bytes,4,opt,name=declaring_class,json=declaringClass,proto3" json:"declaring_class,omitempty"`
+	// (Required) Method name
+	MethodName string `protobuf:"bytes,5,opt,name=method_name,json=methodName,proto3" json:"method_name,omitempty"`
+	// (Optional) File name
+	FileName *string `protobuf:"bytes,6,opt,name=file_name,json=fileName,proto3,oneof" json:"file_name,omitempty"`
+	// (Required) Line number
+	LineNumber int32 `protobuf:"varint,7,opt,name=line_number,json=lineNumber,proto3" json:"line_number,omitempty"`
+}
+
+func (x *StackTraceElement) Reset() {
+	*x = StackTraceElement{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *StackTraceElement) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StackTraceElement) ProtoMessage() {}
+
+func (x *StackTraceElement) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StackTraceElement.ProtoReflect.Descriptor instead.
+func (*StackTraceElement) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *StackTraceElement) GetClassLoaderName() string {
+	if x != nil && x.ClassLoaderName != nil {
+		return *x.ClassLoaderName
+	}
+	return ""
+}
+
+func (x *StackTraceElement) GetModuleName() string {
+	if x != nil && x.ModuleName != nil {
+		return *x.ModuleName
+	}
+	return ""
+}
+
+func (x *StackTraceElement) GetModuleVersion() string {
+	if x != nil && x.ModuleVersion != nil {
+		return *x.ModuleVersion
+	}
+	return ""
+}
+
+func (x *StackTraceElement) GetDeclaringClass() string {
+	if x != nil {
+		return x.DeclaringClass
+	}
+	return ""
+}
+
+func (x *StackTraceElement) GetMethodName() string {
+	if x != nil {
+		return x.MethodName
+	}
+	return ""
+}
+
+func (x *StackTraceElement) GetFileName() string {
+	if x != nil && x.FileName != nil {
+		return *x.FileName
+	}
+	return ""
+}
+
+func (x *StackTraceElement) GetLineNumber() int32 {
+	if x != nil {
+		return x.LineNumber
+	}
+	return 0
+}
+
+type Bools struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Values []bool `protobuf:"varint,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+}
+
+func (x *Bools) Reset() {
+	*x = Bools{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Bools) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Bools) ProtoMessage() {}
+
+func (x *Bools) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Bools.ProtoReflect.Descriptor instead.
+func (*Bools) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *Bools) GetValues() []bool {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type Ints struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Values []int32 `protobuf:"varint,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+}
+
+func (x *Ints) Reset() {
+	*x = Ints{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Ints) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Ints) ProtoMessage() {}
+
+func (x *Ints) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Ints.ProtoReflect.Descriptor instead.
+func (*Ints) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *Ints) GetValues() []int32 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type Longs struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Values []int64 `protobuf:"varint,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+}
+
+func (x *Longs) Reset() {
+	*x = Longs{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Longs) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Longs) ProtoMessage() {}
+
+func (x *Longs) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Longs.ProtoReflect.Descriptor instead.
+func (*Longs) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *Longs) GetValues() []int64 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type Floats struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Values []float32 `protobuf:"fixed32,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+}
+
+func (x *Floats) Reset() {
+	*x = Floats{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[12]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Floats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Floats) ProtoMessage() {}
+
+func (x *Floats) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[12]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Floats.ProtoReflect.Descriptor instead.
+func (*Floats) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *Floats) GetValues() []float32 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type Doubles struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Values []float64 `protobuf:"fixed64,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+}
+
+func (x *Doubles) Reset() {
+	*x = Doubles{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[13]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Doubles) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Doubles) ProtoMessage() {}
+
+func (x *Doubles) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[13]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Doubles.ProtoReflect.Descriptor instead.
+func (*Doubles) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *Doubles) GetValues() []float64 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type Strings struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Values []string `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+}
+
+func (x *Strings) Reset() {
+	*x = Strings{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_spark_connect_common_proto_msgTypes[14]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Strings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Strings) ProtoMessage() {}
+
+func (x *Strings) ProtoReflect() protoreflect.Message {
+	mi := &file_spark_connect_common_proto_msgTypes[14]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Strings.ProtoReflect.Descriptor instead.
+func (*Strings) Descriptor() ([]byte, []int) {
+	return file_spark_connect_common_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *Strings) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
 var File_spark_connect_common_proto protoreflect.FileDescriptor
 
 var file_spark_connect_common_proto_rawDesc = []byte{
@@ -201,11 +1031,132 @@ var file_spark_connect_common_proto_rawDesc = []byte{
 	0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20,
 	0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x1c, 0x0a, 0x09, 0x61, 0x64, 0x64,
 	0x72, 0x65, 0x73, 0x73, 0x65, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52, 0x09, 0x61, 0x64,
-	0x64, 0x72, 0x65, 0x73, 0x73, 0x65, 0x73, 0x42, 0x36, 0x0a, 0x1e, 0x6f, 0x72, 0x67, 0x2e, 0x61,
-	0x70, 0x61, 0x63, 0x68, 0x65, 0x2e, 0x73, 0x70, 0x61, 0x72, 0x6b, 0x2e, 0x63, 0x6f, 0x6e, 0x6e,
-	0x65, 0x63, 0x74, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x12, 0x69, 0x6e, 0x74,
-	0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x67, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74, 0x65, 0x64, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x64, 0x72, 0x65, 0x73, 0x73, 0x65, 0x73, 0x22, 0xc3, 0x01, 0x0a, 0x17, 0x45, 0x78, 0x65, 0x63,
+	0x75, 0x74, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x12, 0x23, 0x0a, 0x0d, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x5f,
+	0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x72, 0x65, 0x73, 0x6f,
+	0x75, 0x72, 0x63, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x61, 0x6d, 0x6f, 0x75,
+	0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e, 0x74,
+	0x12, 0x2e, 0x0a, 0x10, 0x64, 0x69, 0x73, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x79, 0x5f, 0x73, 0x63,
+	0x72, 0x69, 0x70, 0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x0f, 0x64, 0x69,
+	0x73, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x79, 0x53, 0x63, 0x72, 0x69, 0x70, 0x74, 0x88, 0x01, 0x01,
+	0x12, 0x1b, 0x0a, 0x06, 0x76, 0x65, 0x6e, 0x64, 0x6f, 0x72, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09,
+	0x48, 0x01, 0x52, 0x06, 0x76, 0x65, 0x6e, 0x64, 0x6f, 0x72, 0x88, 0x01, 0x01, 0x42, 0x13, 0x0a,
+	0x11, 0x5f, 0x64, 0x69, 0x73, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x79, 0x5f, 0x73, 0x63, 0x72, 0x69,
+	0x70, 0x74, 0x42, 0x09, 0x0a, 0x07, 0x5f, 0x76, 0x65, 0x6e, 0x64, 0x6f, 0x72, 0x22, 0x52, 0x0a,
+	0x13, 0x54, 0x61, 0x73, 0x6b, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x12, 0x23, 0x0a, 0x0d, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65,
+	0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x72, 0x65, 0x73,
+	0x6f, 0x75, 0x72, 0x63, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x61, 0x6d, 0x6f,
+	0x75, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x01, 0x52, 0x06, 0x61, 0x6d, 0x6f, 0x75, 0x6e,
+	0x74, 0x22, 0xa5, 0x03, 0x0a, 0x0f, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x50, 0x72,
+	0x6f, 0x66, 0x69, 0x6c, 0x65, 0x12, 0x64, 0x0a, 0x12, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f,
+	0x72, 0x5f, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x35, 0x2e, 0x73, 0x70, 0x61, 0x72, 0x6b, 0x2e, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63,
+	0x74, 0x2e, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c,
+	0x65, 0x2e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72,
+	0x63, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x11, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74,
+	0x6f, 0x72, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x73, 0x12, 0x58, 0x0a, 0x0e, 0x74,
+	0x61, 0x73, 0x6b, 0x5f, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x73, 0x18, 0x02, 0x20,
+	0x03, 0x28, 0x0b, 0x32, 0x31, 0x2e, 0x73, 0x70, 0x61, 0x72, 0x6b, 0x2e, 0x63, 0x6f, 0x6e, 0x6e,
+	0x65, 0x63, 0x74, 0x2e, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x50, 0x72, 0x6f, 0x66,
+	0x69, 0x6c, 0x65, 0x2e, 0x54, 0x61, 0x73, 0x6b, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65,
+	0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x0d, 0x74, 0x61, 0x73, 0x6b, 0x52, 0x65, 0x73, 0x6f,
+	0x75, 0x72, 0x63, 0x65, 0x73, 0x1a, 0x6c, 0x0a, 0x16, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f,
+	0x72, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12,
+	0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65,
+	0x79, 0x12, 0x3c, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x26, 0x2e, 0x73, 0x70, 0x61, 0x72, 0x6b, 0x2e, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74,
+	0x2e, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63,
+	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a,
+	0x02, 0x38, 0x01, 0x1a, 0x64, 0x0a, 0x12, 0x54, 0x61, 0x73, 0x6b, 0x52, 0x65, 0x73, 0x6f, 0x75,
+	0x72, 0x63, 0x65, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x38, 0x0a, 0x05, 0x76,
+	0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x22, 0x2e, 0x73, 0x70, 0x61,
+	0x72, 0x6b, 0x2e, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x2e, 0x54, 0x61, 0x73, 0x6b, 0x52,
+	0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x05,
+	0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x93, 0x01, 0x0a, 0x06, 0x4f, 0x72,
+	0x69, 0x67, 0x69, 0x6e, 0x12, 0x42, 0x0a, 0x0d, 0x70, 0x79, 0x74, 0x68, 0x6f, 0x6e, 0x5f, 0x6f,
+	0x72, 0x69, 0x67, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x73, 0x70,
+	0x61, 0x72, 0x6b, 0x2e, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x2e, 0x50, 0x79, 0x74, 0x68,
+	0x6f, 0x6e, 0x4f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x48, 0x00, 0x52, 0x0c, 0x70, 0x79, 0x74, 0x68,
+	0x6f, 0x6e, 0x4f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x12, 0x39, 0x0a, 0x0a, 0x6a, 0x76, 0x6d, 0x5f,
+	0x6f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x73,
+	0x70, 0x61, 0x72, 0x6b, 0x2e, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x2e, 0x4a, 0x76, 0x6d,
+	0x4f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x48, 0x00, 0x52, 0x09, 0x6a, 0x76, 0x6d, 0x4f, 0x72, 0x69,
+	0x67, 0x69, 0x6e, 0x42, 0x0a, 0x0a, 0x08, 0x66, 0x75, 0x6e, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x22,
+	0x47, 0x0a, 0x0c, 0x50, 0x79, 0x74, 0x68, 0x6f, 0x6e, 0x4f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x12,
+	0x1a, 0x0a, 0x08, 0x66, 0x72, 0x61, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x08, 0x66, 0x72, 0x61, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x1b, 0x0a, 0x09, 0x63,
+	0x61, 0x6c, 0x6c, 0x5f, 0x73, 0x69, 0x74, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08,
+	0x63, 0x61, 0x6c, 0x6c, 0x53, 0x69, 0x74, 0x65, 0x22, 0xb1, 0x03, 0x0a, 0x09, 0x4a, 0x76, 0x6d,
+	0x4f, 0x72, 0x69, 0x67, 0x69, 0x6e, 0x12, 0x17, 0x0a, 0x04, 0x6c, 0x69, 0x6e, 0x65, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x05, 0x48, 0x00, 0x52, 0x04, 0x6c, 0x69, 0x6e, 0x65, 0x88, 0x01, 0x01, 0x12,
+	0x2a, 0x0a, 0x0e, 0x73, 0x74, 0x61, 0x72, 0x74, 0x5f, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f,
+	0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x48, 0x01, 0x52, 0x0d, 0x73, 0x74, 0x61, 0x72, 0x74,
+	0x50, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x88, 0x01, 0x01, 0x12, 0x24, 0x0a, 0x0b, 0x73,
+	0x74, 0x61, 0x72, 0x74, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18, 0x03, 0x20, 0x01, 0x28, 0x05,
+	0x48, 0x02, 0x52, 0x0a, 0x73, 0x74, 0x61, 0x72, 0x74, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x88, 0x01,
+	0x01, 0x12, 0x22, 0x0a, 0x0a, 0x73, 0x74, 0x6f, 0x70, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18,
+	0x04, 0x20, 0x01, 0x28, 0x05, 0x48, 0x03, 0x52, 0x09, 0x73, 0x74, 0x6f, 0x70, 0x49, 0x6e, 0x64,
+	0x65, 0x78, 0x88, 0x01, 0x01, 0x12, 0x1e, 0x0a, 0x08, 0x73, 0x71, 0x6c, 0x5f, 0x74, 0x65, 0x78,
+	0x74, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x48, 0x04, 0x52, 0x07, 0x73, 0x71, 0x6c, 0x54, 0x65,
+	0x78, 0x74, 0x88, 0x01, 0x01, 0x12, 0x24, 0x0a, 0x0b, 0x6f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x5f,
+	0x74, 0x79, 0x70, 0x65, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x48, 0x05, 0x52, 0x0a, 0x6f, 0x62,
+	0x6a, 0x65, 0x63, 0x74, 0x54, 0x79, 0x70, 0x65, 0x88, 0x01, 0x01, 0x12, 0x24, 0x0a, 0x0b, 0x6f,
+	0x62, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x07, 0x20, 0x01, 0x28, 0x09,
+	0x48, 0x06, 0x52, 0x0a, 0x6f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x4e, 0x61, 0x6d, 0x65, 0x88, 0x01,
+	0x01, 0x12, 0x41, 0x0a, 0x0b, 0x73, 0x74, 0x61, 0x63, 0x6b, 0x5f, 0x74, 0x72, 0x61, 0x63, 0x65,
+	0x18, 0x08, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x20, 0x2e, 0x73, 0x70, 0x61, 0x72, 0x6b, 0x2e, 0x63,
+	0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x2e, 0x53, 0x74, 0x61, 0x63, 0x6b, 0x54, 0x72, 0x61, 0x63,
+	0x65, 0x45, 0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x52, 0x0a, 0x73, 0x74, 0x61, 0x63, 0x6b, 0x54,
+	0x72, 0x61, 0x63, 0x65, 0x42, 0x07, 0x0a, 0x05, 0x5f, 0x6c, 0x69, 0x6e, 0x65, 0x42, 0x11, 0x0a,
+	0x0f, 0x5f, 0x73, 0x74, 0x61, 0x72, 0x74, 0x5f, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e,
+	0x42, 0x0e, 0x0a, 0x0c, 0x5f, 0x73, 0x74, 0x61, 0x72, 0x74, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78,
+	0x42, 0x0d, 0x0a, 0x0b, 0x5f, 0x73, 0x74, 0x6f, 0x70, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x42,
+	0x0b, 0x0a, 0x09, 0x5f, 0x73, 0x71, 0x6c, 0x5f, 0x74, 0x65, 0x78, 0x74, 0x42, 0x0e, 0x0a, 0x0c,
+	0x5f, 0x6f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x42, 0x0e, 0x0a, 0x0c,
+	0x5f, 0x6f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0xea, 0x02, 0x0a,
+	0x11, 0x53, 0x74, 0x61, 0x63, 0x6b, 0x54, 0x72, 0x61, 0x63, 0x65, 0x45, 0x6c, 0x65, 0x6d, 0x65,
+	0x6e, 0x74, 0x12, 0x2f, 0x0a, 0x11, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x5f, 0x6c, 0x6f, 0x61, 0x64,
+	0x65, 0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52,
+	0x0f, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x4c, 0x6f, 0x61, 0x64, 0x65, 0x72, 0x4e, 0x61, 0x6d, 0x65,
+	0x88, 0x01, 0x01, 0x12, 0x24, 0x0a, 0x0b, 0x6d, 0x6f, 0x64, 0x75, 0x6c, 0x65, 0x5f, 0x6e, 0x61,
+	0x6d, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x48, 0x01, 0x52, 0x0a, 0x6d, 0x6f, 0x64, 0x75,
+	0x6c, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x88, 0x01, 0x01, 0x12, 0x2a, 0x0a, 0x0e, 0x6d, 0x6f, 0x64,
+	0x75, 0x6c, 0x65, 0x5f, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28,
+	0x09, 0x48, 0x02, 0x52, 0x0d, 0x6d, 0x6f, 0x64, 0x75, 0x6c, 0x65, 0x56, 0x65, 0x72, 0x73, 0x69,
+	0x6f, 0x6e, 0x88, 0x01, 0x01, 0x12, 0x27, 0x0a, 0x0f, 0x64, 0x65, 0x63, 0x6c, 0x61, 0x72, 0x69,
+	0x6e, 0x67, 0x5f, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0e,
+	0x64, 0x65, 0x63, 0x6c, 0x61, 0x72, 0x69, 0x6e, 0x67, 0x43, 0x6c, 0x61, 0x73, 0x73, 0x12, 0x1f,
+	0x0a, 0x0b, 0x6d, 0x65, 0x74, 0x68, 0x6f, 0x64, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x05, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x0a, 0x6d, 0x65, 0x74, 0x68, 0x6f, 0x64, 0x4e, 0x61, 0x6d, 0x65, 0x12,
+	0x20, 0x0a, 0x09, 0x66, 0x69, 0x6c, 0x65, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x06, 0x20, 0x01,
+	0x28, 0x09, 0x48, 0x03, 0x52, 0x08, 0x66, 0x69, 0x6c, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x88, 0x01,
+	0x01, 0x12, 0x1f, 0x0a, 0x0b, 0x6c, 0x69, 0x6e, 0x65, 0x5f, 0x6e, 0x75, 0x6d, 0x62, 0x65, 0x72,
+	0x18, 0x07, 0x20, 0x01, 0x28, 0x05, 0x52, 0x0a, 0x6c, 0x69, 0x6e, 0x65, 0x4e, 0x75, 0x6d, 0x62,
+	0x65, 0x72, 0x42, 0x14, 0x0a, 0x12, 0x5f, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x5f, 0x6c, 0x6f, 0x61,
+	0x64, 0x65, 0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x42, 0x0e, 0x0a, 0x0c, 0x5f, 0x6d, 0x6f, 0x64,
+	0x75, 0x6c, 0x65, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x42, 0x11, 0x0a, 0x0f, 0x5f, 0x6d, 0x6f, 0x64,
+	0x75, 0x6c, 0x65, 0x5f, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x42, 0x0c, 0x0a, 0x0a, 0x5f,
+	0x66, 0x69, 0x6c, 0x65, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x1f, 0x0a, 0x05, 0x42, 0x6f, 0x6f,
+	0x6c, 0x73, 0x12, 0x16, 0x0a, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03,
+	0x28, 0x08, 0x52, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x22, 0x1e, 0x0a, 0x04, 0x49, 0x6e,
+	0x74, 0x73, 0x12, 0x16, 0x0a, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03,
+	0x28, 0x05, 0x52, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x22, 0x1f, 0x0a, 0x05, 0x4c, 0x6f,
+	0x6e, 0x67, 0x73, 0x12, 0x16, 0x0a, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x18, 0x01, 0x20,
+	0x03, 0x28, 0x03, 0x52, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x22, 0x20, 0x0a, 0x06, 0x46,
+	0x6c, 0x6f, 0x61, 0x74, 0x73, 0x12, 0x16, 0x0a, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x18,
+	0x01, 0x20, 0x03, 0x28, 0x02, 0x52, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x22, 0x21, 0x0a,
+	0x07, 0x44, 0x6f, 0x75, 0x62, 0x6c, 0x65, 0x73, 0x12, 0x16, 0x0a, 0x06, 0x76, 0x61, 0x6c, 0x75,
+	0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x01, 0x52, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73,
+	0x22, 0x21, 0x0a, 0x07, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x73, 0x12, 0x16, 0x0a, 0x06, 0x76,
+	0x61, 0x6c, 0x75, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x06, 0x76, 0x61, 0x6c,
+	0x75, 0x65, 0x73, 0x42, 0x36, 0x0a, 0x1e, 0x6f, 0x72, 0x67, 0x2e, 0x61, 0x70, 0x61, 0x63, 0x68,
+	0x65, 0x2e, 0x73, 0x70, 0x61, 0x72, 0x6b, 0x2e, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x2e,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x12, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61,
+	0x6c, 0x2f, 0x67, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74, 0x65, 0x64, 0x62, 0x06, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x33,
 }
 
 var (
@@ -220,17 +1171,39 @@ func file_spark_connect_common_proto_rawDescGZIP() []byte {
 	return file_spark_connect_common_proto_rawDescData
 }
 
-var file_spark_connect_common_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_spark_connect_common_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_spark_connect_common_proto_goTypes = []interface{}{
-	(*StorageLevel)(nil),        // 0: spark.connect.StorageLevel
-	(*ResourceInformation)(nil), // 1: spark.connect.ResourceInformation
+	(*StorageLevel)(nil),            // 0: spark.connect.StorageLevel
+	(*ResourceInformation)(nil),     // 1: spark.connect.ResourceInformation
+	(*ExecutorResourceRequest)(nil), // 2: spark.connect.ExecutorResourceRequest
+	(*TaskResourceRequest)(nil),     // 3: spark.connect.TaskResourceRequest
+	(*ResourceProfile)(nil),         // 4: spark.connect.ResourceProfile
+	(*Origin)(nil),                  // 5: spark.connect.Origin
+	(*PythonOrigin)(nil),            // 6: spark.connect.PythonOrigin
+	(*JvmOrigin)(nil),               // 7: spark.connect.JvmOrigin
+	(*StackTraceElement)(nil),       // 8: spark.connect.StackTraceElement
+	(*Bools)(nil),                   // 9: spark.connect.Bools
+	(*Ints)(nil),                    // 10: spark.connect.Ints
+	(*Longs)(nil),                   // 11: spark.connect.Longs
+	(*Floats)(nil),                  // 12: spark.connect.Floats
+	(*Doubles)(nil),                 // 13: spark.connect.Doubles
+	(*Strings)(nil),                 // 14: spark.connect.Strings
+	nil,                             // 15: spark.connect.ResourceProfile.ExecutorResourcesEntry
+	nil,                             // 16: spark.connect.ResourceProfile.TaskResourcesEntry
 }
 var file_spark_connect_common_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	15, // 0: spark.connect.ResourceProfile.executor_resources:type_name -> spark.connect.ResourceProfile.ExecutorResourcesEntry
+	16, // 1: spark.connect.ResourceProfile.task_resources:type_name -> spark.connect.ResourceProfile.TaskResourcesEntry
+	6,  // 2: spark.connect.Origin.python_origin:type_name -> spark.connect.PythonOrigin
+	7,  // 3: spark.connect.Origin.jvm_origin:type_name -> spark.connect.JvmOrigin
+	8,  // 4: spark.connect.JvmOrigin.stack_trace:type_name -> spark.connect.StackTraceElement
+	2,  // 5: spark.connect.ResourceProfile.ExecutorResourcesEntry.value:type_name -> spark.connect.ExecutorResourceRequest
+	3,  // 6: spark.connect.ResourceProfile.TaskResourcesEntry.value:type_name -> spark.connect.TaskResourceRequest
+	7,  // [7:7] is the sub-list for method output_type
+	7,  // [7:7] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_spark_connect_common_proto_init() }
@@ -263,14 +1236,177 @@ func file_spark_connect_common_proto_init() {
 				return nil
 			}
 		}
+		file_spark_connect_common_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ExecutorResourceRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_spark_connect_common_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*TaskResourceRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_spark_connect_common_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ResourceProfile); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_spark_connect_common_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Origin); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_spark_connect_common_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PythonOrigin); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_spark_connect_common_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*JvmOrigin); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_spark_connect_common_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*StackTraceElement); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_spark_connect_common_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Bools); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_spark_connect_common_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Ints); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_spark_connect_common_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Longs); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_spark_connect_common_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Floats); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_spark_connect_common_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Doubles); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_spark_connect_common_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Strings); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
+	file_spark_connect_common_proto_msgTypes[2].OneofWrappers = []interface{}{}
+	file_spark_connect_common_proto_msgTypes[5].OneofWrappers = []interface{}{
+		(*Origin_PythonOrigin)(nil),
+		(*Origin_JvmOrigin)(nil),
+	}
+	file_spark_connect_common_proto_msgTypes[7].OneofWrappers = []interface{}{}
+	file_spark_connect_common_proto_msgTypes[8].OneofWrappers = []interface{}{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_spark_connect_common_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

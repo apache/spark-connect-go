@@ -16,15 +16,15 @@
 
 ThisBuild / version := "0.1.0-SNAPSHOT"
 
-ThisBuild / scalaVersion := "2.12.19"
+ThisBuild / scalaVersion := "2.13.16"
 
 lazy val root = (project in file("."))
   .settings(
     name := "SparkConnectGoRunner"
   )
 
-libraryDependencies += "org.apache.spark" %% "spark-sql-api" % "3.5.4"
-libraryDependencies += "org.apache.spark" %% "spark-sql" % "3.5.4"
-libraryDependencies += "org.apache.spark" %% "spark-core" % "3.5.4"
-libraryDependencies += "org.apache.spark" %% "spark-connect-common" % "3.5.4"
-libraryDependencies += "org.apache.spark" %% "spark-connect" % "3.5.4"
+libraryDependencies += "org.apache.spark" %% "spark-sql-api" % "4.0.0"
+libraryDependencies += "org.apache.spark" %% "spark-sql" % "4.0.0"
+libraryDependencies += "org.apache.spark" %% "spark-core" % "4.0.0"
+libraryDependencies += "org.apache.spark" %% "spark-connect-common" % "4.0.0"
+libraryDependencies += "org.apache.spark" %% "spark-connect" % "4.0.0"

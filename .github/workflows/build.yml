@@ -32,7 +32,7 @@ on:
       - master
 
 env:
-  SPARK_VERSION: '3.5.5'
+  SPARK_VERSION: '4.0.0'
   HADOOP_VERSION: '3'
 
 permissions:
@@ -98,7 +98,8 @@ jobs:
       - name: Run Build & Test
         run: |
           go mod download -x
-          make gen
+          # Remove dependency on gen until Spark 4 has the fix for the pipelines.proto
+          # make gen
           make
           make test
       - name: Run Example Spark Submit Application
@@ -111,8 +112,9 @@ jobs:
       - name: Run Integration Test
         run: |
           export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
-          # make integration
-          make gen && make && make integration
+          # Remove dependency on gen until Spark 4 has the fix for the pipelines.proto
+          # make gen 
+          make && make integration
       - name: Run Code Coverage
         run: |
           export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}

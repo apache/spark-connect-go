@@ -19,7 +19,7 @@ import (
 	"context"
 	"testing"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+	proto "github.com/apache/spark-connect-go/v40/internal/generated"
 	"google.golang.org/grpc"
 )
 
@@ -31,6 +31,16 @@ type connectServiceClient struct {
 	executePlanClient   proto.SparkConnectService_ExecutePlanClient
 
 	err error
+}
+
+// FetchErrorDetails implements generated.SparkConnectServiceClient.
+func (c *connectServiceClient) FetchErrorDetails(ctx context.Context, in *proto.FetchErrorDetailsRequest, opts ...grpc.CallOption) (*proto.FetchErrorDetailsResponse, error) {
+	panic("unimplemented")
+}
+
+// ReleaseSession implements generated.SparkConnectServiceClient.
+func (c *connectServiceClient) ReleaseSession(ctx context.Context, in *proto.ReleaseSessionRequest, opts ...grpc.CallOption) (*proto.ReleaseSessionResponse, error) {
+	panic("unimplemented")
 }
 
 func (c *connectServiceClient) ExecutePlan(ctx context.Context, in *proto.ExecutePlanRequest,

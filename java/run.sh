@@ -16,8 +16,8 @@
 # limitations under the License.
 set -e
 
-SCALA_VERSION=2.12
-SPARK_VERSION=3.5.4
+SCALA_VERSION=2.13
+SPARK_VERSION=4.0.0
 
 if [ -z "$SPARK_HOME" ]; then
   echo "SPARK_HOME must be set to run this script."
@@ -43,7 +43,6 @@ BINARY_NAME=$(basename $BINARY_PATH)
 
 # Call the spark-submit script.
 $SPARK_HOME/bin/spark-submit \
-  --master local[4] \
   --files $BINARY_PATH \
   --conf spark.golang.binary=$BINARY_NAME \
   --class org.apache.spark.golang.Runner \

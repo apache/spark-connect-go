@@ -52,7 +52,7 @@ OK := $(shell tput setaf 6; echo ' [OK]'; tput sgr0;)
 
 all: build
 
-build: $(BUILD_OUTPUT) $(BINARIES) internal/generated.out
+build: $(BUILD_OUTPUT) $(BINARIES) # internal/generated.out
 
 cmd/spark-connect-example-raw-grpc-client/spark-connect-example-raw-grpc-client: $(GOFILES_BUILD)
 	@echo ">> BUILD, output = $@"
@@ -72,7 +72,8 @@ internal/generated.out:
 
 gen: internal/generated.out
 
-$(GOFILES_BUILD): gen
+# Remove dependency on gen until Spark 4 has the fix for the pipelines.proto
+$(GOFILES_BUILD): #gen
 
 $(BUILD_OUTPUT): $(GOFILES_BUILD)
 	@echo -n ">> BUILD, output = $@"

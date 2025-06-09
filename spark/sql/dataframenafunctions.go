@@ -18,7 +18,7 @@ package sql
 import (
 	"context"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+	"github.com/apache/spark-connect-go/v40/spark/sql/types"
 )
 
 type DataFrameNaFunctions interface {

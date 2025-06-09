@@ -48,7 +48,7 @@ print("""
 
 package functions
 
-import "github.com/apache/spark-connect-go/v35/spark/sql/column"
+import "github.com/apache/spark-connect-go/v40/spark/sql/column"
 """)
 
 
