@@ -112,8 +112,9 @@ jobs:
       - name: Run Integration Test
         run: |
           export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
-          # make integration
-          make gen && make && make integration
+          # Remove dependency on gen until Spark 4 has the fix for the pipelines.proto
+          # make gen 
+          make && make integration
       - name: Run Code Coverage
         run: |
           export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
