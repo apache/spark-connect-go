@@ -52,7 +52,7 @@ OK := $(shell tput setaf 6; echo ' [OK]'; tput sgr0;)
 
 all: build
 
-build: $(BUILD_OUTPUT) $(BINARIES) # internal/generated.out
+build: $(BUILD_OUTPUT) $(BINARIES)
 
 cmd/spark-connect-example-raw-grpc-client/spark-connect-example-raw-grpc-client: $(GOFILES_BUILD)
 	@echo ">> BUILD, output = $@"
@@ -72,8 +72,7 @@ internal/generated.out:
 
 gen: internal/generated.out
 
-# Remove dependency on gen until Spark 4 has the fix for the pipelines.proto
-$(GOFILES_BUILD): #gen
+$(GOFILES_BUILD):
 
 $(BUILD_OUTPUT): $(GOFILES_BUILD)
 	@echo -n ">> BUILD, output = $@"
@@ -111,10 +110,14 @@ check:
 clean:
 	@echo -n ">> CLEAN"
 	@$(GO) clean -i ./...
-	@rm -rf ./internal/generated
-	@rm  -f ./internal/generated.out
 	@rm -f ./coverage-all.html
 	@rm -f ./coverage-all.out
 	@rm -f ./coverage.out
 	@find . -type f -name "coverage.out" -delete
 	@printf '%s\n' '$(OK)'
+
+cleangen:
+	@rm -rf ./internal/generated
+	@rm  -f ./internal/generated.out
+
+cleanall: clean cleangen
