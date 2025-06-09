@@ -98,7 +98,8 @@ jobs:
       - name: Run Build & Test
         run: |
           go mod download -x
-          make gen
+          # Remove dependency on gen until Spark 4 has the fix for the pipelines.proto
+          # make gen
           make
           make test
       - name: Run Example Spark Submit Application
