@@ -21,11 +21,21 @@ Step 2: Ensure you have installed `buf CLI` installed, [more info here](https://
 
 Step 3: Run the following commands to setup the Spark Connect client.
 
+Building with Spark in case you need to re-generate the source files from the proto sources.
+
 ```
 git clone https://github.com/apache/spark-connect-go.git
 git submodule update --init --recursive
 
 make gen && make test
+
+```
+
+Building without Spark
+
+```
+git clone https://github.com/apache/spark-connect-go.git
+make && make test
 ```
 
 Step 4: Setup the Spark Driver on localhost.

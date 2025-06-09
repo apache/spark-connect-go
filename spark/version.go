@@ -16,5 +16,5 @@
 package spark
 
 func Version() string {
-	return "3.5.x"
+	return "4.0.0"
 }
