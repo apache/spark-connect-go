@@ -16,8 +16,8 @@
 package functions
 
 import (
-	"github.com/apache/spark-connect-go/v35/spark/sql/column"
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+	"github.com/apache/spark-connect-go/v40/spark/sql/column"
+	"github.com/apache/spark-connect-go/v40/spark/sql/types"
 )
 
 func Expr(expr string) column.Column {

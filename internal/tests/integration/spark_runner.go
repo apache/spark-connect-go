@@ -23,7 +23,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
+	"github.com/apache/spark-connect-go/v40/spark/sparkerrors"
 )
 
 func StartSparkConnect() (int64, error) {
@@ -35,8 +35,7 @@ func StartSparkConnect() (int64, error) {
 	fmt.Printf("Starting Spark Connect Server in: %v\n", os.Getenv("SPARK_HOME"))
 
 	cmd := exec.Command("./sbin/start-connect-server.sh", "--conf",
-		"spark.log.structuredLogging.enabled=false", "--packages",
-		"org.apache.spark:spark-connect_2.12:3.5.2")
+		"spark.log.structuredLogging.enabled=false")
 	cmd.Dir = sparkHome
 	baseEnv := os.Environ()
 	baseEnv = append(baseEnv, "SPARK_NO_DAEMONIZE=1")

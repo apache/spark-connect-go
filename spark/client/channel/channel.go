@@ -29,13 +29,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/spark-connect-go/v35/spark"
+	"github.com/apache/spark-connect-go/v40/spark"
 
 	"github.com/google/uuid"
 
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
+	"github.com/apache/spark-connect-go/v40/spark/sparkerrors"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

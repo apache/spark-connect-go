@@ -19,7 +19,7 @@ package sql
 import (
 	"sync/atomic"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+	proto "github.com/apache/spark-connect-go/v40/internal/generated"
 )
 
 var atomicInt64 atomic.Int64

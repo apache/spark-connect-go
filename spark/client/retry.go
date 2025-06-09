@@ -23,13 +23,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/spark-connect-go/v35/spark/client/base"
+	"github.com/apache/spark-connect-go/v40/spark/client/base"
 
-	"github.com/apache/spark-connect-go/v35/spark/client/options"
+	"github.com/apache/spark-connect-go/v40/spark/client/options"
 	"google.golang.org/grpc/metadata"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
+	proto "github.com/apache/spark-connect-go/v40/internal/generated"
+	"github.com/apache/spark-connect-go/v40/spark/sparkerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
@@ -189,7 +189,8 @@ func wrapRetriableCall[Res rpcType](ctx context.Context, retryPolicies []RetryPo
 
 type rpcType interface {
 	*proto.AnalyzePlanResponse | *proto.ConfigResponse | *proto.ArtifactStatusesResponse |
-		*proto.InterruptResponse | *proto.ReleaseExecuteResponse | *proto.ExecutePlanResponse
+		*proto.InterruptResponse | *proto.ReleaseExecuteResponse | *proto.ExecutePlanResponse |
+		*proto.ReleaseSessionResponse | *proto.FetchErrorDetailsResponse
 }
 
 // retriableSparkConnectClient wraps the SparkConnectServiceClient implementation to
@@ -201,6 +202,20 @@ type retriableSparkConnectClient struct {
 	// serverSideSessionId string
 	retryPolicies []RetryPolicy
 	options       options.SparkClientOptions
+}
+
+// FetchErrorDetails implements base.SparkConnectRPCClient.
+func (r *retriableSparkConnectClient) FetchErrorDetails(ctx context.Context, in *proto.FetchErrorDetailsRequest, opts ...grpc.CallOption) (*proto.FetchErrorDetailsResponse, error) {
+	return wrapRetriableCall(ctx, r.retryPolicies, func(ctx2 context.Context) (*proto.FetchErrorDetailsResponse, error) {
+		return r.client.FetchErrorDetails(ctx2, in, opts...)
+	})
+}
+
+// ReleaseSession implements base.SparkConnectRPCClient.
+func (r *retriableSparkConnectClient) ReleaseSession(ctx context.Context, in *proto.ReleaseSessionRequest, opts ...grpc.CallOption) (*proto.ReleaseSessionResponse, error) {
+	return wrapRetriableCall(ctx, r.retryPolicies, func(ctx2 context.Context) (*proto.ReleaseSessionResponse, error) {
+		return r.client.ReleaseSession(ctx2, in, opts...)
+	})
 }
 
 func (r *retriableSparkConnectClient) ExecutePlan(ctx context.Context, in *proto.ExecutePlanRequest,

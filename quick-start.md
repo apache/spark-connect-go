@@ -5,7 +5,7 @@
 In your Go project `go.mod` file, add `spark-connect-go` library:
 ```
 require (
-	github.com/apache/spark-connect-go/v35 master
+	github.com/apache/spark-connect-go/v40 master
 )
 ```
 
@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql"
+	"github.com/apache/spark-connect-go/v40/spark/sql"
 )
 
 var (

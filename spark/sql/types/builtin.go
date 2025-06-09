@@ -19,7 +19,7 @@ package types
 import (
 	"context"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+	proto "github.com/apache/spark-connect-go/v40/internal/generated"
 )
 
 type LiteralType interface {

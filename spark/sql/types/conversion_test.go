@@ -19,8 +19,8 @@ package types_test
 import (
 	"testing"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+	proto "github.com/apache/spark-connect-go/v40/internal/generated"
+	"github.com/apache/spark-connect-go/v40/spark/sql/types"
 	"github.com/stretchr/testify/assert"
 )
 

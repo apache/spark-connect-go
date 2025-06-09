@@ -16,4 +16,4 @@
 #
 version: v1
 directories:
-  - sparksrc/connector/connect/common/src/main/protobuf
+  - sparksrc/sql/connect/common/src/main/protobuf
