@@ -54,7 +54,7 @@ func TestStackTracePrint(t *testing.T) {
 	err := WithType(assert.AnError, ConnectionError)
 	errorString := fmt.Sprintf("%+v", err)
 	t.Log(errorString)
-	assert.Contains(t, errorString, "spark-connect-go/spark/sparkerrors/errors_test.go")
+	assert.Contains(t, errorString, "spark/sparkerrors/errors_test.go")
 }
 
 func TestErrorDetailsExtractionFromGRPCStatus(t *testing.T) {
