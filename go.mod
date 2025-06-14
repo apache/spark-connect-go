@@ -22,8 +22,8 @@ require (
 	github.com/go-errors/errors v1.5.1
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.10.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a
-	google.golang.org/grpc v1.72.2
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463
+	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 )
 
