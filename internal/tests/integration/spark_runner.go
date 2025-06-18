@@ -23,7 +23,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/apache/spark-connect-go/v40/spark/sparkerrors"
+	"github.com/apache/spark-connect-go/spark/sparkerrors"
 )
 
 func StartSparkConnect() (int64, error) {
