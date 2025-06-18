@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module github.com/apache/spark-connect-go/v40
+module github.com/apache/spark-connect-go
 
 go 1.23.2
 

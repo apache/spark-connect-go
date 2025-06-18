@@ -18,11 +18,11 @@ package base
 import (
 	"context"
 
-	"github.com/apache/spark-connect-go/v40/spark/sql/utils"
+	"github.com/apache/spark-connect-go/spark/sql/utils"
 
 	"github.com/apache/arrow-go/v18/arrow"
-	"github.com/apache/spark-connect-go/v40/internal/generated"
-	"github.com/apache/spark-connect-go/v40/spark/sql/types"
+	"github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/sql/types"
 )
 
 type SparkConnectRPCClient generated.SparkConnectServiceClient

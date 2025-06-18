@@ -23,19 +23,19 @@ import (
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow/memory"
-	"github.com/apache/spark-connect-go/v40/spark/sql/types"
+	"github.com/apache/spark-connect-go/spark/sql/types"
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
-	"github.com/apache/spark-connect-go/v40/spark/client/base"
+	"github.com/apache/spark-connect-go/spark/client/base"
 
-	"github.com/apache/spark-connect-go/v40/spark/client/options"
+	"github.com/apache/spark-connect-go/spark/client/options"
 
-	proto "github.com/apache/spark-connect-go/v40/internal/generated"
-	"github.com/apache/spark-connect-go/v40/spark/client"
-	"github.com/apache/spark-connect-go/v40/spark/client/channel"
-	"github.com/apache/spark-connect-go/v40/spark/sparkerrors"
+	proto "github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/client"
+	"github.com/apache/spark-connect-go/spark/client/channel"
+	"github.com/apache/spark-connect-go/spark/sparkerrors"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"
 )
