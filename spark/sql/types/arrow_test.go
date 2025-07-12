@@ -18,6 +18,7 @@ package types_test
 
 import (
 	"bytes"
+	"io"
 	"testing"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -405,4 +406,50 @@ func TestConvertProtoDataTypeToDataType_UnsupportedType(t *testing.T) {
 		Kind: &proto.DataType_YearMonthInterval_{},
 	}
 	assert.Equal(t, "Unsupported", types.ConvertProtoDataTypeToDataType(unsupportedDataType).TypeName())
+}
+
+func TestReadArrowTableToIterator_PartialAndEquivalence(t *testing.T) {
+	// Build a tiny table with two rows
+	arrowFields := []arrow.Field{{Name: "col1", Type: &arrow.StringType{}}}
+	schema := arrow.NewSchema(arrowFields, nil)
+
+	alloc := memory.NewGoAllocator()
+	rb := array.NewRecordBuilder(alloc, schema)
+	defer rb.Release()
+
+	rb.Field(0).(*array.StringBuilder).Append("row-1")
+	rb.Field(0).(*array.StringBuilder).Append("row-2")
+
+	rec := rb.NewRecord()
+	defer rec.Release()
+
+	table := array.NewTableFromRecords(schema, []arrow.Record{rec})
+
+	// 1️⃣ Iterator – consume one row, then the rest
+	it, err := types.ReadArrowTableToIterator(table)
+	require.NoError(t, err)
+
+	firstRow, err := it.Next()
+	require.NoError(t, err)
+	assert.Equal(t, []any{"row-1"}, firstRow.Values())
+
+	var remainder []types.Row
+	for {
+		r, err := it.Next()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		remainder = append(remainder, r)
+	}
+	assert.Equal(t, 1, len(remainder))
+	assert.Equal(t, []any{"row-2"}, remainder[0].Values())
+
+	// 2️⃣ Equivalence with eager conversion
+	allRowsIter := append([]types.Row{firstRow}, remainder...)
+
+	allRowsEager, err := types.ReadArrowTableToRows(table)
+	require.NoError(t, err)
+
+	assert.Equal(t, allRowsEager, allRowsIter)
 }
