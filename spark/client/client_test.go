@@ -19,6 +19,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"testing"
+	"time"
+
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
@@ -31,8 +34,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestAnalyzePlanCallsAnalyzePlanOnClient(t *testing.T) {

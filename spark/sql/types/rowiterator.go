@@ -3,10 +3,11 @@ package types
 import (
 	"context"
 	"errors"
-	"github.com/apache/arrow-go/v18/arrow"
 	"io"
 	"sync"
 	"time"
+
+	"github.com/apache/arrow-go/v18/arrow"
 )
 
 // RowIterator provides streaming access to individual rows
@@ -116,7 +117,6 @@ func (iter *rowIteratorImpl) fetchNextBatch() error {
 				defer record.Release()
 				return ReadArrowRecordToRows(record)
 			}()
-
 			if err != nil {
 				return err
 			}
@@ -146,7 +146,6 @@ func (iter *rowIteratorImpl) fetchNextBatch() error {
 						defer record.Release()
 						return ReadArrowRecordToRows(record)
 					}()
-
 					if err != nil {
 						return err
 					}

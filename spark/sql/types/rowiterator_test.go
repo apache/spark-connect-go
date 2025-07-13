@@ -3,11 +3,12 @@ package types_test
 import (
 	"context"
 	"errors"
-	"github.com/apache/arrow-go/v18/arrow/array"
-	"github.com/apache/arrow-go/v18/arrow/memory"
 	"io"
 	"testing"
 	"time"
+
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/stretchr/testify/assert"
