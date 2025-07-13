@@ -116,10 +116,9 @@ func Test_Execute_SchemaParsingFails(t *testing.T) {
 }
 
 func TestToRecordBatches_SchemaExtraction(t *testing.T) {
-	//  Verify schema is properly extracted and returned
+	// Schema is returned as nil and populated inside the goroutine
 	ctx := context.Background()
 
-	// Arrange: Create a response with only schema (no data)
 	schemaResponse := &mocks.MockResponse{
 		Resp: &proto.ExecutePlanResponse{
 			SessionId:   mocks.MockSessionId,
@@ -149,38 +148,54 @@ func TestToRecordBatches_SchemaExtraction(t *testing.T) {
 		&mocks.ExecutePlanResponseDone,
 		&mocks.ExecutePlanResponseEOF)
 
-	// Act
 	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("select 'test'"))
 	require.NoError(t, err)
 
 	_, _, schema := stream.ToRecordBatches(ctx)
 
-	// Assert: Schema should be returned immediately (not populated by goroutine)
-	// Note: In the current implementation, schema is returned as nil and populated
-	// inside the goroutine. This might be a design decision to test.
 	assert.Nil(t, schema, "Schema is populated asynchronously in the goroutine")
 }
 
 func TestToRecordBatches_ChannelClosureWithoutData(t *testing.T) {
-	// Verify channel closure when no arrow batches are sent
+	// Channels should close without sending any records when no arrow batches present
 	ctx := context.Background()
 
-	// Arrange: Only schema and done responses, no arrow batches
+	schemaResponse := &mocks.MockResponse{
+		Resp: &proto.ExecutePlanResponse{
+			SessionId:   mocks.MockSessionId,
+			OperationId: mocks.MockOperationId,
+			Schema: &proto.DataType{
+				Kind: &proto.DataType_Struct_{
+					Struct: &proto.DataType_Struct{
+						Fields: []*proto.DataType_StructField{
+							{
+								Name: "test_column",
+								DataType: &proto.DataType{
+									Kind: &proto.DataType_String_{
+										String_: &proto.DataType_String{},
+									},
+								},
+								Nullable: false,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	c := client.NewTestConnectClientFromResponses(mocks.MockSessionId,
-		&mocks.ExecutePlanResponseWithSchema,
+		schemaResponse,
 		&mocks.ExecutePlanResponseDone,
 		&mocks.ExecutePlanResponseEOF)
 
-	// Act
 	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("select 1"))
 	require.NoError(t, err)
 
 	recordChan, errorChan, _ := stream.ToRecordBatches(ctx)
 
-	// Assert: Channels should close without sending any records
 	recordsReceived := 0
 	errorsReceived := 0
-
 	timeout := time.After(100 * time.Millisecond)
 	done := false
 
@@ -204,10 +219,33 @@ func TestToRecordBatches_ChannelClosureWithoutData(t *testing.T) {
 }
 
 func TestToRecordBatches_ArrowBatchStreaming(t *testing.T) {
-	// Verify arrow batch data is correctly streamed
+	// Arrow batch data should be correctly streamed
 	ctx := context.Background()
 
-	// Arrange: Create test arrow data
+	schemaResponse := &mocks.MockResponse{
+		Resp: &proto.ExecutePlanResponse{
+			SessionId:   mocks.MockSessionId,
+			OperationId: mocks.MockOperationId,
+			Schema: &proto.DataType{
+				Kind: &proto.DataType_Struct_{
+					Struct: &proto.DataType_Struct{
+						Fields: []*proto.DataType_StructField{
+							{
+								Name: "col",
+								DataType: &proto.DataType{
+									Kind: &proto.DataType_String_{
+										String_: &proto.DataType_String{},
+									},
+								},
+								Nullable: false,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	arrowData := createTestArrowBatch(t, []string{"value1", "value2", "value3"})
 
 	arrowBatch := &mocks.MockResponse{
@@ -223,18 +261,16 @@ func TestToRecordBatches_ArrowBatchStreaming(t *testing.T) {
 	}
 
 	c := client.NewTestConnectClientFromResponses(mocks.MockSessionId,
-		&mocks.ExecutePlanResponseWithSchema,
+		schemaResponse,
 		arrowBatch,
 		&mocks.ExecutePlanResponseDone,
 		&mocks.ExecutePlanResponseEOF)
 
-	// Act
 	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("select col"))
 	require.NoError(t, err)
 
 	recordChan, errorChan, _ := stream.ToRecordBatches(ctx)
 
-	// Assert: Verify we receive exactly one record with correct data
 	records := collectRecords(t, recordChan, errorChan)
 
 	require.Len(t, records, 1, "Should receive exactly one record")
@@ -243,7 +279,6 @@ func TestToRecordBatches_ArrowBatchStreaming(t *testing.T) {
 	assert.Equal(t, int64(3), record.NumRows(), "Record should have 3 rows")
 	assert.Equal(t, int64(1), record.NumCols(), "Record should have 1 column")
 
-	// Verify the actual data
 	col := record.Column(0).(*array.String)
 	assert.Equal(t, "value1", col.Value(0))
 	assert.Equal(t, "value2", col.Value(1))
@@ -251,10 +286,33 @@ func TestToRecordBatches_ArrowBatchStreaming(t *testing.T) {
 }
 
 func TestToRecordBatches_MultipleArrowBatches(t *testing.T) {
-	// Verify multiple arrow batches are streamed in order
+	// Multiple arrow batches should be streamed in order
 	ctx := context.Background()
 
-	// Arrange: Create multiple arrow batches
+	schemaResponse := &mocks.MockResponse{
+		Resp: &proto.ExecutePlanResponse{
+			SessionId:   mocks.MockSessionId,
+			OperationId: mocks.MockOperationId,
+			Schema: &proto.DataType{
+				Kind: &proto.DataType_Struct_{
+					Struct: &proto.DataType_Struct{
+						Fields: []*proto.DataType_StructField{
+							{
+								Name: "col",
+								DataType: &proto.DataType{
+									Kind: &proto.DataType_String_{
+										String_: &proto.DataType_String{},
+									},
+								},
+								Nullable: false,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	batch1 := createTestArrowBatch(t, []string{"batch1_row1", "batch1_row2"})
 	batch2 := createTestArrowBatch(t, []string{"batch2_row1", "batch2_row2"})
 
@@ -283,19 +341,17 @@ func TestToRecordBatches_MultipleArrowBatches(t *testing.T) {
 	}
 
 	c := client.NewTestConnectClientFromResponses(mocks.MockSessionId,
-		&mocks.ExecutePlanResponseWithSchema,
+		schemaResponse,
 		arrowBatch1,
 		arrowBatch2,
 		&mocks.ExecutePlanResponseDone,
 		&mocks.ExecutePlanResponseEOF)
 
-	// Act
 	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("select col"))
 	require.NoError(t, err)
 
 	recordChan, errorChan, _ := stream.ToRecordBatches(ctx)
 
-	// Assert: Verify we receive both records in order
 	records := collectRecords(t, recordChan, errorChan)
 
 	require.Len(t, records, 2, "Should receive exactly two records")
@@ -312,12 +368,9 @@ func TestToRecordBatches_MultipleArrowBatches(t *testing.T) {
 }
 
 func TestToRecordBatches_ContextCancellationStopsStreaming(t *testing.T) {
-	// Verify context cancellation stops streaming
-
-	// Create a cancellable context
+	// Context cancellation should stop streaming
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Create mock responses - just a simple schema response
 	schemaResponse := &mocks.MockResponse{
 		Resp: &proto.ExecutePlanResponse{
 			SessionId:   mocks.MockSessionId,
@@ -342,69 +395,81 @@ func TestToRecordBatches_ContextCancellationStopsStreaming(t *testing.T) {
 		},
 	}
 
-	// Create client with schema response followed by immediate done and EOF
-	// This ensures we don't get index out of range errors
 	c := client.NewTestConnectClientFromResponses(mocks.MockSessionId,
 		schemaResponse,
 		&mocks.ExecutePlanResponseDone,
 		&mocks.ExecutePlanResponseEOF)
 
-	// Execute the plan
 	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("select 1"))
 	require.NoError(t, err)
 
-	// Start streaming
 	recordChan, errorChan, _ := stream.ToRecordBatches(ctx)
 
 	// Cancel the context immediately
-	// This should cause the goroutine to exit when it checks the context
 	cancel()
 
-	// Wait for either completion or error
 	timeout := time.After(100 * time.Millisecond)
 
 	for {
 		select {
 		case _, ok := <-recordChan:
 			if !ok {
-				// Channel closed normally - this is also acceptable
-				// as the context cancellation might happen after processing
+				// Channel closed normally - acceptable as cancellation might happen after processing
 				return
 			}
 		case err := <-errorChan:
-			// We got an error - verify it's context cancellation
+			// Got an error - verify it's context cancellation
 			assert.ErrorIs(t, err, context.Canceled)
 			return
 		case <-timeout:
-			// If we timeout without getting either channel closure or error,
-			// the test passes as the cancellation might have happened after
-			// all responses were processed
+			// Timeout is acceptable as cancellation might have happened after all responses were processed
 			return
 		}
 	}
 }
 
 func TestToRecordBatches_RPCErrorPropagation(t *testing.T) {
-	// Verify RPC errors are properly propagated
+	// RPC errors should be properly propagated
 	ctx := context.Background()
 
-	// Arrange: Create a response that will return an RPC error
+	schemaResponse := &mocks.MockResponse{
+		Resp: &proto.ExecutePlanResponse{
+			SessionId:   mocks.MockSessionId,
+			OperationId: mocks.MockOperationId,
+			Schema: &proto.DataType{
+				Kind: &proto.DataType_Struct_{
+					Struct: &proto.DataType_Struct{
+						Fields: []*proto.DataType_StructField{
+							{
+								Name: "col1",
+								DataType: &proto.DataType{
+									Kind: &proto.DataType_String_{
+										String_: &proto.DataType_String{},
+									},
+								},
+								Nullable: false,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	expectedError := errors.New("simulated RPC error")
 	errorResponse := &mocks.MockResponse{
 		Err: expectedError,
 	}
 
 	c := client.NewTestConnectClientFromResponses(mocks.MockSessionId,
-		&mocks.ExecutePlanResponseWithSchema,
+		schemaResponse,
 		errorResponse)
 
-	// Act
 	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("select 1"))
 	require.NoError(t, err)
 
 	recordChan, errorChan, _ := stream.ToRecordBatches(ctx)
 
-	// Assert: Should receive the RPC error
 	select {
 	case err := <-errorChan:
 		assert.Error(t, err)
@@ -416,11 +481,10 @@ func TestToRecordBatches_RPCErrorPropagation(t *testing.T) {
 	}
 }
 
-// Test 7: Verify session validation
 func TestToRecordBatches_SessionValidation(t *testing.T) {
+	// Session validation error should be returned for wrong session ID
 	ctx := context.Background()
 
-	// Arrange: Create response with wrong session ID
 	wrongSessionResponse := &mocks.MockResponse{
 		Resp: &proto.ExecutePlanResponse{
 			SessionId:   "wrong-session-id",
@@ -445,18 +509,15 @@ func TestToRecordBatches_SessionValidation(t *testing.T) {
 		},
 	}
 
-	// Need to provide EOF to prevent index out of range
 	c := client.NewTestConnectClientFromResponses(mocks.MockSessionId,
 		wrongSessionResponse,
 		&mocks.ExecutePlanResponseEOF)
 
-	// Act
 	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("select 1"))
 	require.NoError(t, err)
 
 	_, errorChan, _ := stream.ToRecordBatches(ctx)
 
-	// Assert: Should receive session validation error
 	select {
 	case err := <-errorChan:
 		assert.Error(t, err)
@@ -467,10 +528,9 @@ func TestToRecordBatches_SessionValidation(t *testing.T) {
 }
 
 func TestToRecordBatches_SqlCommandResultProperties(t *testing.T) {
-	// Verify SQL command results are captured in properties
+	// SQL command results should be captured in properties
 	ctx := context.Background()
 
-	// Arrange: Create response with SQL command result
 	sqlResultResponse := &mocks.MockResponse{
 		Resp: &proto.ExecutePlanResponse{
 			SessionId:   mocks.MockSessionId,
@@ -492,35 +552,29 @@ func TestToRecordBatches_SqlCommandResultProperties(t *testing.T) {
 		&mocks.ExecutePlanResponseDone,
 		&mocks.ExecutePlanResponseEOF)
 
-	// Act
 	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("test query"))
 	require.NoError(t, err)
 
-	// Consume the stream to ensure properties are set
 	recordChan, errorChan, _ := stream.ToRecordBatches(ctx)
 	_ = collectRecords(t, recordChan, errorChan)
 
-	// Assert: Properties should contain the SQL command result
-	// Note: We need access to the stream's Properties() method
-	// This might require modifying the test or the interface
-	// For now, this test validates that the stream processes SQL command results without error
+	// Properties should contain the SQL command result
+	props := stream.(*client.ExecutePlanClient).Properties()
+	assert.NotNil(t, props["sql_command_result"])
 }
 
 func TestToRecordBatches_EOFHandling(t *testing.T) {
-	// Verify proper handling of EOF
+	// EOF should close channels without error
 	ctx := context.Background()
 
-	// Arrange: Only EOF response
 	c := client.NewTestConnectClientFromResponses(mocks.MockSessionId,
 		&mocks.ExecutePlanResponseEOF)
 
-	// Act
 	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("select 1"))
 	require.NoError(t, err)
 
 	recordChan, errorChan, _ := stream.ToRecordBatches(ctx)
 
-	// Assert: Should close channels without error
 	timeout := time.After(100 * time.Millisecond)
 	recordClosed := false
 	errorReceived := false
@@ -540,6 +594,354 @@ func TestToRecordBatches_EOFHandling(t *testing.T) {
 
 	assert.True(t, recordClosed, "Record channel should be closed")
 	assert.False(t, errorReceived, "No error should be received for EOF")
+}
+
+func TestToRecordBatches_ExecutionProgressHandling(t *testing.T) {
+	// Execution progress messages should be handled without affecting record streaming
+	ctx := context.Background()
+
+	schemaResponse := &mocks.MockResponse{
+		Resp: &proto.ExecutePlanResponse{
+			SessionId:   mocks.MockSessionId,
+			OperationId: mocks.MockOperationId,
+			Schema: &proto.DataType{
+				Kind: &proto.DataType_Struct_{
+					Struct: &proto.DataType_Struct{
+						Fields: []*proto.DataType_StructField{
+							{
+								Name: "col1",
+								DataType: &proto.DataType{
+									Kind: &proto.DataType_String_{
+										String_: &proto.DataType_String{},
+									},
+								},
+								Nullable: false,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	progressResponse1 := &mocks.MockResponse{
+		Resp: &proto.ExecutePlanResponse{
+			SessionId:   mocks.MockSessionId,
+			OperationId: mocks.MockOperationId,
+			ResponseType: &proto.ExecutePlanResponse_ExecutionProgress_{
+				ExecutionProgress: &proto.ExecutePlanResponse_ExecutionProgress{
+					Stages:           nil,
+					NumInflightTasks: 0,
+				},
+			},
+		},
+	}
+
+	progressResponse2 := &mocks.MockResponse{
+		Resp: &proto.ExecutePlanResponse{
+			SessionId:   mocks.MockSessionId,
+			OperationId: mocks.MockOperationId,
+			ResponseType: &proto.ExecutePlanResponse_ExecutionProgress_{
+				ExecutionProgress: &proto.ExecutePlanResponse_ExecutionProgress{
+					Stages:           nil,
+					NumInflightTasks: 0,
+				},
+			},
+		},
+	}
+
+	arrowData := createTestArrowBatch(t, []string{"value1", "value2"})
+	arrowBatch := &mocks.MockResponse{
+		Resp: &proto.ExecutePlanResponse{
+			ResponseType: &proto.ExecutePlanResponse_ArrowBatch_{
+				ArrowBatch: &proto.ExecutePlanResponse_ArrowBatch{
+					Data: arrowData,
+				},
+			},
+			SessionId:   mocks.MockSessionId,
+			OperationId: mocks.MockOperationId,
+		},
+	}
+
+	c := client.NewTestConnectClientFromResponses(mocks.MockSessionId,
+		schemaResponse,
+		progressResponse1,
+		progressResponse2,
+		arrowBatch,
+		&mocks.ExecutePlanResponseDone,
+		&mocks.ExecutePlanResponseEOF)
+
+	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("select col1"))
+	require.NoError(t, err)
+
+	recordChan, errorChan, _ := stream.ToRecordBatches(ctx)
+
+	records := collectRecords(t, recordChan, errorChan)
+	require.Len(t, records, 1, "Should receive exactly one record despite progress messages")
+
+	record := records[0]
+	assert.Equal(t, int64(2), record.NumRows())
+}
+
+func TestToRecordBatches_SqlCommandResultOnly(t *testing.T) {
+	// Queries that only return SqlCommandResult should complete without arrow batches
+	ctx := context.Background()
+
+	sqlResultResponse := &mocks.MockResponse{
+		Resp: &proto.ExecutePlanResponse{
+			SessionId:   mocks.MockSessionId,
+			OperationId: mocks.MockOperationId,
+			ResponseType: &proto.ExecutePlanResponse_SqlCommandResult_{
+				SqlCommandResult: &proto.ExecutePlanResponse_SqlCommandResult{
+					Relation: &proto.Relation{
+						RelType: &proto.Relation_Sql{
+							Sql: &proto.SQL{Query: "SHOW TABLES"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	c := client.NewTestConnectClientFromResponses(mocks.MockSessionId,
+		sqlResultResponse,
+		&mocks.ExecutePlanResponseEOF)
+
+	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("SHOW TABLES"))
+	require.NoError(t, err)
+
+	recordChan, errorChan, _ := stream.ToRecordBatches(ctx)
+
+	recordsReceived := 0
+	errorsReceived := 0
+	timeout := time.After(100 * time.Millisecond)
+	done := false
+
+	for !done {
+		select {
+		case _, ok := <-recordChan:
+			if ok {
+				recordsReceived++
+			} else {
+				done = true
+			}
+		case <-errorChan:
+			errorsReceived++
+		case <-timeout:
+			t.Fatal("Test timed out - channels not closed")
+		}
+	}
+
+	assert.Equal(t, 0, recordsReceived, "No records should be sent for SqlCommandResult only")
+	assert.Equal(t, 0, errorsReceived, "No errors should occur")
+
+	props := stream.(*client.ExecutePlanClient).Properties()
+	assert.NotNil(t, props["sql_command_result"])
+}
+
+func TestToRecordBatches_MixedResponseTypes(t *testing.T) {
+	// Mixed response types should be handled correctly in realistic order
+	ctx := context.Background()
+
+	responses := []*mocks.MockResponse{
+		// Schema first
+		{
+			Resp: &proto.ExecutePlanResponse{
+				SessionId:   mocks.MockSessionId,
+				OperationId: mocks.MockOperationId,
+				Schema: &proto.DataType{
+					Kind: &proto.DataType_Struct_{
+						Struct: &proto.DataType_Struct{
+							Fields: []*proto.DataType_StructField{
+								{
+									Name: "id",
+									DataType: &proto.DataType{
+										Kind: &proto.DataType_String_{
+											String_: &proto.DataType_String{},
+										},
+									},
+									Nullable: false,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// SQL command result
+		{
+			Resp: &proto.ExecutePlanResponse{
+				SessionId:   mocks.MockSessionId,
+				OperationId: mocks.MockOperationId,
+				ResponseType: &proto.ExecutePlanResponse_SqlCommandResult_{
+					SqlCommandResult: &proto.ExecutePlanResponse_SqlCommandResult{
+						Relation: &proto.Relation{
+							RelType: &proto.Relation_Sql{
+								Sql: &proto.SQL{Query: "SELECT * FROM table"},
+							},
+						},
+					},
+				},
+			},
+		},
+		// Progress updates
+		{
+			Resp: &proto.ExecutePlanResponse{
+				SessionId:   mocks.MockSessionId,
+				OperationId: mocks.MockOperationId,
+				ResponseType: &proto.ExecutePlanResponse_ExecutionProgress_{
+					ExecutionProgress: &proto.ExecutePlanResponse_ExecutionProgress{
+						Stages:           nil,
+						NumInflightTasks: 0,
+					},
+				},
+			},
+		},
+		// Arrow batch
+		{
+			Resp: &proto.ExecutePlanResponse{
+				ResponseType: &proto.ExecutePlanResponse_ArrowBatch_{
+					ArrowBatch: &proto.ExecutePlanResponse_ArrowBatch{
+						Data: createTestArrowBatch(t, []string{"row1"}),
+					},
+				},
+				SessionId:   mocks.MockSessionId,
+				OperationId: mocks.MockOperationId,
+			},
+		},
+		// More progress
+		{
+			Resp: &proto.ExecutePlanResponse{
+				SessionId:   mocks.MockSessionId,
+				OperationId: mocks.MockOperationId,
+				ResponseType: &proto.ExecutePlanResponse_ExecutionProgress_{
+					ExecutionProgress: &proto.ExecutePlanResponse_ExecutionProgress{
+						Stages:           nil,
+						NumInflightTasks: 0,
+					},
+				},
+			},
+		},
+		// Another arrow batch
+		{
+			Resp: &proto.ExecutePlanResponse{
+				ResponseType: &proto.ExecutePlanResponse_ArrowBatch_{
+					ArrowBatch: &proto.ExecutePlanResponse_ArrowBatch{
+						Data: createTestArrowBatch(t, []string{"row2", "row3"}),
+					},
+				},
+				SessionId:   mocks.MockSessionId,
+				OperationId: mocks.MockOperationId,
+			},
+		},
+		// Result complete
+		&mocks.ExecutePlanResponseDone,
+		// EOF
+		&mocks.ExecutePlanResponseEOF,
+	}
+
+	c := client.NewTestConnectClientFromResponses(mocks.MockSessionId, responses...)
+
+	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("SELECT * FROM table"))
+	require.NoError(t, err)
+
+	recordChan, errorChan, _ := stream.ToRecordBatches(ctx)
+
+	records := collectRecords(t, recordChan, errorChan)
+	require.Len(t, records, 2, "Should receive exactly two arrow batches")
+
+	assert.Equal(t, int64(1), records[0].NumRows())
+	assert.Equal(t, int64(2), records[1].NumRows())
+}
+
+func TestToRecordBatches_NoResultCompleteWithEOF(t *testing.T) {
+	// Server sends EOF without ResultComplete (real Databricks behavior)
+	ctx := context.Background()
+
+	responses := []*mocks.MockResponse{
+		// Schema
+		{
+			Resp: &proto.ExecutePlanResponse{
+				SessionId:   mocks.MockSessionId,
+				OperationId: mocks.MockOperationId,
+				Schema: &proto.DataType{
+					Kind: &proto.DataType_Struct_{
+						Struct: &proto.DataType_Struct{
+							Fields: []*proto.DataType_StructField{
+								{
+									Name: "value",
+									DataType: &proto.DataType{
+										Kind: &proto.DataType_String_{
+											String_: &proto.DataType_String{},
+										},
+									},
+									Nullable: false,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// SqlCommandResult
+		{
+			Resp: &proto.ExecutePlanResponse{
+				SessionId:   mocks.MockSessionId,
+				OperationId: mocks.MockOperationId,
+				ResponseType: &proto.ExecutePlanResponse_SqlCommandResult_{
+					SqlCommandResult: &proto.ExecutePlanResponse_SqlCommandResult{
+						Relation: &proto.Relation{
+							RelType: &proto.Relation_Sql{
+								Sql: &proto.SQL{Query: "SELECT 'test'"},
+							},
+						},
+					},
+				},
+			},
+		},
+		// ExecutionProgress
+		{
+			Resp: &proto.ExecutePlanResponse{
+				SessionId:   mocks.MockSessionId,
+				OperationId: mocks.MockOperationId,
+				ResponseType: &proto.ExecutePlanResponse_ExecutionProgress_{
+					ExecutionProgress: &proto.ExecutePlanResponse_ExecutionProgress{
+						Stages:           nil,
+						NumInflightTasks: 0,
+					},
+				},
+			},
+		},
+		// Arrow batch with data
+		{
+			Resp: &proto.ExecutePlanResponse{
+				ResponseType: &proto.ExecutePlanResponse_ArrowBatch_{
+					ArrowBatch: &proto.ExecutePlanResponse_ArrowBatch{
+						Data: createTestArrowBatch(t, []string{"test"}),
+					},
+				},
+				SessionId:   mocks.MockSessionId,
+				OperationId: mocks.MockOperationId,
+			},
+		},
+		// EOF without ResultComplete (Databricks behavior)
+		&mocks.ExecutePlanResponseEOF,
+	}
+
+	c := client.NewTestConnectClientFromResponses(mocks.MockSessionId, responses...)
+
+	stream, err := c.ExecutePlan(ctx, mocks.NewSqlCommand("SELECT 'test'"))
+	require.NoError(t, err)
+
+	recordChan, errorChan, _ := stream.ToRecordBatches(ctx)
+
+	records := collectRecords(t, recordChan, errorChan)
+	require.Len(t, records, 1, "Should receive exactly one record")
+
+	record := records[0]
+	assert.Equal(t, int64(1), record.NumRows())
+	col := record.Column(0).(*array.String)
+	assert.Equal(t, "test", col.Value(0))
 }
 
 // Helper function to create test arrow batch data
@@ -592,7 +994,9 @@ func collectRecords(t *testing.T, recordChan <-chan arrow.Record, errorChan <-ch
 				records = append(records, record)
 			}
 		case err := <-errorChan:
-			t.Fatalf("Unexpected error: %v", err)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
 		case <-timeout:
 			t.Fatal("Test timed out collecting records")
 		}

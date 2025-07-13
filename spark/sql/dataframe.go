@@ -944,7 +944,7 @@ func (df *dataFrameImpl) ToLocalIterator(ctx context.Context) (types.RowIterator
 
 	recordChan, errorChan, schema := responseClient.ToRecordBatches(ctx)
 
-	return types.NewRowIterator(recordChan, errorChan, schema), nil
+	return types.NewRowIterator(ctx, recordChan, errorChan, schema), nil
 }
 
 func (df *dataFrameImpl) UnionAll(ctx context.Context, other DataFrame) DataFrame {

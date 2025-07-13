@@ -368,6 +368,15 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 	c.done = false
 	for {
 		resp, err := c.responseStream.Recv()
+		if err != nil {
+			fmt.Printf("DEBUG: Recv error: %v, is EOF: %v\n", err, errors.Is(err, io.EOF))
+		}
+		if err == nil && resp != nil {
+			fmt.Printf("DEBUG: Received response type: %T\n", resp.ResponseType)
+			if _, ok := resp.ResponseType.(*proto.ExecutePlanResponse_ResultComplete_); ok {
+				fmt.Println("DEBUG: Got ResultComplete!")
+			}
+		}
 		// EOF is received when the last message has been processed and the stream
 		// finished normally.
 		if errors.Is(err, io.EOF) {
@@ -477,15 +486,43 @@ func (c *ExecutePlanClient) ToRecordBatches(ctx context.Context) (<-chan arrow.R
 			}
 
 			// EOF is received when the last message has been processed and the stream
-			// finished normally.
+			// finished normally. Handle this FIRST, before any other processing.
 			if errors.Is(err, io.EOF) {
 				return
 			}
 
-			// If the error was not EOF, there might be another error.
-			if se := sparkerrors.FromRPCError(err); se != nil {
+			// If there's any other error, handle it
+			if err != nil {
+				if se := sparkerrors.FromRPCError(err); se != nil {
+					select {
+					case errorChan <- sparkerrors.WithType(se, sparkerrors.ExecutionError):
+					case <-ctx.Done():
+						return
+					}
+				} else {
+					// Unknown error - still send it
+					select {
+					case errorChan <- err:
+					case <-ctx.Done():
+						return
+					}
+				}
+				return
+			}
+
+			// Only proceed if we have a valid response (no error)
+			if resp == nil {
+				continue
+			}
+
+			// Check that the server returned the session ID that we were expecting
+			// and that it has not changed.
+			if resp.GetSessionId() != c.sessionId {
 				select {
-				case errorChan <- sparkerrors.WithType(se, sparkerrors.ExecutionError):
+				case errorChan <- sparkerrors.WithType(&sparkerrors.InvalidServerSideSessionDetailsError{
+					OwnSessionId:      c.sessionId,
+					ReceivedSessionId: resp.GetSessionId(),
+				}, sparkerrors.InvalidServerSideSessionError):
 				case <-ctx.Done():
 					return
 				}
@@ -494,7 +531,7 @@ func (c *ExecutePlanClient) ToRecordBatches(ctx context.Context) (<-chan arrow.R
 
 			// Check if the response has already the schema set and if yes, convert
 			// the proto DataType to a StructType.
-			if resp.Schema != nil && c.schema == nil {
+			if resp.Schema != nil {
 				c.schema, err = types.ConvertProtoDataTypeToStructType(resp.Schema)
 				if err != nil {
 					select {
@@ -537,6 +574,10 @@ func (c *ExecutePlanClient) ToRecordBatches(ctx context.Context) (<-chan arrow.R
 			case *proto.ExecutePlanResponse_ResultComplete_:
 				c.done = true
 				return
+
+			case *proto.ExecutePlanResponse_ExecutionProgress_:
+				// Progress updates - we can ignore these or optionally expose them
+				// through a separate channel in the future
 
 			default:
 				// Explicitly ignore messages that we cannot process at the moment.

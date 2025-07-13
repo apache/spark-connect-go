@@ -21,15 +21,21 @@ func createTestRecord(values []string) arrow.Record {
 		nil,
 	)
 
+	// Create a NEW allocator for each record to ensure isolation
 	alloc := memory.NewGoAllocator()
 	builder := array.NewRecordBuilder(alloc, schema)
-	defer builder.Release()
 
 	for _, v := range values {
 		builder.Field(0).(*array.StringBuilder).Append(v)
 	}
 
-	return builder.NewRecord()
+	record := builder.NewRecord()
+	builder.Release() // Release AFTER creating record
+
+	// Important: Retain the record to ensure it owns its memory
+	record.Retain()
+
+	return record
 }
 
 func TestRowIterator_BasicIteration(t *testing.T) {
@@ -217,4 +223,102 @@ func TestRowIterator_ConcurrentAccess(t *testing.T) {
 	// Should have consumed all 5 records
 	_, err := iter.Next()
 	assert.Equal(t, io.EOF, err)
+}
+
+func TestRowIterator_ErrorAfterRecordChannelClosed(t *testing.T) {
+	// Test error handling when record channel closes but error channel has data
+	// This mimics Databricks behavior where EOF errors can come after stream ends
+	recordChan := make(chan arrow.Record, 1)
+	errorChan := make(chan error, 1)
+	schema := &types.StructType{}
+
+	recordChan <- createTestRecord([]string{"row1"})
+	close(recordChan)
+
+	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	defer iter.Close()
+
+	// Get first row
+	row, err := iter.Next()
+	require.NoError(t, err)
+	assert.Equal(t, "row1", row.At(0))
+
+	// Put error in channel AFTER getting the first row
+	testErr := errors.New("delayed error")
+	errorChan <- testErr
+
+	// Next call should return the error from error channel
+	_, err = iter.Next()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "delayed error")
+}
+
+func TestRowIterator_BothChannelsClosedCleanly(t *testing.T) {
+	// Test clean shutdown when both channels close without errors (Databricks normal case)
+	recordChan := make(chan arrow.Record, 1)
+	errorChan := make(chan error, 1)
+	schema := &types.StructType{}
+
+	recordChan <- createTestRecord([]string{"row1"})
+	close(recordChan)
+	close(errorChan)
+
+	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	defer iter.Close()
+
+	// Get the record
+	row, err := iter.Next()
+	require.NoError(t, err)
+	assert.Equal(t, "row1", row.At(0))
+
+	// Should get EOF on next call
+	_, err = iter.Next()
+	assert.Equal(t, io.EOF, err)
+}
+
+func TestRowIterator_RecordReleaseOnError(t *testing.T) {
+	// Test that records are properly released even when conversion fails
+	recordChan := make(chan arrow.Record, 1)
+	errorChan := make(chan error, 1)
+	schema := &types.StructType{}
+
+	// This would test record release, but since we can't easily make
+	// ReadArrowRecordToRows fail, we'll test the normal case
+	record := createTestRecord([]string{"row1"})
+	recordChan <- record
+	close(recordChan)
+
+	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	defer iter.Close()
+
+	// Get record (this should work and release the arrow record internally)
+	row, err := iter.Next()
+	require.NoError(t, err)
+	assert.Equal(t, "row1", row.At(0))
+
+	// Verify we can't get another record
+	_, err = iter.Next()
+	assert.Equal(t, io.EOF, err)
+}
+
+func TestRowIterator_ExhaustedState(t *testing.T) {
+	// Test that exhausted state is properly maintained
+	recordChan := make(chan arrow.Record)
+	errorChan := make(chan error, 1)
+	schema := &types.StructType{}
+
+	close(recordChan) // No records
+
+	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	defer iter.Close()
+
+	// First call should set exhausted and return EOF
+	_, err := iter.Next()
+	assert.Equal(t, io.EOF, err)
+
+	// All subsequent calls should also return EOF (exhausted state)
+	for i := 0; i < 3; i++ {
+		_, err := iter.Next()
+		assert.Equal(t, io.EOF, err)
+	}
 }

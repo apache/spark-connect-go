@@ -27,11 +27,13 @@ type rowIteratorImpl struct {
 	mu           sync.Mutex
 	ctx          context.Context
 	cancel       context.CancelFunc
+	cleanupOnce  sync.Once
 }
 
-func NewRowIterator(recordChan <-chan arrow.Record, errorChan <-chan error, schema *StructType) RowIterator {
-	// Create a context that we can cancel when the iterator is closed
-	ctx, cancel := context.WithCancel(context.Background())
+// NewRowIterator creates a new row iterator with the given context
+func NewRowIterator(ctx context.Context, recordChan <-chan arrow.Record, errorChan <-chan error, schema *StructType) RowIterator {
+	// Create a cancellable context derived from the parent
+	iterCtx, cancel := context.WithCancel(ctx)
 
 	return &rowIteratorImpl{
 		recordChan:   recordChan,
@@ -41,7 +43,7 @@ func NewRowIterator(recordChan <-chan arrow.Record, errorChan <-chan error, sche
 		currentIndex: 0,
 		exhausted:    false,
 		closed:       false,
-		ctx:          ctx,
+		ctx:          iterCtx,
 		cancel:       cancel,
 	}
 }
@@ -60,6 +62,7 @@ func (iter *rowIteratorImpl) Next() (Row, error) {
 	// Check if context was cancelled
 	select {
 	case <-iter.ctx.Done():
+		iter.exhausted = true
 		return nil, iter.ctx.Err()
 	default:
 	}
@@ -90,73 +93,127 @@ func (iter *rowIteratorImpl) Next() (Row, error) {
 	return row, nil
 }
 
+// fetchNextBatch with deterministic channel handling
 func (iter *rowIteratorImpl) fetchNextBatch() error {
-	select {
-	case <-iter.ctx.Done():
-		return iter.ctx.Err()
+	for {
+		select {
+		case <-iter.ctx.Done():
+			return iter.ctx.Err()
 
-	case record, ok := <-iter.recordChan:
-		if !ok {
-			// Channel closed - check for any errors
-			select {
-			case err := <-iter.errorChan:
+		case record, ok := <-iter.recordChan:
+			if !ok {
+				// Record channel is closed - check for any final error
+				return iter.checkErrorChannelOnClose()
+			}
+
+			// We have a valid record - handle nil check
+			if record == nil {
+				continue // Skip nil records
+			}
+
+			// Convert to rows and release the record immediately
+			rows, err := func() ([]Row, error) {
+				defer record.Release()
+				return ReadArrowRecordToRows(record)
+			}()
+
+			if err != nil {
 				return err
-			case <-iter.ctx.Done():
-				return iter.ctx.Err()
-			default:
+			}
+
+			iter.currentRows = rows
+			iter.currentIndex = 0
+			return nil
+
+		case err, ok := <-iter.errorChan:
+			if !ok {
+				// Error channel closed - treat as EOF
 				return io.EOF
 			}
-		}
-
-		// Make sure to release the record even if conversion fails
-		defer record.Release()
-
-		// Convert the Arrow record directly to rows using the helper
-		rows, err := ReadArrowRecordToRows(record)
-		if err != nil {
+			// Error received - return it (nil errors become EOF)
+			if err == nil {
+				return io.EOF
+			}
 			return err
 		}
+	}
+}
 
-		iter.currentRows = rows
-		iter.currentIndex = 0
-		return nil
+// checkErrorChannelOnClose handles error channel when record channel closes
+func (iter *rowIteratorImpl) checkErrorChannelOnClose() error {
+	// Use a small timeout to check for any trailing errors
+	timer := time.NewTimer(50 * time.Millisecond)
+	defer timer.Stop()
 
-	case err := <-iter.errorChan:
+	select {
+	case err, ok := <-iter.errorChan:
+		if !ok || err == nil {
+			// Channel closed or nil error - normal EOF
+			return io.EOF
+		}
+		// Got actual error
 		return err
+	case <-timer.C:
+		// No error within timeout - assume normal EOF
+		return io.EOF
+	case <-iter.ctx.Done():
+		// Context cancelled during wait
+		return iter.ctx.Err()
 	}
 }
 
 func (iter *rowIteratorImpl) Close() error {
 	iter.mu.Lock()
-	defer iter.mu.Unlock()
-
 	if iter.closed {
+		iter.mu.Unlock()
 		return nil
 	}
 	iter.closed = true
+	iter.mu.Unlock()
 
-	// Cancel our context to signal cleanup
+	// Cancel the context to signal any blocked operations to stop
 	iter.cancel()
 
-	// Drain any remaining records to prevent goroutine leaks
-	// Use a separate goroutine with timeout to avoid blocking
-	go func() {
-		timeout := time.NewTimer(5 * time.Second)
-		defer timeout.Stop()
-
-		for {
-			select {
-			case record, ok := <-iter.recordChan:
-				if !ok {
-					return // Channel closed
-				}
-				record.Release()
-			case <-timeout.C:
-				// Timeout reached - force exit to prevent hanging
-				return
-			}
-		}
-	}()
+	// Ensure cleanup happens only once
+	iter.cleanupOnce.Do(func() {
+		// Start a goroutine to drain channels
+		// This prevents the producer goroutine from blocking
+		go iter.drainChannels()
+	})
 
 	return nil
+}
+
+// drainChannels drains both channels to prevent producer goroutine from blocking
+func (iter *rowIteratorImpl) drainChannels() {
+	// Use a reasonable timeout for cleanup
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	for {
+		select {
+		case record, ok := <-iter.recordChan:
+			if !ok {
+				// Channel closed, check error channel one more time
+				select {
+				case <-iter.errorChan:
+					// Drained
+				case <-ctx.Done():
+					// Timeout
+				}
+				return
+			}
+			// Release any remaining records to prevent memory leaks
+			if record != nil {
+				record.Release()
+			}
+
+		case <-iter.errorChan:
+			// Just drain, don't process
+
+		case <-ctx.Done():
+			// Cleanup timeout - exit
+			return
+		}
+	}
 }
