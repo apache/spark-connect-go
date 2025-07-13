@@ -3,41 +3,18 @@ package types_test
 import (
 	"context"
 	"errors"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"io"
 	"testing"
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
-	"github.com/apache/arrow-go/v18/arrow/array"
-	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/apache/spark-connect-go/v40/spark/sql/types"
 )
-
-func createTestRecord(values []string) arrow.Record {
-	schema := arrow.NewSchema(
-		[]arrow.Field{{Name: "col1", Type: arrow.BinaryTypes.String}},
-		nil,
-	)
-
-	// Create a NEW allocator for each record to ensure isolation
-	alloc := memory.NewGoAllocator()
-	builder := array.NewRecordBuilder(alloc, schema)
-
-	for _, v := range values {
-		builder.Field(0).(*array.StringBuilder).Append(v)
-	}
-
-	record := builder.NewRecord()
-	builder.Release() // Release AFTER creating record
-
-	// Important: Retain the record to ensure it owns its memory
-	record.Retain()
-
-	return record
-}
 
 func TestRowIterator_BasicIteration(t *testing.T) {
 	recordChan := make(chan arrow.Record, 2)
@@ -267,11 +244,8 @@ func TestRowIterator_BothChannelsClosedCleanly(t *testing.T) {
 	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 	defer iter.Close()
 
-	// Get the record
-	_, err := iter.Next()
-
 	// Should get EOF on next call
-	_, err = iter.Next()
+	_, err := iter.Next()
 	assert.Equal(t, io.EOF, err)
 }
 
@@ -320,4 +294,28 @@ func TestRowIterator_ExhaustedState(t *testing.T) {
 		_, err := iter.Next()
 		assert.Equal(t, io.EOF, err)
 	}
+}
+
+func createTestRecord(values []string) arrow.Record {
+	schema := arrow.NewSchema(
+		[]arrow.Field{{Name: "col1", Type: arrow.BinaryTypes.String}},
+		nil,
+	)
+
+	// Create a NEW allocator for each record to ensure isolation
+	alloc := memory.NewGoAllocator()
+	builder := array.NewRecordBuilder(alloc, schema)
+
+	for _, v := range values {
+		builder.Field(0).(*array.StringBuilder).Append(v)
+	}
+
+	record := builder.NewRecord()
+	// Release AFTER creating record
+	builder.Release()
+
+	// Retain the record to ensure it owns its memory
+	record.Retain()
+
+	return record
 }
