@@ -244,8 +244,11 @@ func TestRowIterator_BothChannelsClosedCleanly(t *testing.T) {
 	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 	defer iter.Close()
 
+	row, err := iter.Next()
+	assert.Equal(t, "row1", row.At(0))
+	assert.Nil(t, err)
 	// Should get EOF on next call
-	_, err := iter.Next()
+	_, err = iter.Next()
 	assert.Equal(t, io.EOF, err)
 }
 

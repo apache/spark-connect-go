@@ -93,7 +93,7 @@ func (iter *rowIteratorImpl) Next() (Row, error) {
 	return row, nil
 }
 
-// fetchNextBatch with deterministic channel handling
+// fetchNextBatch with deterministic handling to release rows before returning EOF
 func (iter *rowIteratorImpl) fetchNextBatch() error {
 	for {
 		select {
@@ -108,7 +108,7 @@ func (iter *rowIteratorImpl) fetchNextBatch() error {
 
 			// We have a valid record - handle nil check
 			if record == nil {
-				continue // Skip nil records
+				continue
 			}
 
 			// Convert to rows and release the record immediately
@@ -127,9 +127,40 @@ func (iter *rowIteratorImpl) fetchNextBatch() error {
 
 		case err, ok := <-iter.errorChan:
 			if !ok {
-				// Error channel closed - treat as EOF
-				return io.EOF
+				// Error channel closed - continue to check record channel
+				// Don't immediately return EOF if there are still records to process
+				select {
+				case record, ok := <-iter.recordChan:
+					if !ok {
+						// Both channels are closed
+						return io.EOF
+					}
+
+					// We have a valid record - handle nil check
+					if record == nil {
+						continue // Skip nil records
+					}
+
+					// Convert to rows and release the record immediately
+					rows, err := func() ([]Row, error) {
+						defer record.Release()
+						return ReadArrowRecordToRows(record)
+					}()
+
+					if err != nil {
+						return err
+					}
+
+					iter.currentRows = rows
+					iter.currentIndex = 0
+					return nil
+
+				default:
+					// No immediate record available, but channel isn't closed
+					// Continue with the main select loop
+				}
 			}
+
 			// Error received - return it (nil errors become EOF)
 			if err == nil {
 				return io.EOF
@@ -141,6 +172,19 @@ func (iter *rowIteratorImpl) fetchNextBatch() error {
 
 // checkErrorChannelOnClose handles error channel when record channel closes
 func (iter *rowIteratorImpl) checkErrorChannelOnClose() error {
+	// If error channel is already closed, return EOF
+	select {
+	case err, ok := <-iter.errorChan:
+		if !ok || err == nil {
+			// Channel closed or nil error - normal EOF
+			return io.EOF
+		}
+		// Got actual error
+		return err
+	default:
+		// Error channel still open, use timeout approach
+	}
+
 	// Use a small timeout to check for any trailing errors
 	timer := time.NewTimer(50 * time.Millisecond)
 	defer timer.Stop()
@@ -151,7 +195,6 @@ func (iter *rowIteratorImpl) checkErrorChannelOnClose() error {
 			// Channel closed or nil error - normal EOF
 			return io.EOF
 		}
-		// Got actual error
 		return err
 	case <-timer.C:
 		// No error within timeout - assume normal EOF
