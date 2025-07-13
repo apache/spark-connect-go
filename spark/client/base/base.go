@@ -48,5 +48,6 @@ type SparkConnectClient interface {
 
 type ExecuteResponseStream interface {
 	ToTable() (*types.StructType, arrow.Table, error)
+	ToRecordBatches(ctx context.Context) (<-chan arrow.Record, <-chan error, *types.StructType)
 	Properties() map[string]any
 }

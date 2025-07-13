@@ -406,3 +406,60 @@ func TestConvertProtoDataTypeToDataType_UnsupportedType(t *testing.T) {
 	}
 	assert.Equal(t, "Unsupported", types.ConvertProtoDataTypeToDataType(unsupportedDataType).TypeName())
 }
+
+func TestReadArrowBatchToRecord(t *testing.T) {
+	// Create a test arrow record
+	arrowFields := []arrow.Field{
+		{Name: "col1", Type: arrow.BinaryTypes.String},
+		{Name: "col2", Type: arrow.PrimitiveTypes.Int32},
+	}
+	arrowSchema := arrow.NewSchema(arrowFields, nil)
+
+	alloc := memory.NewGoAllocator()
+	recordBuilder := array.NewRecordBuilder(alloc, arrowSchema)
+	defer recordBuilder.Release()
+
+	recordBuilder.Field(0).(*array.StringBuilder).Append("test1")
+	recordBuilder.Field(0).(*array.StringBuilder).Append("test2")
+	recordBuilder.Field(1).(*array.Int32Builder).Append(100)
+	recordBuilder.Field(1).(*array.Int32Builder).Append(200)
+
+	originalRecord := recordBuilder.NewRecord()
+	defer originalRecord.Release()
+
+	// Serialize to arrow batch format
+	var buf bytes.Buffer
+	arrowWriter := ipc.NewWriter(&buf, ipc.WithSchema(arrowSchema))
+	defer arrowWriter.Close()
+
+	err := arrowWriter.Write(originalRecord)
+	require.NoError(t, err)
+
+	// Test ReadArrowBatchToRecord
+	record, err := types.ReadArrowBatchToRecord(buf.Bytes(), nil)
+	require.NoError(t, err)
+	defer record.Release()
+
+	// Verify the record was read correctly
+	assert.Equal(t, int64(2), record.NumRows())
+	assert.Equal(t, int64(2), record.NumCols())
+	assert.Equal(t, "col1", record.Schema().Field(0).Name)
+	assert.Equal(t, "col2", record.Schema().Field(1).Name)
+}
+
+func TestReadArrowBatchToRecord_InvalidData(t *testing.T) {
+	// Test with invalid arrow data
+	invalidData := []byte{0x00, 0x01, 0x02}
+
+	_, err := types.ReadArrowBatchToRecord(invalidData, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create arrow reader")
+}
+
+func TestReadArrowBatchToRecord_EmptyData(t *testing.T) {
+	// Test with empty data
+	emptyData := []byte{}
+
+	_, err := types.ReadArrowBatchToRecord(emptyData, nil)
+	assert.Error(t, err)
+}
