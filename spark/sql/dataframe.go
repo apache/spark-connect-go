@@ -213,6 +213,7 @@ type DataFrame interface {
 	Take(ctx context.Context, limit int32) ([]types.Row, error)
 	// ToArrow returns the Arrow representation of the DataFrame.
 	ToArrow(ctx context.Context) (*arrow.Table, error)
+	ToLocalIterator(ctx context.Context) (types.RowIterator, error)
 	// Union is an alias for UnionAll
 	Union(ctx context.Context, other DataFrame) DataFrame
 	// UnionAll returns a new DataFrame containing union of rows in this and another DataFrame.
@@ -933,6 +934,17 @@ func (df *dataFrameImpl) ToArrow(ctx context.Context) (*arrow.Table, error) {
 	}
 
 	return &table, nil
+}
+
+func (df *dataFrameImpl) ToLocalIterator(ctx context.Context) (types.RowIterator, error) {
+	responseClient, err := df.session.client.ExecutePlan(ctx, df.createPlan())
+	if err != nil {
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
+	}
+
+	recordChan, errorChan, schema := responseClient.ToRecordBatches(ctx)
+
+	return types.NewRowIterator(recordChan, errorChan, schema), nil
 }
 
 func (df *dataFrameImpl) UnionAll(ctx context.Context, other DataFrame) DataFrame {
