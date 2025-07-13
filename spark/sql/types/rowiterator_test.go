@@ -1,6 +1,7 @@
 package types_test
 
 import (
+	"context"
 	"errors"
 	"io"
 	"testing"
@@ -48,7 +49,7 @@ func TestRowIterator_BasicIteration(t *testing.T) {
 	recordChan <- createTestRecord([]string{"row3", "row4"})
 	close(recordChan)
 
-	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 	defer iter.Close()
 
 	// Collect all rows
@@ -78,7 +79,7 @@ func TestRowIterator_ContextCancellation(t *testing.T) {
 	// Send one record
 	recordChan <- createTestRecord([]string{"row1", "row2"})
 
-	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 
 	// Read first row successfully
 	row, err := iter.Next()
@@ -103,7 +104,7 @@ func TestRowIterator_ErrorPropagation(t *testing.T) {
 	// Send test record
 	recordChan <- createTestRecord([]string{"row1"})
 
-	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 	defer iter.Close()
 
 	// Read first row successfully
@@ -129,7 +130,7 @@ func TestRowIterator_EmptyResult(t *testing.T) {
 	// Close channel immediately
 	close(recordChan)
 
-	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 	defer iter.Close()
 
 	// First read should return EOF
@@ -146,7 +147,7 @@ func TestRowIterator_MultipleClose(t *testing.T) {
 	errorChan := make(chan error, 1)
 	schema := &types.StructType{}
 
-	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 
 	// Close multiple times should not panic
 	err := iter.Close()
@@ -166,7 +167,7 @@ func TestRowIterator_CloseWithPendingRecords(t *testing.T) {
 		recordChan <- createTestRecord([]string{"row"})
 	}
 
-	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 
 	// Close without reading all records
 	// This should trigger the cleanup goroutine
@@ -196,7 +197,7 @@ func TestRowIterator_ConcurrentAccess(t *testing.T) {
 	}
 	close(recordChan)
 
-	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 	defer iter.Close()
 
 	// Try concurrent reads (should be safe due to mutex)
@@ -235,7 +236,7 @@ func TestRowIterator_ErrorAfterRecordChannelClosed(t *testing.T) {
 	recordChan <- createTestRecord([]string{"row1"})
 	close(recordChan)
 
-	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 	defer iter.Close()
 
 	// Get first row
@@ -263,7 +264,7 @@ func TestRowIterator_BothChannelsClosedCleanly(t *testing.T) {
 	close(recordChan)
 	close(errorChan)
 
-	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 	defer iter.Close()
 
 	// Get the record
@@ -288,7 +289,7 @@ func TestRowIterator_RecordReleaseOnError(t *testing.T) {
 	recordChan <- record
 	close(recordChan)
 
-	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 	defer iter.Close()
 
 	// Get record (this should work and release the arrow record internally)
@@ -309,7 +310,7 @@ func TestRowIterator_ExhaustedState(t *testing.T) {
 
 	close(recordChan) // No records
 
-	iter := types.NewRowIterator(recordChan, errorChan, schema)
+	iter := types.NewRowIterator(context.Background(), recordChan, errorChan, schema)
 	defer iter.Close()
 
 	// First call should set exhausted and return EOF
