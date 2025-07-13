@@ -68,28 +68,10 @@ func ReadArrowTableToRows(table arrow.Table) ([]Row, error) {
 	return result, nil
 }
 
-func ReadArrowTableToIterator(table arrow.Table) (RowIterator, error) {
-	cols := make([][]any, table.NumCols())
-	for i := 0; i < int(table.NumCols()); i++ {
-		chunked := table.Column(i).Data()
-		column, err := readChunkedColumn(chunked)
-		if err != nil {
-			return nil, err
-		}
-		cols[i] = column
-	}
-
-	fieldNames := make([]string, table.NumCols())
-	for i, f := range table.Schema().Fields() {
-		fieldNames[i] = f.Name
-	}
-
-	return &arrowRowIterator{
-		cols:       cols,
-		fieldNames: fieldNames,
-		totalRows:  int(table.NumRows()),
-		idx:        0,
-	}, nil
+func ReadArrowRecordToRows(record arrow.Record) ([]Row, error) {
+	table := array.NewTableFromRecords(record.Schema(), []arrow.Record{record})
+	defer table.Release()
+	return ReadArrowTableToRows(table)
 }
 
 func readArrayData(t arrow.Type, data arrow.ArrayData) ([]any, error) {

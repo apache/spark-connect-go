@@ -18,7 +18,6 @@ package types_test
 
 import (
 	"bytes"
-	"io"
 	"testing"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -408,48 +407,59 @@ func TestConvertProtoDataTypeToDataType_UnsupportedType(t *testing.T) {
 	assert.Equal(t, "Unsupported", types.ConvertProtoDataTypeToDataType(unsupportedDataType).TypeName())
 }
 
-func TestReadArrowTableToIterator_PartialAndEquivalence(t *testing.T) {
-	// Build a tiny table with two rows
-	arrowFields := []arrow.Field{{Name: "col1", Type: &arrow.StringType{}}}
-	schema := arrow.NewSchema(arrowFields, nil)
+func TestReadArrowBatchToRecord(t *testing.T) {
+	// Create a test arrow record
+	arrowFields := []arrow.Field{
+		{Name: "col1", Type: arrow.BinaryTypes.String},
+		{Name: "col2", Type: arrow.PrimitiveTypes.Int32},
+	}
+	arrowSchema := arrow.NewSchema(arrowFields, nil)
 
 	alloc := memory.NewGoAllocator()
-	rb := array.NewRecordBuilder(alloc, schema)
-	defer rb.Release()
+	recordBuilder := array.NewRecordBuilder(alloc, arrowSchema)
+	defer recordBuilder.Release()
 
-	rb.Field(0).(*array.StringBuilder).Append("row-1")
-	rb.Field(0).(*array.StringBuilder).Append("row-2")
+	recordBuilder.Field(0).(*array.StringBuilder).Append("test1")
+	recordBuilder.Field(0).(*array.StringBuilder).Append("test2")
+	recordBuilder.Field(1).(*array.Int32Builder).Append(100)
+	recordBuilder.Field(1).(*array.Int32Builder).Append(200)
 
-	rec := rb.NewRecord()
-	defer rec.Release()
+	originalRecord := recordBuilder.NewRecord()
+	defer originalRecord.Release()
 
-	table := array.NewTableFromRecords(schema, []arrow.Record{rec})
+	// Serialize to arrow batch format
+	var buf bytes.Buffer
+	arrowWriter := ipc.NewWriter(&buf, ipc.WithSchema(arrowSchema))
+	defer arrowWriter.Close()
 
-	// 1️⃣ Iterator – consume one row, then the rest
-	it, err := types.ReadArrowTableToIterator(table)
+	err := arrowWriter.Write(originalRecord)
 	require.NoError(t, err)
 
-	firstRow, err := it.Next()
+	// Test ReadArrowBatchToRecord
+	record, err := types.ReadArrowBatchToRecord(buf.Bytes(), nil)
 	require.NoError(t, err)
-	assert.Equal(t, []any{"row-1"}, firstRow.Values())
+	defer record.Release()
 
-	var remainder []types.Row
-	for {
-		r, err := it.Next()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-		remainder = append(remainder, r)
-	}
-	assert.Equal(t, 1, len(remainder))
-	assert.Equal(t, []any{"row-2"}, remainder[0].Values())
+	// Verify the record was read correctly
+	assert.Equal(t, int64(2), record.NumRows())
+	assert.Equal(t, int64(2), record.NumCols())
+	assert.Equal(t, "col1", record.Schema().Field(0).Name)
+	assert.Equal(t, "col2", record.Schema().Field(1).Name)
+}
 
-	// 2️⃣ Equivalence with eager conversion
-	allRowsIter := append([]types.Row{firstRow}, remainder...)
+func TestReadArrowBatchToRecord_InvalidData(t *testing.T) {
+	// Test with invalid arrow data
+	invalidData := []byte{0x00, 0x01, 0x02}
 
-	allRowsEager, err := types.ReadArrowTableToRows(table)
-	require.NoError(t, err)
+	_, err := types.ReadArrowBatchToRecord(invalidData, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create arrow reader")
+}
 
-	assert.Equal(t, allRowsEager, allRowsIter)
+func TestReadArrowBatchToRecord_EmptyData(t *testing.T) {
+	// Test with empty data
+	emptyData := []byte{}
+
+	_, err := types.ReadArrowBatchToRecord(emptyData, nil)
+	assert.Error(t, err)
 }
