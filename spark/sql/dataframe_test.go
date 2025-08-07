@@ -20,8 +20,8 @@ import (
 	"context"
 	"testing"
 
-	proto "github.com/apache/spark-connect-go/v40/internal/generated"
-	"github.com/apache/spark-connect-go/v40/spark/sql/functions"
+	proto "github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/sql/functions"
 	"github.com/stretchr/testify/assert"
 )
 

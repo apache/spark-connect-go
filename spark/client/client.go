@@ -21,25 +21,25 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/spark-connect-go/v40/spark/sql/utils"
+	"github.com/apache/spark-connect-go/spark/sql/utils"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/apache/spark-connect-go/v40/spark/client/base"
-	"github.com/apache/spark-connect-go/v40/spark/mocks"
+	"github.com/apache/spark-connect-go/spark/client/base"
+	"github.com/apache/spark-connect-go/spark/mocks"
 
-	"github.com/apache/spark-connect-go/v40/spark/client/options"
+	"github.com/apache/spark-connect-go/spark/client/options"
 
 	"github.com/google/uuid"
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
-	"github.com/apache/spark-connect-go/v40/spark/sql/types"
+	"github.com/apache/spark-connect-go/spark/sql/types"
 
-	"github.com/apache/spark-connect-go/v40/internal/generated"
-	proto "github.com/apache/spark-connect-go/v40/internal/generated"
-	"github.com/apache/spark-connect-go/v40/spark/sparkerrors"
+	"github.com/apache/spark-connect-go/internal/generated"
+	proto "github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/sparkerrors"
 )
 
 type sparkConnectClientImpl struct {
