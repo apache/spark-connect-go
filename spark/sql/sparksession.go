@@ -230,7 +230,7 @@ func (s *sparkSessionImpl) CreateDataFrameFromArrow(ctx context.Context, data ar
 func (s *sparkSessionImpl) CreateDataFrame(ctx context.Context, data [][]any, schema *types.StructType) (DataFrame, error) {
 	pool := memory.NewGoAllocator()
 	// Convert the data into an Arrow Table
-	arrowSchema := arrow.NewSchema(schema.ToArrowType().Fields(), nil)
+	arrowSchema := arrow.NewSchema(schema.ToArrowType().(*arrow.StructType).Fields(), nil)
 	rb := array.NewRecordBuilder(pool, arrowSchema)
 	defer rb.Release()
 	// Iterate over all fields and add the values:

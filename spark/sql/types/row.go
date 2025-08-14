@@ -29,7 +29,7 @@ type Row interface {
 	Value(name string) any
 	// Values returns values of all fields within a [Row] as a slice of any.
 	Values() []any
-	// Len returns the number of fields within a [Row]
+	// Len returns the number of fields within a [Row].
 	Len() int
 	FieldNames() []string
 }

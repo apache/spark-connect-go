@@ -398,6 +398,38 @@ func TestConvertProtoDataTypeToDataType(t *testing.T) {
 		Kind: &proto.DataType_Date_{},
 	}
 	assert.Equal(t, "Date", types.ConvertProtoDataTypeToDataType(dateDataType).TypeName())
+
+	arrayDataType := &proto.DataType{
+		Kind: &proto.DataType_Array_{
+			Array: &proto.DataType_Array{
+				ElementType: &proto.DataType{Kind: &proto.DataType_Integer_{}},
+			},
+		},
+	}
+	assert.Equal(t, "Array<Integer>", types.ConvertProtoDataTypeToDataType(arrayDataType).TypeName())
+
+	mapDataType := &proto.DataType{
+		Kind: &proto.DataType_Map_{
+			Map: &proto.DataType_Map{
+				KeyType:           &proto.DataType{Kind: &proto.DataType_String_{}},
+				ValueType:         &proto.DataType{Kind: &proto.DataType_Integer_{}},
+				ValueContainsNull: true,
+			},
+		},
+	}
+	assert.Equal(t, "Map<String,Integer>", types.ConvertProtoDataTypeToDataType(mapDataType).TypeName())
+
+	structDataType := &proto.DataType{
+		Kind: &proto.DataType_Struct_{
+			Struct: &proto.DataType_Struct{
+				Fields: []*proto.DataType_StructField{
+					{Name: "field1", DataType: &proto.DataType{Kind: &proto.DataType_Integer_{}}},
+					{Name: "field2", DataType: &proto.DataType{Kind: &proto.DataType_String_{}}},
+				},
+			},
+		},
+	}
+	assert.Equal(t, "structtype", types.ConvertProtoDataTypeToDataType(structDataType).TypeName())
 }
 
 func TestConvertProtoDataTypeToDataType_UnsupportedType(t *testing.T) {

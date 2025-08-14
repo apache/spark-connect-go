@@ -126,7 +126,7 @@ jobs:
 #          main_branch: master
 #          cov_threshold: 60
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: v1.61
+          version: v2.1
 
