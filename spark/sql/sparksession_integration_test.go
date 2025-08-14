@@ -21,7 +21,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/memory"
-	"github.com/apache/spark-connect-go/v40/spark/sql/types"
+	"github.com/apache/spark-connect-go/spark/sql/types"
 	"github.com/stretchr/testify/assert"
 )
 
