@@ -21,11 +21,11 @@ import (
 
 	"github.com/google/uuid"
 
-	proto "github.com/apache/spark-connect-go/v40/internal/generated"
-	"github.com/apache/spark-connect-go/v40/spark/client"
-	"github.com/apache/spark-connect-go/v40/spark/client/testutils"
-	"github.com/apache/spark-connect-go/v40/spark/mocks"
-	"github.com/apache/spark-connect-go/v40/spark/sparkerrors"
+	proto "github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/client"
+	"github.com/apache/spark-connect-go/spark/client/testutils"
+	"github.com/apache/spark-connect-go/spark/mocks"
+	"github.com/apache/spark-connect-go/spark/sparkerrors"
 	"github.com/stretchr/testify/assert"
 )
 

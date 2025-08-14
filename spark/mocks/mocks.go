@@ -25,7 +25,7 @@ import (
 
 	"github.com/google/uuid"
 
-	proto "github.com/apache/spark-connect-go/v40/internal/generated"
+	proto "github.com/apache/spark-connect-go/internal/generated"
 	"google.golang.org/grpc/metadata"
 )
 
