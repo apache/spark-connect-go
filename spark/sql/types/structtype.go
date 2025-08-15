@@ -43,7 +43,30 @@ func (t *StructField) buildFormattedString(prefix string, target *string) {
 	if target == nil {
 		return
 	}
-	*target += fmt.Sprintf("%s-- %s: %s (nullable = %t)\n", prefix, t.Name, strings.ToLower(t.DataType.TypeName()), t.Nullable)
+
+	switch t.DataType.(type) {
+	case ArrayType:
+		*target += fmt.Sprintf("%s-- %s: array (nullable = %t)\n",
+			prefix, t.Name, t.Nullable)
+		*target += fmt.Sprintf("%s    |-- element: %s (valueContainsNull = %t)\n",
+			prefix, t.DataType.(ArrayType).ElementType.TypeName(), t.Nullable)
+	case MapType:
+		*target += fmt.Sprintf("%s-- %s: map (nullable = %t)\n",
+			prefix, t.Name, t.Nullable)
+		*target += fmt.Sprintf("%s    |-- key: %s\n",
+			prefix, t.DataType.(MapType).KeyType.TypeName())
+		*target += fmt.Sprintf("%s    |-- value: %s (valueContainsNull = %t)\n",
+			prefix, t.DataType.(MapType).ValueType.TypeName(), t.Nullable)
+	case StructType:
+		*target += fmt.Sprintf("%s-- %s: structtype (nullable = %t)\n",
+			prefix, t.Name, t.Nullable)
+		for _, field := range t.DataType.(StructType).Fields {
+			field.buildFormattedString(prefix+"    |", target)
+		}
+	default:
+		*target += fmt.Sprintf("%s-- %s: %s (nullable = %t)\n", prefix, t.Name,
+			strings.ToLower(t.DataType.TypeName()), t.Nullable)
+	}
 }
 
 // StructType represents a struct type.
