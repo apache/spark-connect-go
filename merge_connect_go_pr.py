@@ -214,11 +214,9 @@ def merge_pr(pr_num, target_ref, title, body, pr_repo_desc):
     data = {
         "commit_title": title,
         "commit_message": merge_message,
+        # Must be squash, always.
         "merge_method": "squash",
     }
-
-    print(data)
-    fail("error here")
 
     continue_maybe("Collected all data. Ready to merge PR?")
     
