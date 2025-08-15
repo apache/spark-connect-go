@@ -31,6 +31,7 @@ import re
 import subprocess
 import sys
 import traceback
+import requests
 from urllib.request import urlopen
 from urllib.request import Request
 from urllib.error import HTTPError
@@ -157,13 +158,11 @@ def merge_pr(pr_num, target_ref, title, body, pr_repo_desc):
         distinct_authors = list(filter(lambda x: x != primary_author, distinct_authors))
         distinct_authors.insert(0, primary_author)
 
-    merge_message_flags = []
-
-    merge_message_flags += ["-m", title]
+    merge_message = ""
     if body is not None:
         # We remove @ symbols from the body to avoid triggering e-mails
         # to people every time someone creates a public fork of Spark.
-        merge_message_flags += ["-m", body.replace("@", "")]
+        merge_message += body.replace("@", "")
 
     committer_name = run_cmd("git config --get user.name").strip()
     committer_email = run_cmd("git config --get user.email").strip()
@@ -173,10 +172,12 @@ def merge_pr(pr_num, target_ref, title, body, pr_repo_desc):
             committer_name,
             committer_email,
         )
-        merge_message_flags += ["-m", message]
+        merge_message += "\n\n"
+        merge_message += message
 
     # The string "Closes #%s" string is required for GitHub to correctly close the PR
-    merge_message_flags += ["-m", "Closes #%s from %s." % (pr_num, pr_repo_desc)]
+    merge_message += "\n\n"
+    merge_message += "Closes #%s from %s." % (pr_num, pr_repo_desc)
 
     authors = "Authored-by:" if len(distinct_authors) == 1 else "Lead-authored-by:"
     authors += " %s" % (distinct_authors.pop(0))
@@ -184,25 +185,42 @@ def merge_pr(pr_num, target_ref, title, body, pr_repo_desc):
         authors += "\n" + "\n".join(["Co-authored-by: %s" % a for a in distinct_authors])
     authors += "\n" + "Signed-off-by: %s <%s>" % (committer_name, committer_email)
 
-    merge_message_flags += ["-m", authors]
+    merge_message += "\n\n"
+    merge_message += authors
 
-    run_cmd(["git", "commit", '--author="%s"' % primary_author] + merge_message_flags)
+    # Merge the Pull Request using the commit message and title and squash it.
+    headers = {
+        "Authorization": f"token {GITHUB_OAUTH_KEY}",
+        "Accept": "application/vnd.github.v3+json",
+    }
 
-    continue_maybe(
-        "Merge complete (local ref %s). Push to %s?" % (target_branch_name, PUSH_REMOTE_NAME)
+    data = {
+        "commit_title": title,
+        "commit_message": merge_message,
+        "merge_method": "squash",
+    }
+
+    print(data)
+    continue_maybe("Collected all data. Ready to merge PR?")
+    
+    # Run the request to merge the PR.
+    response = requests.put(
+        f"{GITHUB_API_BASE}/pulls/{pr_num}/merge",
+        headers=headers,
+        json=data
     )
 
-    try:
-        run_cmd("git push %s %s:%s" % (PUSH_REMOTE_NAME, target_branch_name, target_ref))
-    except Exception as e:
+    if response.status_code == 200:
+        merge_response_json = response.json()
+        merge_commit_sha = merge_response_json.get("sha")
+        print(f"Pull request #{pr_num} merged. Sha: #{merge_commit_sha}")
         clean_up()
-        fail("Exception while pushing: %s" % e)
-
-    merge_hash = run_cmd("git rev-parse %s" % target_branch_name)[:8]
-    clean_up()
-    print("Pull request #%s merged!" % pr_num)
-    print("Merge hash: %s" % merge_hash)
-    return merge_hash
+        return merge_commit_sha
+    else:
+        error_message = f"Failed to merge pull request #{pr_num}. Status code: {response.status_code}"
+        error_message += f"\nResponse: {response.text}"
+        clean_up()
+        fail(error_message)
 
 
 def cherry_pick(pr_num, merge_hash, default_branch):
