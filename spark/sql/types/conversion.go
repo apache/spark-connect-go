@@ -19,8 +19,8 @@ package types
 import (
 	"errors"
 
-	"github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
+	"github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/sparkerrors"
 )
 
 func ConvertProtoDataTypeToStructType(input *generated.DataType) (*StructType, error) {
@@ -79,6 +79,25 @@ func ConvertProtoDataTypeToDataType(input *generated.DataType) DataType {
 		return TimestampNtzType{}
 	case *generated.DataType_Date_:
 		return DateType{}
+	case *generated.DataType_Array_:
+		nestedType := ConvertProtoDataTypeToDataType(input.GetArray().ElementType)
+		containsNull := input.GetArray().ContainsNull
+		return ArrayType{
+			ElementType:  nestedType,
+			ContainsNull: containsNull,
+		}
+	case *generated.DataType_Map_:
+		keyType := ConvertProtoDataTypeToDataType(input.GetMap().KeyType)
+		valueType := ConvertProtoDataTypeToDataType(input.GetMap().ValueType)
+		valueContainsNull := input.GetMap().ValueContainsNull
+		return MapType{
+			KeyType:           keyType,
+			ValueType:         valueType,
+			ValueContainsNull: valueContainsNull,
+		}
+	case *generated.DataType_Struct_:
+		fields := ConvertProtoStructFields(input.GetStruct().Fields)
+		return *StructOf(fields...)
 	default:
 		return UnsupportedType{
 			TypeInfo: v,

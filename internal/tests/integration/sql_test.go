@@ -22,13 +22,13 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/column"
+	"github.com/apache/spark-connect-go/spark/sql/column"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
+	"github.com/apache/spark-connect-go/spark/sql/functions"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+	"github.com/apache/spark-connect-go/spark/sql/types"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql"
+	"github.com/apache/spark-connect-go/spark/sql"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -46,7 +46,7 @@ func TestIntegration_RunSQLCommand(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 100, len(res))
 
-	df, err = df.Filter(ctx, column.OfDF(df, "id").Lt(functions.Lit(10)))
+	df, err = df.Filter(ctx, column.OfDF(df, "id").Lt(functions.IntLit(10)))
 	assert.NoError(t, err)
 	res, err = df.Collect(ctx)
 	assert.NoErrorf(t, err, "Must be able to collect the rows.")
@@ -67,6 +67,48 @@ func TestIntegration_Schema(t *testing.T) {
 	assert.Len(t, schema.Fields, 1)
 	assert.Equal(t, "id", schema.Fields[0].Name)
 	assert.Equal(t, types.LongType{}, schema.Fields[0].DataType)
+}
+
+func TestIntegration_StructConversion(t *testing.T) {
+	ctx := context.Background()
+	spark, err := sql.NewSessionBuilder().Remote("sc://localhost").Build(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	query := `
+		select named_struct(
+			'a', 1,
+			'b', 2,
+			'c', cast(10.32 as double),
+			'd', array(1, 2, 3, 4)
+		) struct_col
+	`
+	df, err := spark.Sql(ctx, query)
+	assert.NoError(t, err)
+	res, err := df.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(res))
+
+	columnData := res[0].Values()[0]
+	assert.NotNil(t, columnData)
+	structDataMap, ok := columnData.(map[string]any)
+	assert.True(t, ok)
+
+	assert.Contains(t, structDataMap, "a")
+	assert.Contains(t, structDataMap, "b")
+	assert.Contains(t, structDataMap, "c")
+	assert.Contains(t, structDataMap, "d")
+
+	assert.Equal(t, int32(1), structDataMap["a"])
+	assert.Equal(t, int32(2), structDataMap["b"])
+	assert.Equal(t, float64(10.32), structDataMap["c"])
+	arrayData := []any{int32(1), int32(2), int32(3), int32(4)}
+	assert.Equal(t, arrayData, structDataMap["d"])
+
+	schema, err := df.Schema(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, "struct_col", schema.Fields[0].Name)
 }
 
 func TestMain(m *testing.M) {

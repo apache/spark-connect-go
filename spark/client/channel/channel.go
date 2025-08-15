@@ -24,14 +24,18 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
+	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/apache/spark-connect-go/spark"
 
 	"github.com/google/uuid"
 
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
+	"github.com/apache/spark-connect-go/spark/sparkerrors"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -56,6 +60,9 @@ type Builder interface {
 	// SessionId identifies the client side session identifier. This value must be a UUID formatted
 	// as a string.
 	SessionId() string
+	// UserAgent identifies the user agent string that is passed as part of the request. It contains
+	// information about the operating system, Go version etc.
+	UserAgent() string
 }
 
 // BaseBuilder is used to parse the different parameters of the connection
@@ -69,6 +76,7 @@ type BaseBuilder struct {
 	user      string
 	headers   map[string]string
 	sessionId string
+	userAgent string
 }
 
 func (cb *BaseBuilder) Host() string {
@@ -93,6 +101,10 @@ func (cb *BaseBuilder) Headers() map[string]string {
 
 func (cb *BaseBuilder) SessionId() string {
 	return cb.sessionId
+}
+
+func (cb *BaseBuilder) UserAgent() string {
+	return cb.userAgent
 }
 
 // Build finalizes the creation of the gprc.ClientConn by creating a GRPC channel
@@ -178,22 +190,47 @@ func NewBuilder(connection string) (*BaseBuilder, error) {
 		port:      port,
 		headers:   map[string]string{},
 		sessionId: uuid.NewString(),
+		userAgent: "",
 	}
 
 	elements := strings.Split(u.Path, ";")
 	for _, e := range elements {
 		props := strings.Split(e, "=")
 		if len(props) == 2 {
-			if props[0] == "token" {
+			switch props[0] {
+			case "token":
 				cb.token = props[1]
-			} else if props[0] == "user_id" {
+			case "user_id":
 				cb.user = props[1]
-			} else if props[0] == "session_id" {
+			case "session_id":
 				cb.sessionId = props[1]
-			} else {
+			case "user_agent":
+				cb.userAgent = props[1]
+			default:
 				cb.headers[props[0]] = props[1]
 			}
 		}
 	}
+
+	// Set default user ID if not set.
+	if cb.user == "" {
+		cb.user = os.Getenv("USER")
+		if cb.user == "" {
+			cb.user = "na"
+		}
+	}
+
+	// Update the user agent if it is not set or set to a custom value.
+	val := os.Getenv("SPARK_CONNECT_USER_AGENT")
+	if cb.userAgent == "" && val != "" {
+		cb.userAgent = os.Getenv("SPARK_CONNECT_USER_AGENT")
+	} else if cb.userAgent == "" {
+		cb.userAgent = "_SPARK_CONNECT_GO"
+	}
+
+	// In addition, to the specified user agent, we need to append information about the
+	// host encoded as user agent components.
+	cb.userAgent = fmt.Sprintf("%s spark/%s os/%s go/%s", cb.userAgent, spark.Version(), runtime.GOOS, runtime.Version())
+
 	return cb, nil
 }

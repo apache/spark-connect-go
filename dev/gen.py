@@ -48,7 +48,7 @@ print("""
 
 package functions
 
-import "github.com/apache/spark-connect-go/v35/spark/sql/column"
+import "github.com/apache/spark-connect-go/spark/sql/column"
 """)
 
 
@@ -122,15 +122,15 @@ for fun in F.__dict__:
             args.append(p)
         elif param.annotation == str or typing.get_args(param.annotation) == (str, types.NoneType):
             res_params.append(f"{p} string")
-            conversions.append(f"lit_{p} := Lit({p})")
+            conversions.append(f"lit_{p} := StringLit({p})")
             args.append(f"lit_{p}")
         elif param.annotation == int or typing.get_args(param.annotation) == (int, types.NoneType):
             res_params.append(f"{p} int64")
-            conversions.append(f"lit_{p} := Lit({p})")
+            conversions.append(f"lit_{p} := Int64Lit({p})")
             args.append(f"lit_{p}")
         elif param.annotation == float or typing.get_args(param.annotation) == (float, types.NoneType):
             res_params.append(f"{p} float64")
-            conversions.append(f"lit_{p} := Lit({p})")
+            conversions.append(f"lit_{p} := Float64Lit({p})")
             args.append(f"lit_{p}")
         else:
             valid = False

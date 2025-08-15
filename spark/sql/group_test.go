@@ -19,10 +19,10 @@ import (
 	"context"
 	"testing"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/client"
-	"github.com/apache/spark-connect-go/v35/spark/client/testutils"
-	"github.com/apache/spark-connect-go/v35/spark/mocks"
+	proto "github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/client"
+	"github.com/apache/spark-connect-go/spark/client/testutils"
+	"github.com/apache/spark-connect-go/spark/mocks"
 	"github.com/stretchr/testify/assert"
 )
 

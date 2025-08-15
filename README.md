@@ -21,21 +21,31 @@ Step 2: Ensure you have installed `buf CLI` installed, [more info here](https://
 
 Step 3: Run the following commands to setup the Spark Connect client.
 
+Building with Spark in case you need to re-generate the source files from the proto sources.
+
 ```
 git clone https://github.com/apache/spark-connect-go.git
 git submodule update --init --recursive
 
 make gen && make test
+
+```
+
+Building without Spark
+
+```
+git clone https://github.com/apache/spark-connect-go.git
+make && make test
 ```
 
 Step 4: Setup the Spark Driver on localhost.
 
-1. [Download Spark distribution](https://spark.apache.org/downloads.html) (3.5.0+), unzip the package.
+1. [Download Spark distribution](https://spark.apache.org/downloads.html) (4.0.0+), unzip the package.
 
 2. Start the Spark Connect server with the following command (make sure to use a package version that matches your Spark distribution):
 
 ```
-sbin/start-connect-server.sh --packages org.apache.spark:spark-connect_2.12:3.5.2
+sbin/start-connect-server.sh
 ```
 
 Step 5: Run the example Go application.
@@ -43,6 +53,12 @@ Step 5: Run the example Go application.
 ```
 go run cmd/spark-connect-example-spark-session/main.go
 ```
+
+## Runnning Spark Connect Go Application in a Spark Cluster
+
+To run the Spark Connect Go application in a Spark Cluster, you need to build the Go application and submit it to the Spark Cluster. You can find a more detailed example runner and wrapper script in the `java` directory.
+
+See the guide here: [Sample Spark-Submit Wrapper](java/README.md).
 
 ## How to write Spark Connect Go Application in your own project
 

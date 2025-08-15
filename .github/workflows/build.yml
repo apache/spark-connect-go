@@ -32,7 +32,7 @@ on:
       - master
 
 env:
-  SPARK_VERSION: '3.5.2'
+  SPARK_VERSION: '4.0.0'
   HADOOP_VERSION: '3'
 
 permissions:
@@ -53,7 +53,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         name: Setup Go
         with:
           go-version-file: 'go.mod'
@@ -67,12 +67,15 @@ jobs:
           distribution: zulu
 
       - name: Cache Spark Installation
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         id: cache
         with:
           key: v2-spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
           path: |
             /home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
+
+      - name: Setup SBT
+        uses: sbt/setup-sbt@v1
 
       - name: Setup Apache Spark
         if: steps.cache.outputs.cache-hit != 'true'
@@ -84,36 +87,46 @@ jobs:
           wget -q https://dlcdn.apache.org/spark/spark-${{ env.SPARK_VERSION }}/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
           tar -xzf spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz -C ~/deps/
           # Delete the old file
-          rm spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz             
-          
+          rm spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}.tgz
+
           ls -lah ~/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
           du -hs ~/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
-          
+
           # Setup the Environment Variables
           echo "Apache Spark is ready to use"
           echo "SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}" >> "$GITHUB_ENV"
       - name: Run Build & Test
         run: |
           go mod download -x
-          make gen
+          # Remove dependency on gen until Spark 4 has the fix for the pipelines.proto
+          # make gen
           make
           make test
+      - name: Run Example Spark Submit Application
+        run: |
+          export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
+          make
+          cd java
+          sbt publishLocal
+          ./run.sh ../cmd/spark-connect-example-spark-session/spark-connect-example-spark-session
       - name: Run Integration Test
         run: |
           export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
-          # make integration
-          make gen && make && make integration
+          # Remove dependency on gen until Spark 4 has the fix for the pipelines.proto
+          # make gen 
+          make && make integration
       - name: Run Code Coverage
         run: |
           export SPARK_HOME=/home/runner/deps/spark-${{ env.SPARK_VERSION }}-bin-hadoop${{ env.HADOOP_VERSION }}
           make coverage
-      - uses: PaloAltoNetworks/cov@3.0.0
-        with:
-          cov_mode: coverage
-          main_branch: master
-          cov_threshold: 60
+# Disable the code coverage check for now until https://github.com/PaloAltoNetworks/cov/issues/8 is fixed.
+#      - uses: PaloAltoNetworks/cov@3.0.0
+#        with:
+#          cov_mode: coverage
+#          main_branch: master
+#          cov_threshold: 60
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: v1.59
+          version: v2.1
 

@@ -25,11 +25,11 @@ a consitent style and adherence to license rules. You can run these checks local
 make check
 ```
 
-This requires the following tools to be present in your PATH:
+This requires the following tools to be present in your `PATH`:
 
 1. Java for checking license headers
-2. `gofumpt` for formatting Go code
-3. `golangci-lint` for linting Go code
+2. [gofumpt](https://github.com/mvdan/gofumpt) for formatting Go code
+3. [golangci-lint](https://golangci-lint.run/) for linting Go code
 
 ### Running Tests
 
@@ -39,13 +39,16 @@ To run the tests locally, you can run:
 make test
 ```
 
-This will run the unit tests. If you want to run the integration tests, you can run:
+This will run the unit tests. If you want to run the integration tests, you can run (you
+need to set environment variable `SPARK_HOME` pointing to existing directory with unpacked
+Apache Spark 3.5+ distribution):
 
 ```bash
 make integration
 ```
 
-Lastly, if you want to run all tests and generate the coverage analysis, you can run:
+Lastly, if you want to run all tests (unit and integration) and generate the coverage
+analysis, you can run:
 
 ```bash
 make fulltest

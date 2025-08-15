@@ -23,8 +23,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/apache/spark-connect-go/v35/spark/client/channel"
-	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
+	"github.com/apache/spark-connect-go/spark/client/channel"
+	"github.com/apache/spark-connect-go/spark/sparkerrors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -95,4 +95,20 @@ func TestChannelBuildConnect(t *testing.T) {
 	conn, err = cb.Build(ctx)
 	assert.Nil(t, err, "no error for proper connection")
 	assert.NotNil(t, conn)
+}
+
+func TestChannelBulder_UserAgent(t *testing.T) {
+	cb, err := channel.NewBuilder("sc://localhost")
+	assert.NoError(t, err)
+	assert.True(t, strings.Contains(cb.UserAgent(), "_SPARK_CONNECT_GO"))
+	assert.True(t, strings.Contains(cb.UserAgent(), "go/"))
+	assert.True(t, strings.Contains(cb.UserAgent(), "spark/"))
+	assert.True(t, strings.Contains(cb.UserAgent(), "os/"))
+
+	cb, err = channel.NewBuilder("sc://localhost/;user_agent=custom")
+	assert.NoError(t, err)
+	assert.True(t, strings.Contains(cb.UserAgent(), "custom"))
+	assert.True(t, strings.Contains(cb.UserAgent(), "go/"))
+	assert.True(t, strings.Contains(cb.UserAgent(), "spark/"))
+	assert.True(t, strings.Contains(cb.UserAgent(), "os/"))
 }

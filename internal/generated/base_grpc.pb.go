@@ -35,14 +35,16 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	SparkConnectService_ExecutePlan_FullMethodName     = "/spark.connect.SparkConnectService/ExecutePlan"
-	SparkConnectService_AnalyzePlan_FullMethodName     = "/spark.connect.SparkConnectService/AnalyzePlan"
-	SparkConnectService_Config_FullMethodName          = "/spark.connect.SparkConnectService/Config"
-	SparkConnectService_AddArtifacts_FullMethodName    = "/spark.connect.SparkConnectService/AddArtifacts"
-	SparkConnectService_ArtifactStatus_FullMethodName  = "/spark.connect.SparkConnectService/ArtifactStatus"
-	SparkConnectService_Interrupt_FullMethodName       = "/spark.connect.SparkConnectService/Interrupt"
-	SparkConnectService_ReattachExecute_FullMethodName = "/spark.connect.SparkConnectService/ReattachExecute"
-	SparkConnectService_ReleaseExecute_FullMethodName  = "/spark.connect.SparkConnectService/ReleaseExecute"
+	SparkConnectService_ExecutePlan_FullMethodName       = "/spark.connect.SparkConnectService/ExecutePlan"
+	SparkConnectService_AnalyzePlan_FullMethodName       = "/spark.connect.SparkConnectService/AnalyzePlan"
+	SparkConnectService_Config_FullMethodName            = "/spark.connect.SparkConnectService/Config"
+	SparkConnectService_AddArtifacts_FullMethodName      = "/spark.connect.SparkConnectService/AddArtifacts"
+	SparkConnectService_ArtifactStatus_FullMethodName    = "/spark.connect.SparkConnectService/ArtifactStatus"
+	SparkConnectService_Interrupt_FullMethodName         = "/spark.connect.SparkConnectService/Interrupt"
+	SparkConnectService_ReattachExecute_FullMethodName   = "/spark.connect.SparkConnectService/ReattachExecute"
+	SparkConnectService_ReleaseExecute_FullMethodName    = "/spark.connect.SparkConnectService/ReleaseExecute"
+	SparkConnectService_ReleaseSession_FullMethodName    = "/spark.connect.SparkConnectService/ReleaseSession"
+	SparkConnectService_FetchErrorDetails_FullMethodName = "/spark.connect.SparkConnectService/FetchErrorDetails"
 )
 
 // SparkConnectServiceClient is the client API for SparkConnectService service.
@@ -74,6 +76,13 @@ type SparkConnectServiceClient interface {
 	// Non reattachable executions are released automatically and immediately after the ExecutePlan
 	// RPC and ReleaseExecute may not be used.
 	ReleaseExecute(ctx context.Context, in *ReleaseExecuteRequest, opts ...grpc.CallOption) (*ReleaseExecuteResponse, error)
+	// Release a session.
+	// All the executions in the session will be released. Any further requests for the session with
+	// that session_id for the given user_id will fail. If the session didn't exist or was already
+	// released, this is a noop.
+	ReleaseSession(ctx context.Context, in *ReleaseSessionRequest, opts ...grpc.CallOption) (*ReleaseSessionResponse, error)
+	// FetchErrorDetails retrieves the matched exception with details based on a provided error id.
+	FetchErrorDetails(ctx context.Context, in *FetchErrorDetailsRequest, opts ...grpc.CallOption) (*FetchErrorDetailsResponse, error)
 }
 
 type sparkConnectServiceClient struct {
@@ -227,6 +236,24 @@ func (c *sparkConnectServiceClient) ReleaseExecute(ctx context.Context, in *Rele
 	return out, nil
 }
 
+func (c *sparkConnectServiceClient) ReleaseSession(ctx context.Context, in *ReleaseSessionRequest, opts ...grpc.CallOption) (*ReleaseSessionResponse, error) {
+	out := new(ReleaseSessionResponse)
+	err := c.cc.Invoke(ctx, SparkConnectService_ReleaseSession_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sparkConnectServiceClient) FetchErrorDetails(ctx context.Context, in *FetchErrorDetailsRequest, opts ...grpc.CallOption) (*FetchErrorDetailsResponse, error) {
+	out := new(FetchErrorDetailsResponse)
+	err := c.cc.Invoke(ctx, SparkConnectService_FetchErrorDetails_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SparkConnectServiceServer is the server API for SparkConnectService service.
 // All implementations must embed UnimplementedSparkConnectServiceServer
 // for forward compatibility
@@ -256,6 +283,13 @@ type SparkConnectServiceServer interface {
 	// Non reattachable executions are released automatically and immediately after the ExecutePlan
 	// RPC and ReleaseExecute may not be used.
 	ReleaseExecute(context.Context, *ReleaseExecuteRequest) (*ReleaseExecuteResponse, error)
+	// Release a session.
+	// All the executions in the session will be released. Any further requests for the session with
+	// that session_id for the given user_id will fail. If the session didn't exist or was already
+	// released, this is a noop.
+	ReleaseSession(context.Context, *ReleaseSessionRequest) (*ReleaseSessionResponse, error)
+	// FetchErrorDetails retrieves the matched exception with details based on a provided error id.
+	FetchErrorDetails(context.Context, *FetchErrorDetailsRequest) (*FetchErrorDetailsResponse, error)
 	mustEmbedUnimplementedSparkConnectServiceServer()
 }
 
@@ -286,6 +320,12 @@ func (UnimplementedSparkConnectServiceServer) ReattachExecute(*ReattachExecuteRe
 }
 func (UnimplementedSparkConnectServiceServer) ReleaseExecute(context.Context, *ReleaseExecuteRequest) (*ReleaseExecuteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReleaseExecute not implemented")
+}
+func (UnimplementedSparkConnectServiceServer) ReleaseSession(context.Context, *ReleaseSessionRequest) (*ReleaseSessionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReleaseSession not implemented")
+}
+func (UnimplementedSparkConnectServiceServer) FetchErrorDetails(context.Context, *FetchErrorDetailsRequest) (*FetchErrorDetailsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FetchErrorDetails not implemented")
 }
 func (UnimplementedSparkConnectServiceServer) mustEmbedUnimplementedSparkConnectServiceServer() {}
 
@@ -458,6 +498,42 @@ func _SparkConnectService_ReleaseExecute_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SparkConnectService_ReleaseSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReleaseSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SparkConnectServiceServer).ReleaseSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SparkConnectService_ReleaseSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SparkConnectServiceServer).ReleaseSession(ctx, req.(*ReleaseSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SparkConnectService_FetchErrorDetails_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FetchErrorDetailsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SparkConnectServiceServer).FetchErrorDetails(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SparkConnectService_FetchErrorDetails_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SparkConnectServiceServer).FetchErrorDetails(ctx, req.(*FetchErrorDetailsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SparkConnectService_ServiceDesc is the grpc.ServiceDesc for SparkConnectService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -484,6 +560,14 @@ var SparkConnectService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReleaseExecute",
 			Handler:    _SparkConnectService_ReleaseExecute_Handler,
+		},
+		{
+			MethodName: "ReleaseSession",
+			Handler:    _SparkConnectService_ReleaseSession_Handler,
+		},
+		{
+			MethodName: "FetchErrorDetails",
+			Handler:    _SparkConnectService_FetchErrorDetails_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

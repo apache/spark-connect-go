@@ -15,3 +15,5 @@ generated.out
 go.sum
 deps
 cov.report
+build.properties
+spark-connect-go.code-workspace

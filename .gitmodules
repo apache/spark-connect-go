@@ -1,3 +1,5 @@
 [submodule "spark"]
 	path = sparksrc
 	url = https://github.com/apache/spark.git
+[submodule "sparksrc"]
+	branch = branch-4.0

@@ -18,9 +18,9 @@ package column
 import (
 	"context"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+	"github.com/apache/spark-connect-go/spark/sql/types"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+	proto "github.com/apache/spark-connect-go/internal/generated"
 )
 
 // Convertible is the interface for all things that can be converted into a protobuf expression.
@@ -75,6 +75,10 @@ func (c Column) Desc() Column {
 		direction:    proto.Expression_SortOrder_SORT_DIRECTION_DESCENDING,
 		nullOrdering: proto.Expression_SortOrder_SORT_NULLS_LAST,
 	})
+}
+
+func (c Column) GetItem(key types.LiteralType) Column {
+	return NewColumn(NewUnresolvedExtractValue("getItem", c.expr, NewLiteral(key)))
 }
 
 func (c Column) Asc() Column {

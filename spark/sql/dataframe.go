@@ -1,4 +1,3 @@
-//
 // Licensed to the Apache Software Foundation (ASF) under one or more
 // contributor license agreements.  See the NOTICE file distributed with
 // this work for additional information regarding copyright ownership.
@@ -19,17 +18,18 @@ package sql
 import (
 	"context"
 	"fmt"
+	"iter"
 	"math/rand/v2"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/spark-connect-go/spark/sql/utils"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/column"
+	"github.com/apache/spark-connect-go/spark/sql/column"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+	"github.com/apache/spark-connect-go/spark/sql/types"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
+	proto "github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/sparkerrors"
 )
 
 // ResultCollector receives a stream of result rows
@@ -42,8 +42,12 @@ type ResultCollector interface {
 type DataFrame interface {
 	// PlanId returns the plan id of the data frame.
 	PlanId() int64
+	All(ctx context.Context) iter.Seq2[types.Row, error]
+	Agg(ctx context.Context, exprs ...column.Convertible) (DataFrame, error)
+	AggWithMap(ctx context.Context, exprs map[string]string) (DataFrame, error)
 	// Alias creates a new DataFrame with the specified subquery alias
 	Alias(ctx context.Context, alias string) DataFrame
+	ApproxQuantile(ctx context.Context, probabilities []float64, relativeError float64, cols ...string) ([][]float64, error)
 	// Cache persists the DataFrame with the default storage level.
 	Cache(ctx context.Context) error
 	// Coalesce returns a new DataFrame that has exactly numPartitions partitions.DataFrame
@@ -104,10 +108,21 @@ type DataFrame interface {
 	DropByName(ctx context.Context, columns ...string) (DataFrame, error)
 	// DropDuplicates returns a new DataFrame that contains only the unique rows from this DataFrame.
 	DropDuplicates(ctx context.Context, columns ...string) (DataFrame, error)
+	// Drops all rows containing any null or NaN values. This is similar to PySparks dropna with how=any
+	DropNa(ctx context.Context, cols ...string) (DataFrame, error)
+	// Drops all rows containing all null or NaN values in the specified columns. This is
+	// similar to PySparks dropna with how=all
+	DropNaAll(ctx context.Context, cols ...string) (DataFrame, error)
+	// Drops all rows containing null or NaN values in the specified columns. with a max threshold.
+	DropNaWithThreshold(ctx context.Context, threshold int32, cols ...string) (DataFrame, error)
 	// ExceptAll is similar to Substract but does not perform the distinct operation.
 	ExceptAll(ctx context.Context, other DataFrame) DataFrame
 	// Explain returns the string explain plan for the current DataFrame according to the explainMode.
 	Explain(ctx context.Context, explainMode utils.ExplainMode) (string, error)
+	// FillNa replaces null values with specified value.
+	FillNa(ctx context.Context, value types.PrimitiveTypeLiteral, columns ...string) (DataFrame, error)
+	// FillNaWithValues replaces null values in specified columns (key of the map) with values.
+	FillNaWithValues(ctx context.Context, values map[string]types.PrimitiveTypeLiteral) (DataFrame, error)
 	// Filter filters the data frame by a column condition.
 	Filter(ctx context.Context, condition column.Convertible) (DataFrame, error)
 	// FilterByString filters the data frame by a string condition.
@@ -133,6 +148,10 @@ type DataFrame interface {
 	Join(ctx context.Context, other DataFrame, on column.Convertible, joinType utils.JoinType) (DataFrame, error)
 	// Limit applies a limit on the DataFrame
 	Limit(ctx context.Context, limit int32) DataFrame
+	// Melt is an alias for Unpivot.
+	Melt(ctx context.Context, ids []column.Convertible, values []column.Convertible,
+		variableColumnName string, valueColumnName string) (DataFrame, error)
+	Na() DataFrameNaFunctions
 	// Offset returns a new DataFrame by skipping the first `offset` rows.
 	Offset(ctx context.Context, offset int32) DataFrame
 	// OrderBy is an alias for Sort
@@ -144,11 +163,29 @@ type DataFrame interface {
 	Repartition(ctx context.Context, numPartitions int, columns []string) (DataFrame, error)
 	// RepartitionByRange re-partitions a data frame by range partition.
 	RepartitionByRange(ctx context.Context, numPartitions int, columns ...column.Convertible) (DataFrame, error)
+	// Replace Returns a new DataFrame` replacing a value with another value.
+	// Values toReplace and Values must have the same type and can only be numerics, booleans,
+	// or strings. Value can have None. When replacing, the new value will be cast
+	// to the type of the existing column.
+	//
+	// For numeric replacements all values to be replaced should have unique
+	// floating point representation. If cols is set allows to specify a subset of columns to
+	// perform the replacement.
+	Replace(ctx context.Context, toReplace []types.PrimitiveTypeLiteral,
+		values []types.PrimitiveTypeLiteral, cols ...string) (DataFrame, error)
 	// Rollup creates a multi-dimensional rollup for the current DataFrame using
 	// the specified columns, so we can run aggregation on them.
 	Rollup(ctx context.Context, cols ...column.Convertible) *GroupedData
 	// SameSemantics returns true if the other DataFrame has the same semantics.
 	SameSemantics(ctx context.Context, other DataFrame) (bool, error)
+	// Sample samples a data frame without replacement and random seed.
+	Sample(ctx context.Context, fraction float64) (DataFrame, error)
+	// SampleWithReplacement samples a data frame with random seed and with/without replacement.
+	SampleWithReplacement(ctx context.Context, withReplacement bool, fraction float64) (DataFrame, error)
+	// SampleWithSeed samples a data frame without replacement and given seed.
+	SampleWithSeed(ctx context.Context, fraction float64, seed int64) (DataFrame, error)
+	// SampleWithReplacementAndSeed samples a data frame with/without replacement and given seed.
+	SampleWithReplacementAndSeed(ctx context.Context, withReplacement bool, fraction float64, seed int64) (DataFrame, error)
 	// Show uses WriteResult to write the data frames to the console output.
 	Show(ctx context.Context, numRows int, truncate bool) error
 	// Schema returns the schema for the current data frame.
@@ -162,6 +199,7 @@ type DataFrame interface {
 	SemanticHash(ctx context.Context) (int32, error)
 	// Sort returns a new DataFrame sorted by the specified columns.
 	Sort(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
+	Stat() DataFrameStatFunctions
 	// Subtract subtracts the other DataFrame from the current DataFrame. And only returns
 	// distinct rows.
 	Subtract(ctx context.Context, other DataFrame) DataFrame
@@ -189,6 +227,27 @@ type DataFrame interface {
 	// Unpersist resets the storage level for this data frame, and if necessary removes it
 	// from server-side caches.
 	Unpersist(ctx context.Context) error
+	// Unpivot a DataFrame from wide format to long format, optionally leaving
+	// identifier columns set. This is the reverse to `groupBy(...).pivot(...).agg(...)`,
+	// except for the aggregation, which cannot be reversed.
+	//
+	// This function is useful to massage a DataFrame into a format where some
+	// columns are identifier columns ("ids"), while all other columns ("values")
+	// are "unpivoted" to the rows, leaving just two non-id columns, named as given
+	// by `variableColumnName` and `valueColumnName`.
+	//
+	// When no "id" columns are given, the unpivoted DataFrame consists of only the
+	// "variable" and "value" columns.
+	//
+	// The `values` columns must not be empty so at least one value must be given to be unpivoted.
+	// When `values` is `None`, all non-id columns will be unpivoted.
+	//
+	// All "value" columns must share a least common data type. Unless they are the same data type,
+	// all "value" columns are cast to the nearest common data type. For instance, types
+	// `IntegerType` and `LongType` are cast to `LongType`, while `IntegerType` and `StringType`
+	// do not have a common data type and `unpivot` fails.
+	Unpivot(ctx context.Context, ids []column.Convertible, values []column.Convertible,
+		variableColumnName string, valueColumnName string) (DataFrame, error)
 	// WithColumn returns a new DataFrame by adding a column or replacing the
 	// existing column that has the same name. The column expression must be an
 	// expression over this DataFrame; attempting to add a column from some other
@@ -1349,6 +1408,314 @@ func (df *dataFrameImpl) Summary(ctx context.Context, statistics ...string) Data
 		},
 	}
 	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) Sample(ctx context.Context, fraction float64) (DataFrame, error) {
+	return df.sample(ctx, nil, fraction, nil)
+}
+
+func (df *dataFrameImpl) SampleWithReplacement(ctx context.Context, withReplacement bool, fraction float64) (DataFrame, error) {
+	return df.sample(ctx, &withReplacement, fraction, nil)
+}
+
+func (df *dataFrameImpl) SampleWithSeed(ctx context.Context, fraction float64, seed int64) (DataFrame, error) {
+	return df.sample(ctx, nil, fraction, &seed)
+}
+
+func (df *dataFrameImpl) SampleWithReplacementAndSeed(ctx context.Context, withReplacement bool, fraction float64, seed int64) (DataFrame, error) {
+	return df.sample(ctx, &withReplacement, fraction, &seed)
+}
+
+func (df *dataFrameImpl) sample(ctx context.Context, withReplacement *bool, fraction float64, seed *int64) (DataFrame, error) {
+	if seed == nil {
+		defaultSeed := rand.Int64()
+		seed = &defaultSeed
+	}
+
+	if withReplacement == nil {
+		defaultWithReplacement := false
+		withReplacement = &defaultWithReplacement
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Sample{
+			Sample: &proto.Sample{
+				Input:           df.relation,
+				LowerBound:      0,
+				UpperBound:      fraction,
+				WithReplacement: withReplacement,
+				Seed:            seed,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) Replace(ctx context.Context,
+	toReplace []types.PrimitiveTypeLiteral, values []types.PrimitiveTypeLiteral, cols ...string,
+) (DataFrame, error) {
+	if len(toReplace) != len(values) {
+		return nil, sparkerrors.WithType(fmt.Errorf(
+			"toReplace and values must have the same length"), sparkerrors.InvalidArgumentError)
+	}
+
+	toReplaceExprs := make([]*proto.Expression, 0, len(toReplace))
+	for _, c := range toReplace {
+		expr, err := c.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		toReplaceExprs = append(toReplaceExprs, expr)
+	}
+
+	valuesExprs := make([]*proto.Expression, 0, len(values))
+	for _, c := range values {
+		expr, err := c.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		valuesExprs = append(valuesExprs, expr)
+	}
+
+	// Create a list of NAReplace expressions.
+	replacements := make([]*proto.NAReplace_Replacement, 0, len(toReplace))
+	for i := 0; i < len(toReplace); i++ {
+		replacement := &proto.NAReplace_Replacement{
+			OldValue: toReplaceExprs[i].GetLiteral(),
+			NewValue: valuesExprs[i].GetLiteral(),
+		}
+		replacements = append(replacements, replacement)
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_Replace{
+			Replace: &proto.NAReplace{
+				Input:        df.relation,
+				Replacements: replacements,
+				Cols:         cols,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) Melt(ctx context.Context,
+	ids []column.Convertible,
+	values []column.Convertible,
+	variableColumnName string,
+	valueColumnName string,
+) (DataFrame, error) {
+	return df.Unpivot(ctx, ids, values, variableColumnName, valueColumnName)
+}
+
+func (df *dataFrameImpl) Unpivot(ctx context.Context,
+	ids []column.Convertible,
+	values []column.Convertible,
+	variableColumnName string,
+	valueColumnName string,
+) (DataFrame, error) {
+	idExprs := make([]*proto.Expression, 0, len(ids))
+	for _, id := range ids {
+		expr, err := id.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		idExprs = append(idExprs, expr)
+	}
+
+	valueExprs := make([]*proto.Expression, 0, len(values))
+	for _, value := range values {
+		expr, err := value.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		valueExprs = append(valueExprs, expr)
+	}
+
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+
+		RelType: &proto.Relation_Unpivot{
+			Unpivot: &proto.Unpivot{
+				Input: df.relation,
+				Ids:   idExprs,
+				Values: &proto.Unpivot_Values{
+					Values: valueExprs,
+				},
+				VariableColumnName: variableColumnName,
+				ValueColumnName:    valueColumnName,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func makeDataframeWithFillNaRelation(df *dataFrameImpl, values []*proto.Expression_Literal, columns []string) DataFrame {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_FillNa{
+			FillNa: &proto.NAFill{
+				Input:  df.relation,
+				Cols:   columns,
+				Values: values,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel)
+}
+
+func (df *dataFrameImpl) FillNa(ctx context.Context, value types.PrimitiveTypeLiteral, columns ...string) (DataFrame, error) {
+	valueLiteral, err := value.ToProto(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return makeDataframeWithFillNaRelation(df, []*proto.Expression_Literal{
+		valueLiteral.GetLiteral(),
+	}, columns), nil
+}
+
+func (df *dataFrameImpl) FillNaWithValues(ctx context.Context,
+	values map[string]types.PrimitiveTypeLiteral,
+) (DataFrame, error) {
+	valueLiterals := make([]*proto.Expression_Literal, 0, len(values))
+	columns := make([]string, 0, len(values))
+	for k, v := range values {
+		valueLiteral, err := v.ToProto(ctx)
+		if err != nil {
+			return nil, err
+		}
+		valueLiterals = append(valueLiterals, valueLiteral.GetLiteral())
+		columns = append(columns, k)
+	}
+	return makeDataframeWithFillNaRelation(df, valueLiterals, columns), nil
+}
+
+func (df *dataFrameImpl) Stat() DataFrameStatFunctions {
+	return &dataFrameStatFunctionsImpl{df: df}
+}
+
+func (df *dataFrameImpl) Agg(ctx context.Context, cols ...column.Convertible) (DataFrame, error) {
+	return df.GroupBy().Agg(ctx, cols...)
+}
+
+func (df *dataFrameImpl) AggWithMap(ctx context.Context, exprs map[string]string) (DataFrame, error) {
+	funs := make([]column.Convertible, 0)
+	for k, v := range exprs {
+		// Convert the column name to a column expression.
+		col := column.OfDF(df, k)
+		// Convert the value string to an unresolved function name.
+		fun := column.NewUnresolvedFunctionWithColumns(v, col)
+		funs = append(funs, fun)
+	}
+	return df.Agg(ctx, funs...)
+}
+
+func (df *dataFrameImpl) ApproxQuantile(ctx context.Context, probabilities []float64,
+	relativeError float64, cols ...string,
+) ([][]float64, error) {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_ApproxQuantile{
+			ApproxQuantile: &proto.StatApproxQuantile{
+				Input:         df.relation,
+				Probabilities: probabilities,
+				RelativeError: relativeError,
+				Cols:          cols,
+			},
+		},
+	}
+	data := NewDataFrame(df.session, rel)
+	rows, err := data.Collect(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// The result structure is a bit weird here, essentially it returns exactly one row with
+	// the quantiles.
+	// Inside the row is a list of nested arroys that contain the quantiles. The first column is the
+	// first nested array, the second column is the second nested array and so on.
+
+	nested := rows[0].At(0).([]interface{})
+	result := make([][]float64, len(nested))
+	for i := 0; i < len(nested); i++ {
+		tmp := nested[i].([]interface{})
+		result[i] = make([]float64, len(tmp))
+		for j := 0; j < len(tmp); j++ {
+			f, ok := tmp[j].(float64)
+			if !ok {
+				return nil, sparkerrors.WithType(fmt.Errorf(
+					"failed to cast to float64"), sparkerrors.ExecutionError)
+			}
+			result[i][j] = f
+		}
+	}
+	return result, nil
+}
+
+func (df *dataFrameImpl) DropNa(ctx context.Context, subset ...string) (DataFrame, error) {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_DropNa{
+			DropNa: &proto.NADrop{
+				Input: df.relation,
+				Cols:  subset,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) DropNaAll(ctx context.Context, subset ...string) (DataFrame, error) {
+	return df.DropNaWithThreshold(ctx, 1, subset...)
+}
+
+func (df *dataFrameImpl) DropNaWithThreshold(ctx context.Context, thresh int32, subset ...string) (DataFrame, error) {
+	rel := &proto.Relation{
+		Common: &proto.RelationCommon{
+			PlanId: newPlanId(),
+		},
+		RelType: &proto.Relation_DropNa{
+			DropNa: &proto.NADrop{
+				Input:       df.relation,
+				MinNonNulls: &thresh,
+				Cols:        subset,
+			},
+		},
+	}
+	return NewDataFrame(df.session, rel), nil
+}
+
+func (df *dataFrameImpl) Na() DataFrameNaFunctions {
+	return &dataFrameNaFunctionsImpl{dataFrame: df}
+}
+
+func (df *dataFrameImpl) All(ctx context.Context) iter.Seq2[types.Row, error] {
+	data, err := df.Collect(ctx)
+	return func(yield func(types.Row, error) bool) {
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+		for _, row := range data {
+			if !yield(row, nil) {
+				break
+			}
+		}
+	}
 }
 
 func (df *dataFrameImpl) PrintSchema(ctx context.Context) error {

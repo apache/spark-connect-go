@@ -22,20 +22,20 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/apache/spark-connect-go/spark/sql/types"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/ipc"
-	"github.com/apache/spark-connect-go/v35/spark/client/base"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/ipc"
+	"github.com/apache/spark-connect-go/spark/client/base"
 
-	"github.com/apache/spark-connect-go/v35/spark/client/options"
+	"github.com/apache/spark-connect-go/spark/client/options"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/client"
-	"github.com/apache/spark-connect-go/v35/spark/client/channel"
-	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
+	proto "github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/client"
+	"github.com/apache/spark-connect-go/spark/client/channel"
+	"github.com/apache/spark-connect-go/spark/sparkerrors"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"
 )
@@ -47,6 +47,7 @@ type SparkSession interface {
 	Table(name string) (DataFrame, error)
 	CreateDataFrameFromArrow(ctx context.Context, data arrow.Table) (DataFrame, error)
 	CreateDataFrame(ctx context.Context, data [][]any, schema *types.StructType) (DataFrame, error)
+	Config() client.RuntimeConfig
 }
 
 // NewSessionBuilder creates a new session builder for starting a new spark session
@@ -92,15 +93,25 @@ func (s *SparkSessionBuilder) Build(ctx context.Context) (SparkSession, error) {
 	}
 
 	sessionId := uuid.NewString()
+
+	// Update the options according to the configuration.
+	opts := options.NewSparkClientOptions(options.DefaultSparkClientOptions.ReattachExecution)
+	opts.UserAgent = s.channelBuilder.UserAgent()
+	opts.UserId = s.channelBuilder.User()
+
 	return &sparkSessionImpl{
 		sessionId: sessionId,
-		client:    client.NewSparkExecutor(conn, meta, sessionId, options.DefaultSparkClientOptions),
+		client:    client.NewSparkExecutor(conn, meta, sessionId, opts),
 	}, nil
 }
 
 type sparkSessionImpl struct {
 	sessionId string
 	client    base.SparkConnectClient
+}
+
+func (s *sparkSessionImpl) Config() client.RuntimeConfig {
+	return client.NewRuntimeConfig(&s.client)
 }
 
 func (s *sparkSessionImpl) Read() DataFrameReader {
@@ -219,12 +230,16 @@ func (s *sparkSessionImpl) CreateDataFrameFromArrow(ctx context.Context, data ar
 func (s *sparkSessionImpl) CreateDataFrame(ctx context.Context, data [][]any, schema *types.StructType) (DataFrame, error) {
 	pool := memory.NewGoAllocator()
 	// Convert the data into an Arrow Table
-	arrowSchema := arrow.NewSchema(schema.ToArrowType().Fields(), nil)
+	arrowSchema := arrow.NewSchema(schema.ToArrowType().(*arrow.StructType).Fields(), nil)
 	rb := array.NewRecordBuilder(pool, arrowSchema)
 	defer rb.Release()
 	// Iterate over all fields and add the values:
 	for _, row := range data {
 		for i, field := range schema.Fields {
+			if row[i] == nil {
+				rb.Field(i).AppendNull()
+				continue
+			}
 			switch field.DataType {
 			case types.BOOLEAN:
 				rb.Field(i).(*array.BooleanBuilder).Append(row[i].(bool))

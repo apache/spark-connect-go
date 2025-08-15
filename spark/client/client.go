@@ -21,25 +21,24 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
+	"github.com/apache/spark-connect-go/spark/sql/utils"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/apache/spark-connect-go/v35/spark/client/base"
-	"github.com/apache/spark-connect-go/v35/spark/mocks"
+	"github.com/apache/spark-connect-go/spark/client/base"
+	"github.com/apache/spark-connect-go/spark/mocks"
 
-	"github.com/apache/spark-connect-go/v35/spark/client/options"
+	"github.com/apache/spark-connect-go/spark/client/options"
 
 	"github.com/google/uuid"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/spark-connect-go/spark/sql/types"
 
-	"github.com/apache/spark-connect-go/v35/internal/generated"
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/sparkerrors"
+	proto "github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/sparkerrors"
 )
 
 type sparkConnectClientImpl struct {
@@ -56,8 +55,9 @@ func (s *sparkConnectClientImpl) newExecutePlanRequest(plan *proto.Plan) *proto.
 		SessionId: s.sessionId,
 		Plan:      plan,
 		UserContext: &proto.UserContext{
-			UserId: "na",
+			UserId: s.opts.UserId,
 		},
+		ClientType: &s.opts.UserAgent,
 		// Operation ID is needed for being able to reattach.
 		OperationId: &operationId,
 		RequestOptions: []*proto.ExecutePlanRequest_RequestOption{
@@ -109,16 +109,22 @@ func (s *sparkConnectClientImpl) ExecutePlan(ctx context.Context, plan *proto.Pl
 	return NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts), nil
 }
 
-func (s *sparkConnectClientImpl) AnalyzePlan(ctx context.Context, plan *proto.Plan) (*proto.AnalyzePlanResponse, error) {
-	request := proto.AnalyzePlanRequest{
+// Creates a new AnalyzePlanRequest with the necessary metadata.
+func (s *sparkConnectClientImpl) newAnalyzePlanStub() proto.AnalyzePlanRequest {
+	return proto.AnalyzePlanRequest{
 		SessionId: s.sessionId,
-		Analyze: &proto.AnalyzePlanRequest_Schema_{
-			Schema: &proto.AnalyzePlanRequest_Schema{
-				Plan: plan,
-			},
-		},
 		UserContext: &proto.UserContext{
-			UserId: "na",
+			UserId: s.opts.UserId,
+		},
+		ClientType: &s.opts.UserAgent,
+	}
+}
+
+func (s *sparkConnectClientImpl) AnalyzePlan(ctx context.Context, plan *proto.Plan) (*proto.AnalyzePlanResponse, error) {
+	request := s.newAnalyzePlanStub()
+	request.Analyze = &proto.AnalyzePlanRequest_Schema_{
+		Schema: &proto.AnalyzePlanRequest_Schema{
+			Plan: plan,
 		},
 	}
 	// Append the other items to the request.
@@ -135,31 +141,26 @@ func (s *sparkConnectClientImpl) Explain(ctx context.Context, plan *proto.Plan,
 	explainMode utils.ExplainMode,
 ) (*proto.AnalyzePlanResponse, error) {
 	var mode proto.AnalyzePlanRequest_Explain_ExplainMode
-	if explainMode == utils.ExplainModeExtended {
+	switch explainMode {
+	case utils.ExplainModeExtended:
 		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_EXTENDED
-	} else if explainMode == utils.ExplainModeSimple {
+	case utils.ExplainModeSimple:
 		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_SIMPLE
-	} else if explainMode == utils.ExplainModeCost {
+	case utils.ExplainModeCost:
 		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_COST
-	} else if explainMode == utils.ExplainModeFormatted {
+	case utils.ExplainModeFormatted:
 		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_FORMATTED
-	} else if explainMode == utils.ExplainModeCodegen {
+	case utils.ExplainModeCodegen:
 		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_CODEGEN
-	} else {
+	default:
 		return nil, sparkerrors.WithType(fmt.Errorf("unsupported explain mode %v",
 			explainMode), sparkerrors.InvalidArgumentError)
 	}
-
-	request := proto.AnalyzePlanRequest{
-		SessionId: s.sessionId,
-		Analyze: &proto.AnalyzePlanRequest_Explain_{
-			Explain: &proto.AnalyzePlanRequest_Explain{
-				Plan:        plan,
-				ExplainMode: mode,
-			},
-		},
-		UserContext: &proto.UserContext{
-			UserId: "na",
+	request := s.newAnalyzePlanStub()
+	request.Analyze = &proto.AnalyzePlanRequest_Explain_{
+		Explain: &proto.AnalyzePlanRequest_Explain{
+			Plan:        plan,
+			ExplainMode: mode,
 		},
 	}
 	// Append the other items to the request.
@@ -174,17 +175,11 @@ func (s *sparkConnectClientImpl) Explain(ctx context.Context, plan *proto.Plan,
 
 func (s *sparkConnectClientImpl) Persist(ctx context.Context, plan *proto.Plan, storageLevel utils.StorageLevel) error {
 	protoLevel := utils.ToProtoStorageLevel(storageLevel)
-
-	request := proto.AnalyzePlanRequest{
-		SessionId: s.sessionId,
-		Analyze: &proto.AnalyzePlanRequest_Persist_{
-			Persist: &proto.AnalyzePlanRequest_Persist{
-				Relation:     plan.GetRoot(),
-				StorageLevel: protoLevel,
-			},
-		},
-		UserContext: &proto.UserContext{
-			UserId: "na",
+	request := s.newAnalyzePlanStub()
+	request.Analyze = &proto.AnalyzePlanRequest_Persist_{
+		Persist: &proto.AnalyzePlanRequest_Persist{
+			Relation:     plan.GetRoot(),
+			StorageLevel: protoLevel,
 		},
 	}
 	// Append the other items to the request.
@@ -198,15 +193,10 @@ func (s *sparkConnectClientImpl) Persist(ctx context.Context, plan *proto.Plan, 
 }
 
 func (s *sparkConnectClientImpl) Unpersist(ctx context.Context, plan *proto.Plan) error {
-	request := proto.AnalyzePlanRequest{
-		SessionId: s.sessionId,
-		Analyze: &proto.AnalyzePlanRequest_Unpersist_{
-			Unpersist: &proto.AnalyzePlanRequest_Unpersist{
-				Relation: plan.GetRoot(),
-			},
-		},
-		UserContext: &proto.UserContext{
-			UserId: "na",
+	request := s.newAnalyzePlanStub()
+	request.Analyze = &proto.AnalyzePlanRequest_Unpersist_{
+		Unpersist: &proto.AnalyzePlanRequest_Unpersist{
+			Relation: plan.GetRoot(),
 		},
 	}
 	// Append the other items to the request.
@@ -220,15 +210,10 @@ func (s *sparkConnectClientImpl) Unpersist(ctx context.Context, plan *proto.Plan
 }
 
 func (s *sparkConnectClientImpl) GetStorageLevel(ctx context.Context, plan *proto.Plan) (*utils.StorageLevel, error) {
-	request := proto.AnalyzePlanRequest{
-		SessionId: s.sessionId,
-		Analyze: &proto.AnalyzePlanRequest_GetStorageLevel_{
-			GetStorageLevel: &proto.AnalyzePlanRequest_GetStorageLevel{
-				Relation: plan.GetRoot(),
-			},
-		},
-		UserContext: &proto.UserContext{
-			UserId: "na",
+	request := s.newAnalyzePlanStub()
+	request.Analyze = &proto.AnalyzePlanRequest_GetStorageLevel_{
+		GetStorageLevel: &proto.AnalyzePlanRequest_GetStorageLevel{
+			Relation: plan.GetRoot(),
 		},
 	}
 	// Append the other items to the request.
@@ -245,14 +230,9 @@ func (s *sparkConnectClientImpl) GetStorageLevel(ctx context.Context, plan *prot
 }
 
 func (s *sparkConnectClientImpl) SparkVersion(ctx context.Context) (string, error) {
-	request := proto.AnalyzePlanRequest{
-		SessionId: s.sessionId,
-		Analyze: &proto.AnalyzePlanRequest_SparkVersion_{
-			SparkVersion: &proto.AnalyzePlanRequest_SparkVersion{},
-		},
-		UserContext: &proto.UserContext{
-			UserId: "na",
-		},
+	request := s.newAnalyzePlanStub()
+	request.Analyze = &proto.AnalyzePlanRequest_SparkVersion_{
+		SparkVersion: &proto.AnalyzePlanRequest_SparkVersion{},
 	}
 	// Append the other items to the request.
 	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
@@ -265,15 +245,10 @@ func (s *sparkConnectClientImpl) SparkVersion(ctx context.Context) (string, erro
 }
 
 func (s *sparkConnectClientImpl) DDLParse(ctx context.Context, sql string) (*types.StructType, error) {
-	request := proto.AnalyzePlanRequest{
-		SessionId: s.sessionId,
-		Analyze: &proto.AnalyzePlanRequest_DdlParse{
-			DdlParse: &proto.AnalyzePlanRequest_DDLParse{
-				DdlString: sql,
-			},
-		},
-		UserContext: &proto.UserContext{
-			UserId: "na",
+	request := s.newAnalyzePlanStub()
+	request.Analyze = &proto.AnalyzePlanRequest_DdlParse{
+		DdlParse: &proto.AnalyzePlanRequest_DDLParse{
+			DdlString: sql,
 		},
 	}
 	// Append the other items to the request.
@@ -287,16 +262,11 @@ func (s *sparkConnectClientImpl) DDLParse(ctx context.Context, sql string) (*typ
 }
 
 func (s *sparkConnectClientImpl) SameSemantics(ctx context.Context, plan1 *proto.Plan, plan2 *proto.Plan) (bool, error) {
-	request := proto.AnalyzePlanRequest{
-		SessionId: s.sessionId,
-		Analyze: &proto.AnalyzePlanRequest_SameSemantics_{
-			SameSemantics: &proto.AnalyzePlanRequest_SameSemantics{
-				TargetPlan: plan1,
-				OtherPlan:  plan2,
-			},
-		},
-		UserContext: &proto.UserContext{
-			UserId: "na",
+	request := s.newAnalyzePlanStub()
+	request.Analyze = &proto.AnalyzePlanRequest_SameSemantics_{
+		SameSemantics: &proto.AnalyzePlanRequest_SameSemantics{
+			TargetPlan: plan1,
+			OtherPlan:  plan2,
 		},
 	}
 	// Append the other items to the request.
@@ -310,15 +280,10 @@ func (s *sparkConnectClientImpl) SameSemantics(ctx context.Context, plan1 *proto
 }
 
 func (s *sparkConnectClientImpl) SemanticHash(ctx context.Context, plan *proto.Plan) (int32, error) {
-	request := proto.AnalyzePlanRequest{
-		SessionId: s.sessionId,
-		Analyze: &proto.AnalyzePlanRequest_SemanticHash_{
-			SemanticHash: &proto.AnalyzePlanRequest_SemanticHash{
-				Plan: plan,
-			},
-		},
-		UserContext: &proto.UserContext{
-			UserId: "na",
+	request := s.newAnalyzePlanStub()
+	request.Analyze = &proto.AnalyzePlanRequest_SemanticHash_{
+		SemanticHash: &proto.AnalyzePlanRequest_SemanticHash{
+			Plan: plan,
 		},
 	}
 	// Append the other items to the request.
@@ -331,12 +296,30 @@ func (s *sparkConnectClientImpl) SemanticHash(ctx context.Context, plan *proto.P
 	return response.GetSemanticHash().GetResult(), nil
 }
 
+func (s *sparkConnectClientImpl) Config(ctx context.Context,
+	operation *proto.ConfigRequest_Operation,
+) (*proto.ConfigResponse, error) {
+	request := &proto.ConfigRequest{
+		Operation: operation,
+		UserContext: &proto.UserContext{
+			UserId: s.opts.UserId,
+		},
+		ClientType: &s.opts.UserAgent,
+	}
+	request.SessionId = s.sessionId
+	resp, err := s.client.Config(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func NewSparkExecutor(conn *grpc.ClientConn, md metadata.MD, sessionId string, opts options.SparkClientOptions) base.SparkConnectClient {
 	var client base.SparkConnectRPCClient
 	if opts.ReattachExecution {
 		client = NewRetriableSparkConnectClient(conn, sessionId, opts)
 	} else {
-		client = generated.NewSparkConnectServiceClient(conn)
+		client = proto.NewSparkConnectServiceClient(conn)
 	}
 	return &sparkConnectClientImpl{
 		client:    client,
@@ -361,7 +344,7 @@ func NewSparkExecutorFromClient(client base.SparkConnectRPCClient, md metadata.M
 // Spark Connect.
 type ExecutePlanClient struct {
 	// The GRPC stream to read the response messages.
-	responseStream generated.SparkConnectService_ExecutePlanClient
+	responseStream proto.SparkConnectService_ExecutePlanClient
 	// The schema of the result of the operation.
 	schema *types.StructType
 	// The sessionId is ised to verify the server side session.

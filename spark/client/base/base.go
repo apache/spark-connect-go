@@ -18,11 +18,11 @@ package base
 import (
 	"context"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
+	"github.com/apache/spark-connect-go/spark/sql/utils"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/sql/types"
 )
 
 type SparkConnectRPCClient generated.SparkConnectServiceClient
@@ -43,6 +43,7 @@ type SparkConnectClient interface {
 	DDLParse(ctx context.Context, sql string) (*types.StructType, error)
 	SameSemantics(ctx context.Context, plan1 *generated.Plan, plan2 *generated.Plan) (bool, error)
 	SemanticHash(ctx context.Context, plan *generated.Plan) (int32, error)
+	Config(ctx context.Context, configRequest *generated.ConfigRequest_Operation) (*generated.ConfigResponse, error)
 }
 
 type ExecuteResponseStream interface {

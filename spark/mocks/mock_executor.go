@@ -19,13 +19,13 @@ import (
 	"context"
 	"errors"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
+	"github.com/apache/spark-connect-go/spark/sql/utils"
 
-	"github.com/apache/spark-connect-go/v35/spark/client/base"
+	"github.com/apache/spark-connect-go/spark/client/base"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/sql/types"
 )
 
 type TestExecutor struct {
@@ -84,4 +84,8 @@ func (t *TestExecutor) SameSemantics(ctx context.Context, plan1 *generated.Plan,
 
 func (t *TestExecutor) SemanticHash(ctx context.Context, plan *generated.Plan) (int32, error) {
 	return 0, errors.New("not implemented")
+}
+
+func (t *TestExecutor) Config(ctx context.Context, configRequest *generated.ConfigRequest_Operation) (*generated.ConfigResponse, error) {
+	return nil, errors.New("not implemented")
 }

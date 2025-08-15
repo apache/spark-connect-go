@@ -5,7 +5,7 @@
 In your Go project `go.mod` file, add `spark-connect-go` library:
 ```
 require (
-	github.com/apache/spark-connect-go/v35 master
+	github.com/apache/spark-connect-go master
 )
 ```
 
@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql"
+	"github.com/apache/spark-connect-go/spark/sql"
 )
 
 var (
@@ -117,9 +117,9 @@ func main() {
 
 ## Start Spark Connect Server (Driver)
 
-Download a Spark distribution (3.5.0+), unzip the folder, run command:
+Download a Spark distribution (4.0.0+), unzip the folder, run command:
 ```
-sbin/start-connect-server.sh --packages org.apache.spark:spark-connect_2.12:3.5.2
+sbin/start-connect-server.sh
 ```
 
 ## Run Spark Connect Client Application

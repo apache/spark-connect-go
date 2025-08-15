@@ -17,18 +17,21 @@ package integration
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"testing"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/utils"
+	"github.com/apache/spark-connect-go/spark/sql/utils"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/types"
+	"github.com/apache/spark-connect-go/spark/sql/types"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/column"
+	"github.com/apache/spark-connect-go/spark/sql/column"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
+	"github.com/apache/spark-connect-go/spark/sql/functions"
 
-	"github.com/apache/spark-connect-go/v35/spark/sql"
+	"github.com/apache/spark-connect-go/spark/sql"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDataFrame_Select(t *testing.T) {
@@ -37,7 +40,7 @@ func TestDataFrame_Select(t *testing.T) {
 	assert.NoError(t, err)
 	df, err := spark.Sql(ctx, "select * from range(100)")
 	assert.NoError(t, err)
-	df, err = df.Select(ctx, functions.Lit("1"), functions.Lit("2"))
+	df, err = df.Select(ctx, functions.StringLit("1"), functions.StringLit("2"))
 	assert.NoError(t, err)
 
 	res, err := df.Collect(ctx)
@@ -185,6 +188,10 @@ func TestDataFrame_Corr(t *testing.T) {
 	res, err := df.Corr(ctx, "c1", "c2")
 	assert.NoError(t, err)
 	assert.Equal(t, -0.3592106040535498, res)
+
+	res2, err := df.Stat().Corr(ctx, "c1", "c2")
+	assert.NoError(t, err)
+	assert.Equal(t, res, res2)
 }
 
 func TestDataFrame_Cov(t *testing.T) {
@@ -202,13 +209,17 @@ func TestDataFrame_Cov(t *testing.T) {
 	res, err := df.Cov(ctx, "c1", "c2")
 	assert.NoError(t, err)
 	assert.Equal(t, -18.0, res)
+
+	res2, err := df.Stat().Cov(ctx, "c1", "c2")
+	assert.NoError(t, err)
+	assert.Equal(t, res, res2)
 }
 
 func TestDataFrame_WithColumn(t *testing.T) {
 	ctx, spark := connect()
 	df, err := spark.Sql(ctx, "select * from range(10)")
 	assert.NoError(t, err)
-	df, err = df.WithColumn(ctx, "newCol", functions.Lit(1))
+	df, err = df.WithColumn(ctx, "newCol", functions.IntLit(1))
 	assert.NoError(t, err)
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)
@@ -224,8 +235,8 @@ func TestDataFrame_WithColumns(t *testing.T) {
 	ctx, spark := connect()
 	df, err := spark.Sql(ctx, "select * from range(10)")
 	assert.NoError(t, err)
-	df, err = df.WithColumns(ctx, column.WithAlias("newCol1", functions.Lit(1)),
-		column.WithAlias("newCol2", functions.Lit(2)))
+	df, err = df.WithColumns(ctx, column.WithAlias("newCol1", functions.IntLit(1)),
+		column.WithAlias("newCol2", functions.IntLit(2)))
 	assert.NoError(t, err)
 	res, err := df.Collect(ctx)
 	assert.NoError(t, err)
@@ -590,7 +601,7 @@ func TestDataFrame_Pivot(t *testing.T) {
 	df, err := spark.CreateDataFrame(ctx, data, schema)
 	assert.NoError(t, err)
 	gd := df.GroupBy(functions.Col("year"))
-	gd, err = gd.Pivot(ctx, "course", []any{"Java", "dotNET"})
+	gd, err = gd.Pivot(ctx, "course", []types.LiteralType{types.String("Java"), types.String("dotNET")})
 	assert.NoError(t, err)
 	df, err = gd.Sum(ctx, "earnings")
 	assert.NoError(t, err)
@@ -665,6 +676,16 @@ func TestDataFrame_CrossTab(t *testing.T) {
 	assert.Equal(t, int64(0), res[0].At(1))
 	assert.Equal(t, int64(2), res[0].At(2))
 	assert.Equal(t, int64(0), res[0].At(3))
+
+	df, err = spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+	df = df.Stat().CrossTab(ctx, "c1", "c2")
+	df, err = df.Sort(ctx, column.OfDF(df, "c1_c2").Asc())
+	assert.NoError(t, err)
+	res2, err := df.Collect(ctx)
+	assert.NoError(t, err)
+
+	assert.Equal(t, res, res2)
 }
 
 func TestDataFrame_SameSemantics(t *testing.T) {
@@ -693,4 +714,493 @@ func TestDataFrame_FreqItems(t *testing.T) {
 	res, err := df.FreqItems(ctx, "id").Collect(ctx)
 	assert.NoErrorf(t, err, "%+v", err)
 	assert.Len(t, res, 1)
+
+	res2, err := df.Stat().FreqItems(ctx, "id").Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, res, res2)
+}
+
+func TestDataFrame_Config_GetAll(t *testing.T) {
+	ctx, spark := connect()
+	result, err := spark.Config().GetAll(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, "driver", result["spark.executor.id"])
+}
+
+func TestDataFrame_Config_Get(t *testing.T) {
+	ctx, spark := connect()
+	result, err := spark.Config().Get(ctx, "spark.executor.id")
+	assert.NoError(t, err)
+	assert.Equal(t, "driver", result)
+}
+
+func TestDataFrame_Config_GetWithDefault(t *testing.T) {
+	ctx, spark := connect()
+
+	result, err := spark.Config().GetWithDefault(ctx, "spark.whatever", "whatever_not_set")
+	assert.NoError(t, err)
+	assert.Equal(t, "whatever_not_set", result)
+}
+
+func TestDataFrame_Config_Set(t *testing.T) {
+	ctx, spark := connect()
+	err := spark.Config().Set(ctx, "spark.whatever", "whatever_set")
+	assert.NoError(t, err)
+}
+
+func TestDataFrame_Config_IsModifiable(t *testing.T) {
+	ctx, spark := connect()
+	result, err := spark.Config().IsModifiable(ctx, "spark.executor.id")
+	assert.NoError(t, err)
+	assert.Equal(t, false, result)
+}
+
+func TestDataFrame_Config_Unset(t *testing.T) {
+	ctx, spark := connect()
+	err := spark.Config().Set(ctx, "spark.whatever", "whatever_set")
+	assert.NoError(t, err)
+	err = spark.Config().Unset(ctx, "spark.whatever")
+	assert.NoError(t, err)
+}
+
+func TestDataFrame_Config_e2e_test(t *testing.T) {
+	ctx, spark := connect()
+	//  add keys that we know is "modifiable"
+	key := "spark.sql.ansi.enabled"
+	result, err := spark.Config().IsModifiable(ctx, key)
+	assert.NoError(t, err)
+	assert.Equal(t, true, result)
+	_, err = spark.Config().Get(ctx, key)
+	assert.NoError(t, err)
+	err = spark.Config().Set(ctx, "spark.sql.ansi.enabled", "true")
+	assert.NoError(t, err)
+	m, err := spark.Config().Get(ctx, "spark.sql.ansi.enabled")
+	assert.NoError(t, err)
+	assert.Equal(t, "true", m)
+}
+
+func TestDataFrame_WithOption(t *testing.T) {
+	ctx, spark := connect()
+	file, err := os.CreateTemp("", "example")
+	defer os.Remove(file.Name())
+	assert.NoError(t, err)
+	defer file.Close()
+	_, err = file.WriteString("id#name,name\n")
+	assert.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		_, err = fmt.Fprintf(file, "%d#alice,alice\n", i)
+		assert.NoError(t, err)
+	}
+	df, err := spark.Read().Format("csv").
+		Option("header", "true").
+		Option("quote", "\"").
+		Option("sep", "#").
+		Option("escapeQuotes", "true").
+		// Option("skipLines", "5"). //TODO: this needs more insight
+		Option("inferSchema", "false").
+		Load(file.Name())
+	assert.NoError(t, err)
+	c, err := df.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(10), c)
+}
+
+func TestDataFrame_Sample(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(100)")
+	assert.NoError(t, err)
+	testCases := []struct {
+		name     string
+		fraction float64
+	}{
+		{
+			name:     "Default behavior",
+			fraction: 0.1,
+		},
+		{
+			name:     "Large fraction",
+			fraction: 0.9,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			sampledDF, err := df.Sample(ctx, tc.fraction)
+			assert.NoError(t, err)
+			count, err := sampledDF.Count(ctx)
+			assert.NoError(t, err)
+			expectedSize := int(100 * tc.fraction)
+			assert.InDelta(t, expectedSize, count, float64(expectedSize), 10)
+			rows, err := sampledDF.Collect(ctx)
+			assert.NoError(t, err)
+			// If sampling without replacement, check for duplicates
+			seen := make(map[int64]bool)
+			for _, row := range rows {
+				value := row.At(0).(int64)
+				if seen[value] {
+					t.Fatal("Found duplicate value when sampling without replacement")
+				}
+				seen[value] = true
+			}
+		})
+	}
+}
+
+func TestDataFrame_SampleWithReplacement(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(100)")
+	assert.NoError(t, err)
+	testCases := []struct {
+		name            string
+		withReplacement bool
+		fraction        float64
+	}{
+		{
+			name:            "With replacement",
+			withReplacement: true,
+			fraction:        0.1,
+		},
+		{
+			name:            "Without replacement",
+			withReplacement: false,
+			fraction:        0.1,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			sampledDF, err := df.SampleWithReplacement(ctx, tc.withReplacement, tc.fraction)
+			assert.NoError(t, err)
+			count, err := sampledDF.Count(ctx)
+			assert.NoError(t, err)
+			expectedSize := int(100 * tc.fraction)
+			assert.InDelta(t, expectedSize, count, float64(expectedSize), 10)
+			rows, err := sampledDF.Collect(ctx)
+			assert.NoError(t, err)
+			// If sampling without replacement, check for duplicates
+			if tc.withReplacement == false {
+				seen := make(map[int64]bool)
+				for _, row := range rows {
+					value := row.At(0).(int64)
+					if seen[value] {
+						t.Fatal("Found duplicate value when sampling without replacement")
+					}
+					seen[value] = true
+				}
+			}
+		})
+	}
+}
+
+func TestDataFrame_SampleSeed(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(100)")
+	assert.NoError(t, err)
+	fraction := 0.1
+	seed := int64(17)
+	sampledDF, err := df.SampleWithSeed(ctx, fraction, seed)
+	assert.NoError(t, err)
+	count, err := sampledDF.Count(ctx)
+	assert.NoError(t, err)
+	expectedSize := int(100 * fraction)
+	assert.InDelta(t, expectedSize, count, float64(expectedSize), 10)
+	rows, err := sampledDF.Collect(ctx)
+	assert.NoError(t, err)
+	// If sampling without replacement, check for duplicates
+	seen := make(map[int64]bool)
+	for _, row := range rows {
+		value := row.At(0).(int64)
+		if seen[value] {
+			t.Fatal("Found duplicate value when sampling without replacement")
+		}
+		seen[value] = true
+	}
+	// same seed should return same output
+	sampledDFRepeat, err := df.SampleWithSeed(ctx, fraction, seed)
+	assert.NoError(t, err)
+	count2, err := sampledDFRepeat.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, count, count2)
+	rows2, err := sampledDFRepeat.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, rows, rows2)
+}
+
+func TestDataFrame_SampleWithReplacementSeed(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(100)")
+	assert.NoError(t, err)
+	fraction := 0.1
+	seed := int64(17)
+	sampledDF, err := df.SampleWithReplacementAndSeed(ctx, true, fraction, seed)
+	assert.NoError(t, err)
+	count, err := sampledDF.Count(ctx)
+	assert.NoError(t, err)
+	expectedSize := int(100 * fraction)
+	assert.InDelta(t, expectedSize, count, float64(expectedSize), 10)
+	rows, err := sampledDF.Collect(ctx)
+	assert.NoError(t, err)
+	// same seed should return same output
+	sampledDFRepeat, err := df.SampleWithReplacementAndSeed(ctx, true, fraction, seed)
+	assert.NoError(t, err)
+	count2, err := sampledDFRepeat.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, count, count2)
+	rows2, err := sampledDFRepeat.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, rows, rows2)
+}
+
+func TestDataFrame_Unpivot(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{{1, 11, 1.1}, {2, 12, 1.2}}
+	schema := types.StructOf(
+		types.NewStructField("id", types.INTEGER),
+		types.NewStructField("int", types.INTEGER),
+		types.NewStructField("double", types.DOUBLE),
+	)
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+
+	udf, err := df.Unpivot(ctx, []column.Convertible{functions.Col("id")},
+		[]column.Convertible{functions.Col("int"), functions.Col("double")},
+		"type", "value")
+
+	assert.NoError(t, err)
+	cnt, err := udf.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(4), cnt)
+}
+
+func TestDataFrame_Replace(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{
+		{10, 80, "Alice"},
+		{5, nil, "Bob"},
+		{nil, 10, "Tom"},
+		{nil, nil, nil},
+	}
+	schema := types.StructOf(
+		types.NewStructField("age", types.INTEGER),
+		types.NewStructField("height", types.INTEGER),
+		types.NewStructField("name", types.STRING),
+	)
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+
+	res, err := df.Replace(ctx,
+		[]types.PrimitiveTypeLiteral{types.Int32(10)},
+		[]types.PrimitiveTypeLiteral{types.Int32(20)},
+	)
+	assert.NoError(t, err)
+
+	cnt, err := res.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(4), cnt)
+
+	rows, err := res.Collect(ctx)
+	assert.NoError(t, err)
+
+	assert.Equal(t, int32(20), rows[0].At(0))
+	assert.Equal(t, int32(20), rows[2].At(1))
+
+	res, err = df.Replace(ctx,
+		[]types.PrimitiveTypeLiteral{types.Int32(10)},
+		[]types.PrimitiveTypeLiteral{types.Int32Nil},
+	)
+	assert.NoError(t, err)
+
+	rows, err = res.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Nil(t, rows[0].At(0))
+}
+
+func TestDataFrame_ReplaceWithColumn(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{
+		{10, 80, "Alice"},
+		{5, nil, "Bob"},
+		{nil, 10, "Tom"},
+		{nil, nil, nil},
+	}
+	schema := types.StructOf(
+		types.NewStructField("age", types.INTEGER),
+		types.NewStructField("height", types.INTEGER),
+		types.NewStructField("name", types.STRING),
+	)
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+
+	res, err := df.Replace(ctx, []types.PrimitiveTypeLiteral{types.Int32(10)},
+		[]types.PrimitiveTypeLiteral{types.Int32(20)}, "age")
+	assert.NoError(t, err)
+
+	rows, err := res.Collect(ctx)
+	assert.NoError(t, err)
+	// Should only repalce the age column but not the height column
+	assert.Equal(t, int32(20), rows[0].At(0))
+	assert.Equal(t, int32(10), rows[2].At(1))
+}
+
+func TestDataFrame_FillNa(t *testing.T) {
+	ctx, spark := connect()
+	file, err := os.CreateTemp("", "fillna")
+	defer os.Remove(file.Name())
+	assert.NoError(t, err)
+	defer file.Close()
+	_, err = file.WriteString(`{"id":1,"int":null, "int2": 1}
+{"id":null,"int":12, "int2": null}
+`)
+	assert.NoError(t, err)
+
+	df, err := spark.Read().Format("json").
+		Option("inferSchema", "true").
+		Load(file.Name())
+	assert.NoError(t, err)
+
+	// all columns
+	filled, err := df.FillNa(ctx, types.Int64(10))
+	assert.NoError(t, err)
+	sorted, err := filled.Sort(ctx, functions.Col("id").Asc())
+	assert.NoError(t, err)
+	res, err := sorted.Collect(ctx)
+	assert.NoError(t, err)
+	require.Equal(t, 2, len(res))
+	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[0].Values())
+	assert.Equal(t, []any{int64(10), int64(12), int64(10)}, res[1].Values())
+
+	// specific columns
+	filled, err = df.FillNa(ctx, types.Int64(10), "int", "int2")
+	assert.NoError(t, err)
+	sorted, err = filled.Sort(ctx, functions.Col("id").Asc())
+	assert.NoError(t, err)
+	res, err = sorted.Collect(ctx)
+	assert.NoError(t, err)
+	require.Equal(t, 2, len(res))
+	assert.Equal(t, []any{nil, int64(12), int64(10)}, res[0].Values())
+	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[1].Values())
+
+	// specific columns with map
+	filled, err = df.FillNaWithValues(ctx, map[string]types.PrimitiveTypeLiteral{
+		"int": types.Int64(10), "int2": types.Int64(20),
+	})
+	assert.NoError(t, err)
+	sorted, err = filled.Sort(ctx, functions.Col("id").Asc())
+	assert.NoError(t, err)
+	res, err = sorted.Collect(ctx)
+	assert.NoError(t, err)
+	require.Equal(t, 2, len(res))
+	assert.Equal(t, []any{nil, int64(12), int64(20)}, res[0].Values())
+	assert.Equal(t, []any{int64(1), int64(10), int64(1)}, res[1].Values())
+}
+
+func TestDataFrame_ApproxQuantile(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select id, 1 as id2 from range(100)")
+	assert.NoError(t, err)
+	res, err := df.ApproxQuantile(ctx, []float64{float64(0.5)}, float64(0.1), "id")
+	assert.NoError(t, err)
+	assert.Len(t, res, 1)
+
+	data := [][]any{
+		{"bob", "Developer", 125000, 1},
+		{"mark", "Developer", 108000, 2},
+		{"carl", "Tester", 70000, 2},
+		{"peter", "Developer", 185000, 2},
+		{"jon", "Tester", 65000, 1},
+		{"roman", "Tester", 82000, 2},
+		{"simon", "Developer", 98000, 1},
+		{"eric", "Developer", 144000, 2},
+		{"carlos", "Tester", 75000, 1},
+		{"henry", "Developer", 110000, 1},
+	}
+	schema := types.StructOf(
+		types.NewStructField("Name", types.STRING),
+		types.NewStructField("Role", types.STRING),
+		types.NewStructField("Salary", types.LONG),
+		types.NewStructField("Performance", types.LONG),
+	)
+
+	df, err = spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+	med, err := df.ApproxQuantile(ctx, []float64{float64(0.5)}, float64(0.25), "Salary")
+
+	assert.NoError(t, err)
+	assert.Len(t, med, 1)
+	assert.GreaterOrEqual(t, med[0][0], 75000.0)
+
+	_, err = df.Stat().ApproxQuantile(ctx, []float64{0.5}, 0.25, "Salary")
+	assert.NoError(t, err)
+}
+
+func TestDataFrame_DFNaFunctions(t *testing.T) {
+	ctx, spark := connect()
+	data := [][]any{
+		{10, 80.5, "Alice", true},
+		{5, nil, "Bob", nil},
+		{nil, nil, "Tom", nil},
+		{nil, nil, nil, nil},
+	}
+	schema := types.StructOf(
+		types.NewStructField("age", types.INTEGER),
+		types.NewStructField("height", types.DOUBLE),
+		types.NewStructField("name", types.STRING),
+		types.NewStructField("bool", types.BOOLEAN),
+	)
+	df, err := spark.CreateDataFrame(ctx, data, schema)
+	assert.NoError(t, err)
+
+	res, err := df.Na().Drop(ctx)
+	assert.NoError(t, err)
+	rows, err := res.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, rows, 1)
+	assert.Equal(t, rows[0].At(2), "Alice")
+
+	res, err = df.Na().DropAll(ctx)
+	assert.NoError(t, err)
+	rows, err = res.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, rows, 3)
+
+	// Fill must only use long types
+	res, err = df.Na().Fill(ctx, types.Int64(50))
+	assert.NoError(t, err)
+	rows, err = res.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, rows, 4)
+
+	assert.Equal(t, int32(50), rows[2].At(0))
+	assert.Equal(t, int32(50), rows[3].At(0))
+	assert.Equal(t, float64(50), rows[2].At(1))
+	assert.Equal(t, float64(50), rows[3].At(1))
+
+	res, err = df.Na().Replace(ctx, []types.PrimitiveTypeLiteral{types.String("Alice")}, []types.PrimitiveTypeLiteral{
+		types.String("Bob"),
+	})
+	assert.NoError(t, err)
+	rows, err = res.Collect(ctx)
+	assert.NoError(t, err)
+	assert.Len(t, rows, 4)
+
+	assert.Equal(t, "Bob", rows[0].At(2))
+}
+
+func TestDataFrame_RangeIter(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10)")
+	assert.NoError(t, err)
+	cnt := 0
+	for row, err := range df.All(ctx) {
+		assert.NoError(t, err)
+		assert.NotNil(t, row)
+		cnt++
+	}
+	assert.Equal(t, 10, cnt)
+
+	// Check that errors are properly propagated
+	df, err = spark.Sql(ctx, "select if(id = 5, raise_error('handle'), false) from range(10)")
+	assert.NoError(t, err)
+	for _, err := range df.All(ctx) {
+		// The error is immediately thrown:
+		assert.Error(t, err)
+	}
 }

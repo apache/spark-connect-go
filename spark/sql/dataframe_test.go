@@ -20,8 +20,8 @@ import (
 	"context"
 	"testing"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
-	"github.com/apache/spark-connect-go/v35/spark/sql/functions"
+	proto "github.com/apache/spark-connect-go/internal/generated"
+	"github.com/apache/spark-connect-go/spark/sql/functions"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,7 +41,7 @@ func TestDataFrameImpl_GroupBy(t *testing.T) {
 
 	assert.Equal(t, gd.groupType, "groupby")
 
-	df, err := gd.Agg(ctx, functions.Count(functions.Lit(1)))
+	df, err := gd.Agg(ctx, functions.Count(functions.Int64Lit(1)))
 	assert.Nil(t, err)
 	impl := df.(*dataFrameImpl)
 	assert.NotNil(t, impl)

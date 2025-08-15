@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow-go/v18/arrow"
 )
 
 // StructField represents a field in a StructType.
@@ -51,15 +51,15 @@ type StructType struct {
 	Fields []StructField
 }
 
-func (t *StructType) TypeName() string {
+func (t StructType) TypeName() string {
 	return "structtype"
 }
 
-func (t *StructType) IsNumeric() bool {
+func (t StructType) IsNumeric() bool {
 	return false
 }
 
-func (t *StructType) ToArrowType() *arrow.StructType {
+func (t StructType) ToArrowType() arrow.DataType {
 	fields := make([]arrow.Field, len(t.Fields))
 	for i, f := range t.Fields {
 		fields[i] = f.ToArrowType()

@@ -19,7 +19,7 @@ package sql
 import (
 	"sync/atomic"
 
-	proto "github.com/apache/spark-connect-go/v35/internal/generated"
+	proto "github.com/apache/spark-connect-go/internal/generated"
 )
 
 var atomicInt64 atomic.Int64
@@ -58,6 +58,22 @@ func newReadWithFormatAndPath(path, format string) *proto.Relation {
 					DataSource: &proto.Read_DataSource{
 						Format: &format,
 						Paths:  []string{path},
+					},
+				},
+			},
+		},
+	}
+}
+
+func newReadWithFormatAndPathAndOptions(path, format string, options map[string]string) *proto.Relation {
+	return &proto.Relation{
+		RelType: &proto.Relation_Read{
+			Read: &proto.Read{
+				ReadType: &proto.Read_DataSource_{
+					DataSource: &proto.Read_DataSource{
+						Format:  &format,
+						Paths:   []string{path},
+						Options: options,
 					},
 				},
 			},
