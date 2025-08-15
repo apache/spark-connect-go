@@ -90,6 +90,24 @@ def get_json(url):
         sys.exit(-1)
 
 
+def get_pull_request(pr_num):
+    headers = {
+        "Authorization": f"token {GITHUB_OAUTH_KEY}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+    response = requests.get(
+        f"{GITHUB_API_BASE}/pulls/{pr_num}",
+        headers=headers,
+    )
+    if response.status_code == 200:
+        return response.json()
+    else:
+        error_message = (f"Failed to get pull request #{pr_num}. "
+                         f"Status code: {response.status_code}")
+        error_message += f"\nResponse: {response.text}"
+        fail(error_message)
+
+
 def fail(msg):
     print(msg)
     clean_up()
@@ -130,19 +148,26 @@ def merge_pr(pr_num, target_ref, title, body, pr_repo_desc):
     run_cmd("git fetch %s %s:%s" % (PUSH_REMOTE_NAME, target_ref, target_branch_name))
     run_cmd("git checkout %s" % target_branch_name)
 
-    had_conflicts = False
-    try:
-        run_cmd(["git", "merge", pr_branch_name, "--squash"])
-    except Exception as e:
-        msg = "Error merging: %s\nWould you like to manually fix-up this merge?" % e
-        continue_maybe(msg)
-        msg = "Okay, please fix any conflicts and 'git add' conflicting files... Finished?"
-        continue_maybe(msg)
-        had_conflicts = True
+    # Get all the data from the pull request.
+    pr = get_pull_request(pr_num)
+
+    # Check if the PR is mergeable and still open:
+    if not pr["mergeable"]:
+        fail(f"Pull request #{pr_num} is not mergeable in its current form.")
+
+    # Check if the PR is still open.
+    if pr["state"] != "open":
+        fail(f"Pull request #{pr_num} is not open.")
+
+    if pr["merged"]:
+        fail(f"Pull request #{pr_num} has already been merged.")
+
+    if pr["draft"]:
+        fail(f"Pull request #{pr_num} is a draft.")
 
     # First commit author should be considered as the primary author when the rank is the same
     commit_authors = run_cmd(
-        ["git", "log", "HEAD..%s" % pr_branch_name, "--pretty=format:%an <%ae>", "--reverse"]
+        ["git", "log", "%s..%s" % (target_branch_name, pr_branch_name), "--pretty=format:%an <%ae>", "--reverse"]
     ).split("\n")
     distinct_authors = sorted(
         list(dict.fromkeys(commit_authors)), key=lambda x: commit_authors.count(x), reverse=True
@@ -166,14 +191,6 @@ def merge_pr(pr_num, target_ref, title, body, pr_repo_desc):
 
     committer_name = run_cmd("git config --get user.name").strip()
     committer_email = run_cmd("git config --get user.email").strip()
-
-    if had_conflicts:
-        message = "This patch had conflicts when merged, resolved by\nCommitter: %s <%s>" % (
-            committer_name,
-            committer_email,
-        )
-        merge_message += "\n\n"
-        merge_message += message
 
     # The string "Closes #%s" string is required for GitHub to correctly close the PR
     merge_message += "\n\n"
@@ -199,6 +216,9 @@ def merge_pr(pr_num, target_ref, title, body, pr_repo_desc):
         "commit_message": merge_message,
         "merge_method": "squash",
     }
+
+    print(data)
+    fail("error here")
 
     continue_maybe("Collected all data. Ready to merge PR?")
     
