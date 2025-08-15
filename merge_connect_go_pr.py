@@ -200,7 +200,6 @@ def merge_pr(pr_num, target_ref, title, body, pr_repo_desc):
         "merge_method": "squash",
     }
 
-    print(data)
     continue_maybe("Collected all data. Ready to merge PR?")
     
     # Run the request to merge the PR.
