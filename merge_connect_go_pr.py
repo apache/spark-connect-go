@@ -31,6 +31,7 @@ import re
 import subprocess
 import sys
 import traceback
+import requests
 from urllib.request import urlopen
 from urllib.request import Request
 from urllib.error import HTTPError
@@ -89,6 +90,24 @@ def get_json(url):
         sys.exit(-1)
 
 
+def get_pull_request(pr_num):
+    headers = {
+        "Authorization": f"token {GITHUB_OAUTH_KEY}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+    response = requests.get(
+        f"{GITHUB_API_BASE}/pulls/{pr_num}",
+        headers=headers,
+    )
+    if response.status_code == 200:
+        return response.json()
+    else:
+        error_message = (f"Failed to get pull request #{pr_num}. "
+                         f"Status code: {response.status_code}")
+        error_message += f"\nResponse: {response.text}"
+        fail(error_message)
+
+
 def fail(msg):
     print(msg)
     clean_up()
@@ -129,19 +148,26 @@ def merge_pr(pr_num, target_ref, title, body, pr_repo_desc):
     run_cmd("git fetch %s %s:%s" % (PUSH_REMOTE_NAME, target_ref, target_branch_name))
     run_cmd("git checkout %s" % target_branch_name)
 
-    had_conflicts = False
-    try:
-        run_cmd(["git", "merge", pr_branch_name, "--squash"])
-    except Exception as e:
-        msg = "Error merging: %s\nWould you like to manually fix-up this merge?" % e
-        continue_maybe(msg)
-        msg = "Okay, please fix any conflicts and 'git add' conflicting files... Finished?"
-        continue_maybe(msg)
-        had_conflicts = True
+    # Get all the data from the pull request.
+    pr = get_pull_request(pr_num)
+
+    # Check if the PR is mergeable and still open:
+    if not pr["mergeable"]:
+        fail(f"Pull request #{pr_num} is not mergeable in its current form.")
+
+    # Check if the PR is still open.
+    if pr["state"] != "open":
+        fail(f"Pull request #{pr_num} is not open.")
+
+    if pr["merged"]:
+        fail(f"Pull request #{pr_num} has already been merged.")
+
+    if pr["draft"]:
+        fail(f"Pull request #{pr_num} is a draft.")
 
     # First commit author should be considered as the primary author when the rank is the same
     commit_authors = run_cmd(
-        ["git", "log", "HEAD..%s" % pr_branch_name, "--pretty=format:%an <%ae>", "--reverse"]
+        ["git", "log", "%s..%s" % (target_branch_name, pr_branch_name), "--pretty=format:%an <%ae>", "--reverse"]
     ).split("\n")
     distinct_authors = sorted(
         list(dict.fromkeys(commit_authors)), key=lambda x: commit_authors.count(x), reverse=True
@@ -157,26 +183,18 @@ def merge_pr(pr_num, target_ref, title, body, pr_repo_desc):
         distinct_authors = list(filter(lambda x: x != primary_author, distinct_authors))
         distinct_authors.insert(0, primary_author)
 
-    merge_message_flags = []
-
-    merge_message_flags += ["-m", title]
+    merge_message = ""
     if body is not None:
         # We remove @ symbols from the body to avoid triggering e-mails
         # to people every time someone creates a public fork of Spark.
-        merge_message_flags += ["-m", body.replace("@", "")]
+        merge_message += body.replace("@", "")
 
     committer_name = run_cmd("git config --get user.name").strip()
     committer_email = run_cmd("git config --get user.email").strip()
 
-    if had_conflicts:
-        message = "This patch had conflicts when merged, resolved by\nCommitter: %s <%s>" % (
-            committer_name,
-            committer_email,
-        )
-        merge_message_flags += ["-m", message]
-
     # The string "Closes #%s" string is required for GitHub to correctly close the PR
-    merge_message_flags += ["-m", "Closes #%s from %s." % (pr_num, pr_repo_desc)]
+    merge_message += "\n\n"
+    merge_message += "Closes #%s from %s." % (pr_num, pr_repo_desc)
 
     authors = "Authored-by:" if len(distinct_authors) == 1 else "Lead-authored-by:"
     authors += " %s" % (distinct_authors.pop(0))
@@ -184,25 +202,42 @@ def merge_pr(pr_num, target_ref, title, body, pr_repo_desc):
         authors += "\n" + "\n".join(["Co-authored-by: %s" % a for a in distinct_authors])
     authors += "\n" + "Signed-off-by: %s <%s>" % (committer_name, committer_email)
 
-    merge_message_flags += ["-m", authors]
+    merge_message += "\n\n"
+    merge_message += authors
 
-    run_cmd(["git", "commit", '--author="%s"' % primary_author] + merge_message_flags)
+    # Merge the Pull Request using the commit message and title and squash it.
+    headers = {
+        "Authorization": f"token {GITHUB_OAUTH_KEY}",
+        "Accept": "application/vnd.github.v3+json",
+    }
 
-    continue_maybe(
-        "Merge complete (local ref %s). Push to %s?" % (target_branch_name, PUSH_REMOTE_NAME)
+    data = {
+        "commit_title": title,
+        "commit_message": merge_message,
+        # Must be squash, always.
+        "merge_method": "squash",
+    }
+
+    continue_maybe("Collected all data. Ready to merge PR?")
+    
+    # Run the request to merge the PR.
+    response = requests.put(
+        f"{GITHUB_API_BASE}/pulls/{pr_num}/merge",
+        headers=headers,
+        json=data
     )
 
-    try:
-        run_cmd("git push %s %s:%s" % (PUSH_REMOTE_NAME, target_branch_name, target_ref))
-    except Exception as e:
+    if response.status_code == 200:
+        merge_response_json = response.json()
+        merge_commit_sha = merge_response_json.get("sha")
+        print(f"Pull request #{pr_num} merged. Sha: #{merge_commit_sha}")
         clean_up()
-        fail("Exception while pushing: %s" % e)
-
-    merge_hash = run_cmd("git rev-parse %s" % target_branch_name)[:8]
-    clean_up()
-    print("Pull request #%s merged!" % pr_num)
-    print("Merge hash: %s" % merge_hash)
-    return merge_hash
+        return merge_commit_sha
+    else:
+        error_message = f"Failed to merge pull request #{pr_num}. Status code: {response.status_code}"
+        error_message += f"\nResponse: {response.text}"
+        clean_up()
+        fail(error_message)
 
 
 def cherry_pick(pr_num, merge_hash, default_branch):
