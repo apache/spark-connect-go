@@ -197,15 +197,16 @@ func NewBuilder(connection string) (*BaseBuilder, error) {
 	for _, e := range elements {
 		props := strings.Split(e, "=")
 		if len(props) == 2 {
-			if props[0] == "token" {
+			switch props[0] {
+			case "token":
 				cb.token = props[1]
-			} else if props[0] == "user_id" {
+			case "user_id":
 				cb.user = props[1]
-			} else if props[0] == "session_id" {
+			case "session_id":
 				cb.sessionId = props[1]
-			} else if props[0] == "user_agent" {
+			case "user_agent":
 				cb.userAgent = props[1]
-			} else {
+			default:
 				cb.headers[props[0]] = props[1]
 			}
 		}

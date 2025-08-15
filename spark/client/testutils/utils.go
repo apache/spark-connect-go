@@ -34,12 +34,16 @@ type connectServiceClient struct {
 }
 
 // FetchErrorDetails implements generated.SparkConnectServiceClient.
-func (c *connectServiceClient) FetchErrorDetails(ctx context.Context, in *proto.FetchErrorDetailsRequest, opts ...grpc.CallOption) (*proto.FetchErrorDetailsResponse, error) {
+func (c *connectServiceClient) FetchErrorDetails(ctx context.Context,
+	in *proto.FetchErrorDetailsRequest, opts ...grpc.CallOption,
+) (*proto.FetchErrorDetailsResponse, error) {
 	panic("unimplemented")
 }
 
 // ReleaseSession implements generated.SparkConnectServiceClient.
-func (c *connectServiceClient) ReleaseSession(ctx context.Context, in *proto.ReleaseSessionRequest, opts ...grpc.CallOption) (*proto.ReleaseSessionResponse, error) {
+func (c *connectServiceClient) ReleaseSession(ctx context.Context, in *proto.ReleaseSessionRequest,
+	opts ...grpc.CallOption,
+) (*proto.ReleaseSessionResponse, error) {
 	panic("unimplemented")
 }
 

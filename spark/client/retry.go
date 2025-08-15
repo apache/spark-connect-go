@@ -205,14 +205,20 @@ type retriableSparkConnectClient struct {
 }
 
 // FetchErrorDetails implements base.SparkConnectRPCClient.
-func (r *retriableSparkConnectClient) FetchErrorDetails(ctx context.Context, in *proto.FetchErrorDetailsRequest, opts ...grpc.CallOption) (*proto.FetchErrorDetailsResponse, error) {
-	return wrapRetriableCall(ctx, r.retryPolicies, func(ctx2 context.Context) (*proto.FetchErrorDetailsResponse, error) {
+func (r *retriableSparkConnectClient) FetchErrorDetails(ctx context.Context,
+	in *proto.FetchErrorDetailsRequest, opts ...grpc.CallOption,
+) (*proto.FetchErrorDetailsResponse, error) {
+	return wrapRetriableCall(ctx, r.retryPolicies, func(ctx2 context.Context) (
+		*proto.FetchErrorDetailsResponse, error,
+	) {
 		return r.client.FetchErrorDetails(ctx2, in, opts...)
 	})
 }
 
 // ReleaseSession implements base.SparkConnectRPCClient.
-func (r *retriableSparkConnectClient) ReleaseSession(ctx context.Context, in *proto.ReleaseSessionRequest, opts ...grpc.CallOption) (*proto.ReleaseSessionResponse, error) {
+func (r *retriableSparkConnectClient) ReleaseSession(ctx context.Context,
+	in *proto.ReleaseSessionRequest, opts ...grpc.CallOption,
+) (*proto.ReleaseSessionResponse, error) {
 	return wrapRetriableCall(ctx, r.retryPolicies, func(ctx2 context.Context) (*proto.ReleaseSessionResponse, error) {
 		return r.client.ReleaseSession(ctx2, in, opts...)
 	})

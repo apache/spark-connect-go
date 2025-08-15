@@ -788,7 +788,7 @@ func TestDataFrame_WithOption(t *testing.T) {
 	_, err = file.WriteString("id#name,name\n")
 	assert.NoError(t, err)
 	for i := 0; i < 10; i++ {
-		_, err = file.WriteString(fmt.Sprintf("%d#alice,alice\n", i))
+		_, err = fmt.Fprintf(file, "%d#alice,alice\n", i)
 		assert.NoError(t, err)
 	}
 	df, err := spark.Read().Format("csv").

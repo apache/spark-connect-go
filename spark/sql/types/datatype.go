@@ -217,6 +217,43 @@ func (t DateType) ToArrowType() arrow.DataType {
 	return arrow.FixedWidthTypes.Date32
 }
 
+type ArrayType struct {
+	ElementType  DataType
+	ContainsNull bool
+}
+
+func (t ArrayType) TypeName() string {
+	return fmt.Sprintf("Array<%s>", t.ElementType.TypeName())
+}
+
+func (t ArrayType) IsNumeric() bool {
+	return false
+}
+
+func (t ArrayType) ToArrowType() arrow.DataType {
+	return arrow.ListOf(t.ElementType.ToArrowType())
+}
+
+type MapType struct {
+	KeyType           DataType
+	ValueType         DataType
+	ValueContainsNull bool
+}
+
+func (t MapType) TypeName() string {
+	return fmt.Sprintf("Map<%s,%s>", t.KeyType.TypeName(), t.ValueType.TypeName())
+}
+
+func (t MapType) IsNumeric() bool {
+	return false
+}
+
+func (t MapType) ToArrowType() arrow.DataType {
+	// TODO: assert that ValueContainsNull is true because it indicates
+	// nullability of the map type
+	return arrow.MapOf(t.KeyType.ToArrowType(), t.ValueType.ToArrowType())
+}
+
 type UnsupportedType struct {
 	TypeInfo any
 }
@@ -237,6 +274,13 @@ func getDataTypeName(dataType DataType) string {
 	typeName := fmt.Sprintf("%T", dataType)
 	nonQualifiedTypeName := strings.Split(typeName, ".")[1]
 	return strings.TrimSuffix(nonQualifiedTypeName, "Type")
+}
+
+func MakeArrayType(elementType DataType, containsNull bool) ArrayType {
+	return ArrayType{
+		ElementType:  elementType,
+		ContainsNull: containsNull,
+	}
 }
 
 var (

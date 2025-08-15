@@ -37,7 +37,6 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/spark-connect-go/spark/sql/types"
 
-	"github.com/apache/spark-connect-go/internal/generated"
 	proto "github.com/apache/spark-connect-go/internal/generated"
 	"github.com/apache/spark-connect-go/spark/sparkerrors"
 )
@@ -142,17 +141,18 @@ func (s *sparkConnectClientImpl) Explain(ctx context.Context, plan *proto.Plan,
 	explainMode utils.ExplainMode,
 ) (*proto.AnalyzePlanResponse, error) {
 	var mode proto.AnalyzePlanRequest_Explain_ExplainMode
-	if explainMode == utils.ExplainModeExtended {
+	switch explainMode {
+	case utils.ExplainModeExtended:
 		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_EXTENDED
-	} else if explainMode == utils.ExplainModeSimple {
+	case utils.ExplainModeSimple:
 		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_SIMPLE
-	} else if explainMode == utils.ExplainModeCost {
+	case utils.ExplainModeCost:
 		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_COST
-	} else if explainMode == utils.ExplainModeFormatted {
+	case utils.ExplainModeFormatted:
 		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_FORMATTED
-	} else if explainMode == utils.ExplainModeCodegen {
+	case utils.ExplainModeCodegen:
 		mode = proto.AnalyzePlanRequest_Explain_EXPLAIN_MODE_CODEGEN
-	} else {
+	default:
 		return nil, sparkerrors.WithType(fmt.Errorf("unsupported explain mode %v",
 			explainMode), sparkerrors.InvalidArgumentError)
 	}
@@ -298,7 +298,7 @@ func (s *sparkConnectClientImpl) SemanticHash(ctx context.Context, plan *proto.P
 
 func (s *sparkConnectClientImpl) Config(ctx context.Context,
 	operation *proto.ConfigRequest_Operation,
-) (*generated.ConfigResponse, error) {
+) (*proto.ConfigResponse, error) {
 	request := &proto.ConfigRequest{
 		Operation: operation,
 		UserContext: &proto.UserContext{
@@ -319,7 +319,7 @@ func NewSparkExecutor(conn *grpc.ClientConn, md metadata.MD, sessionId string, o
 	if opts.ReattachExecution {
 		client = NewRetriableSparkConnectClient(conn, sessionId, opts)
 	} else {
-		client = generated.NewSparkConnectServiceClient(conn)
+		client = proto.NewSparkConnectServiceClient(conn)
 	}
 	return &sparkConnectClientImpl{
 		client:    client,
@@ -344,7 +344,7 @@ func NewSparkExecutorFromClient(client base.SparkConnectRPCClient, md metadata.M
 // Spark Connect.
 type ExecutePlanClient struct {
 	// The GRPC stream to read the response messages.
-	responseStream generated.SparkConnectService_ExecutePlanClient
+	responseStream proto.SparkConnectService_ExecutePlanClient
 	// The schema of the result of the operation.
 	schema *types.StructType
 	// The sessionId is ised to verify the server side session.
