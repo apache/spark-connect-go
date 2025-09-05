@@ -66,6 +66,7 @@ func TestSaveExecutesWriteOperationUntilEOF(t *testing.T) {
 	writer := newDataFrameWriter(session, relation)
 	writer.Format("format")
 	writer.Mode("append")
+	writer.Option("foo", "bar")
 	err := writer.Save(ctx, path)
 	assert.NoError(t, err)
 }
