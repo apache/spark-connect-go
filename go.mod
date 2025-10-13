@@ -15,15 +15,15 @@
 
 module github.com/apache/spark-connect-go
 
-go 1.23.2
+go 1.24.0
 
 require (
 	github.com/apache/arrow-go/v18 v18.4.0
 	github.com/go-errors/errors v1.5.1
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.10.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7
-	google.golang.org/grpc v1.75.0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250804133106-a7a43d27e69b
+	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.7
 )
 
@@ -31,8 +31,8 @@ require (
 	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
-	golang.org/x/net v0.41.0 // indirect
-	golang.org/x/sync v0.15.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
 
@@ -47,8 +47,8 @@ require (
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/oauth2 v0.30.0
-	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
 	golang.org/x/tools v0.34.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
