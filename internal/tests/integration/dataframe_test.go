@@ -812,14 +812,14 @@ func TestDataFrame_WriteWithOption(t *testing.T) {
 		types.NewStructField("f1-i32", types.INTEGER),
 		types.NewStructField("f2-string", types.STRING)),
 	)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	c, err := df.Count(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(2), c)
 	outDir, err := os.MkdirTemp("", "example.out")
+	assert.NoError(t, err)
 	outfilePath := path.Join(outDir, "example.csv")
 	defer os.RemoveAll(outDir)
-	assert.NoError(t, err)
 	err = df.Writer().Format("csv").
 		Option("header", "true").
 		Save(ctx, outfilePath)
