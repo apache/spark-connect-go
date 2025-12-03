@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"testing"
 
 	"github.com/apache/spark-connect-go/spark/sql/utils"
@@ -803,6 +804,33 @@ func TestDataFrame_WithOption(t *testing.T) {
 	c, err := df.Count(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(10), c)
+}
+
+func TestDataFrame_WriteWithOption(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.CreateDataFrame(ctx, [][]any{{1, "a"}, {2, "b"}}, types.StructOf(
+		types.NewStructField("f1-i32", types.INTEGER),
+		types.NewStructField("f2-string", types.STRING)),
+	)
+	require.NoError(t, err)
+	c, err := df.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(2), c)
+	outDir, err := os.MkdirTemp("", "example.out")
+	outfilePath := path.Join(outDir, "example.csv")
+	defer os.RemoveAll(outDir)
+	assert.NoError(t, err)
+	err = df.Writer().Format("csv").
+		Option("header", "true").
+		Save(ctx, outfilePath)
+	assert.NoError(t, err)
+	verifyDf, err := spark.Read().Format("csv").
+		Option("header", "true").
+		Load(outfilePath)
+	assert.NoError(t, err)
+	c, err = verifyDf.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(2), c)
 }
 
 func TestDataFrame_Sample(t *testing.T) {
