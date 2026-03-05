@@ -1196,7 +1196,6 @@ func TestDataFrame_RangeIter(t *testing.T) {
 	}
 	assert.Equal(t, 10, cnt)
 
-	// Check that errors are properly propagated
 	df, err = spark.Sql(ctx, "select if(id = 5, raise_error('handle'), false) from range(10)")
 	assert.NoError(t, err)
 	for _, err := range df.All(ctx) {
@@ -1223,4 +1222,198 @@ func TestDataFrame_SchemaTreeString(t *testing.T) {
 	assert.Contains(t, ts, "|-- first: map")
 	assert.Contains(t, ts, "|-- second: array")
 	assert.Contains(t, ts, "|-- third: map")
+}
+
+func TestDataFrame_StreamRowsThroughChannel(t *testing.T) {
+	// Demonstrates how StreamRows can be used to pipe data through a channel for scenarios like:
+	// - Proxying Spark data through gRPC streaming or unary RPCs
+	// - Implementing producer-consumer patterns with backpressure based on Spark results
+	// - Buffering and rate-limiting data flow between systems
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select id, id * 2 as doubled, 'test_' || cast(id as string) as label from range(100)")
+	assert.NoError(t, err)
+
+	iter, err := df.StreamRows(ctx)
+	assert.NoError(t, err)
+
+	rowChan := make(chan map[string]interface{}, 10)
+	errChan := make(chan error, 1)
+
+	go func() {
+		defer close(rowChan)
+		for row, err := range iter {
+			if err != nil {
+				errChan <- err
+				return
+			}
+
+			rowData := make(map[string]interface{})
+			names := row.FieldNames()
+			for i, name := range names {
+				rowData[name] = row.At(i)
+			}
+
+			select {
+			case rowChan <- rowData:
+			case <-ctx.Done():
+				errChan <- ctx.Err()
+				return
+			}
+		}
+	}()
+
+	// In a gRPC scenario, this would be your response handler
+	receivedRows := make([]map[string]interface{}, 0)
+	consumerDone := make(chan struct{})
+
+	go func() {
+		defer close(consumerDone)
+		for rowData := range rowChan {
+			receivedRows = append(receivedRows, rowData)
+
+			id := rowData["id"].(int64)
+			doubled := rowData["doubled"].(int64)
+			assert.Equal(t, id*2, doubled)
+		}
+	}()
+
+	<-consumerDone
+
+	select {
+	case err := <-errChan:
+		assert.NoError(t, err)
+	default:
+		// continue
+	}
+
+	assert.Equal(t, 100, len(receivedRows))
+
+	assert.Equal(t, int64(0), receivedRows[0]["id"])
+	assert.Equal(t, int64(99), receivedRows[99]["id"])
+	assert.Equal(t, "test_0", receivedRows[0]["label"])
+	assert.Equal(t, "test_99", receivedRows[99]["label"])
+}
+
+func TestDataFrame_StreamRows(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(100)")
+	assert.NoError(t, err)
+
+	iter, err := df.StreamRows(ctx)
+	assert.NoError(t, err)
+	assert.NotNil(t, iter)
+
+	cnt := 0
+
+	for row, err := range iter {
+		assert.NoError(t, err)
+		assert.NotNil(t, row)
+		assert.Equal(t, 1, row.Len())
+		cnt++
+	}
+	assert.Equal(t, 100, cnt)
+}
+
+func TestDataFrame_StreamRowsWithFilter(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(100)")
+	assert.NoError(t, err)
+
+	df, err = df.Filter(ctx, functions.Col("id").Lt(functions.IntLit(10)))
+	assert.NoError(t, err)
+
+	iter, err := df.StreamRows(ctx)
+	assert.NoError(t, err)
+
+	cnt := 0
+	for row, err := range iter {
+		assert.NoError(t, err)
+		assert.NotNil(t, row)
+		assert.Equal(t, 1, row.Len())
+		assert.Less(t, row.At(0).(int64), int64(10))
+		cnt++
+	}
+	assert.Equal(t, 10, cnt)
+}
+
+func TestDataFrame_StreamRowsEmpty(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(0)")
+	assert.NoError(t, err)
+
+	iter, err := df.StreamRows(ctx)
+	assert.NoError(t, err)
+
+	cnt := 0
+	for row, err := range iter {
+		assert.NoError(t, err)
+		assert.NotNil(t, row)
+		cnt++
+	}
+	assert.Equal(t, 0, cnt)
+}
+
+func TestDataFrame_StreamRowsWithError(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select if(id = 5, raise_error('test error'), id) as id from range(10)")
+	assert.NoError(t, err)
+
+	iter, err := df.StreamRows(ctx)
+	assert.NoError(t, err)
+
+	errorEncountered := false
+	for _, err := range iter {
+		if err != nil {
+			errorEncountered = true
+			assert.Error(t, err)
+			break
+		}
+	}
+	assert.True(t, errorEncountered, "Expected to encounter an error during iteration")
+}
+
+func TestDataFrame_StreamRowsMultipleColumns(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select id, id * 2 as doubled, 'test' as name from range(50)")
+	assert.NoError(t, err)
+
+	iter, err := df.StreamRows(ctx)
+	assert.NoError(t, err)
+
+	cnt := 0
+	for row, err := range iter {
+		assert.NoError(t, err)
+		assert.NotNil(t, row)
+		assert.Equal(t, 3, row.Len())
+
+		id := row.At(0).(int64)
+		doubled := row.At(1).(int64)
+		name := row.At(2).(string)
+
+		assert.Equal(t, id*2, doubled)
+		assert.Equal(t, "test", name)
+		cnt++
+	}
+	assert.Equal(t, 50, cnt)
+}
+
+func TestDataFrame_StreamRowsLargeDataset(t *testing.T) {
+	ctx, spark := connect()
+	df, err := spark.Sql(ctx, "select * from range(10000)")
+	assert.NoError(t, err)
+
+	iter, err := df.StreamRows(ctx)
+	assert.NoError(t, err)
+
+	cnt := 0
+	lastValue := int64(-1)
+	for row, err := range iter {
+		assert.NoError(t, err)
+		assert.NotNil(t, row)
+		currentValue := row.At(0).(int64)
+		assert.Greater(t, currentValue, lastValue)
+		lastValue = currentValue
+		cnt++
+	}
+	assert.Equal(t, 10000, cnt)
 }

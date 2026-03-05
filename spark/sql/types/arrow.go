@@ -68,6 +68,12 @@ func ReadArrowTableToRows(table arrow.Table) ([]Row, error) {
 	return result, nil
 }
 
+func ReadArrowRecordToRows(record arrow.Record) ([]Row, error) {
+	table := array.NewTableFromRecords(record.Schema(), []arrow.Record{record})
+	defer table.Release()
+	return ReadArrowTableToRows(table)
+}
+
 func readArrayData(t arrow.Type, data arrow.ArrayData) ([]any, error) {
 	buf := make([]any, 0)
 	// Switch over the type t and append the values to buf.

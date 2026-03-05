@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 
 	"github.com/apache/spark-connect-go/spark/sql/utils"
 
@@ -431,6 +432,103 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 		return c.schema, nil, nil
 	} else {
 		return c.schema, array.NewTableFromRecords(arrowSchema, recordBatches), nil
+	}
+}
+
+// ToRecordSequence returns a single Seq2 iterator that directly yields results as they arrive.
+func (c *ExecutePlanClient) ToRecordSequence(ctx context.Context) iter.Seq2[arrow.Record, error] {
+	return func(yield func(arrow.Record, error) bool) {
+		// Represents Spark's reattachable execution.
+		// Tracks logical completion locally to avoid racing on shared struct state.
+		// Spliced from ToTable. We may eventually want to DRY up these workflows.
+		done := false
+
+		for {
+			select {
+			case <-ctx.Done():
+				yield(nil, ctx.Err())
+				return
+			default:
+			}
+
+			resp, err := c.responseStream.Recv()
+
+			select {
+			case <-ctx.Done():
+				yield(nil, ctx.Err())
+				return
+			default:
+			}
+
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
+			if err != nil {
+				if se := sparkerrors.FromRPCError(err); se != nil {
+					yield(nil, sparkerrors.WithType(se, sparkerrors.ExecutionError))
+				} else {
+					yield(nil, err)
+				}
+				return
+			}
+
+			if resp == nil {
+				continue
+			}
+
+			if resp.GetSessionId() != c.sessionId {
+				yield(nil, sparkerrors.WithType(
+					&sparkerrors.InvalidServerSideSessionDetailsError{
+						OwnSessionId:      c.sessionId,
+						ReceivedSessionId: resp.GetSessionId(),
+					}, sparkerrors.InvalidServerSideSessionError))
+				return
+			}
+
+			if resp.Schema != nil {
+				var schemaErr error
+				c.schema, schemaErr = types.ConvertProtoDataTypeToStructType(resp.Schema)
+				if schemaErr != nil {
+					yield(nil, sparkerrors.WithType(schemaErr, sparkerrors.ExecutionError))
+					return
+				}
+			}
+
+			switch x := resp.ResponseType.(type) {
+			case *proto.ExecutePlanResponse_SqlCommandResult_:
+				if val := x.SqlCommandResult.GetRelation(); val != nil {
+					c.properties["sql_command_result"] = val
+				}
+
+			case *proto.ExecutePlanResponse_ArrowBatch_:
+				record, err := types.ReadArrowBatchToRecord(x.ArrowBatch.Data, c.schema)
+				if err != nil {
+					yield(nil, err)
+					return
+				}
+				if !yield(record, nil) {
+					return
+				}
+
+			case *proto.ExecutePlanResponse_ResultComplete_:
+				done = true
+				return
+
+			case *proto.ExecutePlanResponse_ExecutionProgress_:
+				// Progress updates - ignore for now
+
+			default:
+				// Explicitly ignore unknown message types
+			}
+		}
+
+		// Check that the result is logically complete. With re-attachable execution
+		// the server may interrupt the connection, and we need a ResultComplete
+		// message to confirm the full result was received.
+		if c.opts.ReattachExecution && !done {
+			yield(nil, sparkerrors.WithType(fmt.Errorf("the result is not complete"), sparkerrors.ExecutionError))
+		}
 	}
 }
 
