@@ -102,6 +102,8 @@ type DataFrame interface {
 	Describe(ctx context.Context, cols ...string) DataFrame
 	// Distinct returns a new DataFrame containing the distinct rows in this DataFrame.
 	Distinct(ctx context.Context) DataFrame
+	// Dtypes returns the list of column names and their data types as a list of [name, type] pairs.
+	Dtypes(ctx context.Context) ([][2]string, error)
 	// Drop returns a new DataFrame that drops the specified list of columns.
 	Drop(ctx context.Context, columns ...column.Convertible) (DataFrame, error)
 	// DropByName returns a new DataFrame that drops the specified list of columns by name.
@@ -310,6 +312,18 @@ func (df *dataFrameImpl) Columns(ctx context.Context) ([]string, error) {
 		columns[i] = field.Name
 	}
 	return columns, nil
+}
+
+func (df *dataFrameImpl) Dtypes(ctx context.Context) ([][2]string, error) {
+	schema, err := df.Schema(ctx)
+	if err != nil {
+		return nil, err
+	}
+	dtypes := make([][2]string, len(schema.Fields))
+	for i, field := range schema.Fields {
+		dtypes[i] = [2]string{field.Name, field.DataType.TypeName()}
+	}
+	return dtypes, nil
 }
 
 func (df *dataFrameImpl) Corr(ctx context.Context, col1, col2 string) (float64, error) {
