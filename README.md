@@ -1,38 +1,33 @@
 # spark-connect-go
 
-> The [datalake-go](https://github.com/datalake-go) fork of Apache's Spark Connect Go client. Adds a `database/sql` driver, generic typed helpers (`Collect[T]`, `Stream[T]`, `First[T]`), and exposed gRPC dial options on top of the upstream gRPC client. Tracks `apache/spark-connect-go`; deltas are intended to upstream.
+> A maintained fork of [`apache/spark-connect-go`](https://github.com/apache/spark-connect-go) with a `database/sql` driver, edge-typed DataFrames, exposed gRPC dial options, and a typed `ClusterNotReady` error. Tracks upstream; deltas are queued to upstream.
 
-Spark Connect is Spark's [language-neutral gRPC protocol](https://spark.apache.org/docs/latest/spark-connect-overview.html). The upstream Go client is the official reference implementation; this fork carries the extras the rest of the [datalake-go](https://github.com/datalake-go) ecosystem needs while those patches work their way upstream.
+Spark Connect is Spark's [language-neutral gRPC protocol](https://spark.apache.org/docs/latest/spark-connect-overview.html). The upstream Go client is the official reference implementation. This fork carries the deltas needed for production usage while those patches work their way upstream — drop in by swapping the import path; the session API, DataFrame surface, and protobuf stubs are unchanged.
 
-## Why the fork
+## What's added
 
-The upstream client is correct and minimal. Building an ORM and a composed runtime on top of it needs a handful of things that aren't in the upstream surface yet:
+- **`database/sql` driver.** `sql.Open("spark", "sc://host:port")` works with goose, sqlc-generated code, pgx-style consumers — anything that speaks `database/sql`. Registered under the name `spark` in `spark/sql/driver`. `$N` positional placeholders are rendered client-side into Spark SQL literals (the native parameter proto isn't reliable across every supported Spark version).
+- **Edge-typed DataFrames.** `As[T](df) → *DataFrameOf[T]` caches a reflected row plan once; `Collect`, `Stream`, `First` materialise into struct types at the point you know the result shape. Top-level `Collect[T] / Stream[T] / First[T]` helpers do the `As[T]` plus the call in one shot.
+- **`SparkSessionBuilder.WithDialOptions`.** gRPC dial options exposed on the builder — auth interceptors, TLS, observability handlers wire in without subclassing.
+- **`sparkerrors.IsClusterNotReady(err)`.** Typed error for cluster cold-start states. Databricks serverless clusters take 30-90s to warm; retry logic upstack needs a reliable signal instead of string-matching on error messages.
 
-- **`database/sql` driver.** A DSN-shaped entrypoint so existing Go tooling (goose, sqlc, pgx-consumer code) can speak Spark Connect without a wrapper layer. Driver name is `spark`; it speaks `sc://host:port` DSNs and supports `$N` positional parameters (rendered client-side into Spark SQL literals — the native parameter proto isn't reliable across every supported Spark version).
-- **Generic typed helpers.** `Collect[T]`, `Stream[T]`, `First[T]` — Go generics over the untyped `DataFrame`. The upstream surface is untyped by design; these are thin wrappers over `As[T]` + `DataFrameOf[T]`.
-- **Exposed gRPC dial options.** `SparkSessionBuilder.WithDialOptions(opts ...grpc.DialOption)` — auth interceptors, TLS config, observability handlers wire in without subclassing.
-- **`IsClusterNotReady` error surface.** A typed error (`sparkerrors.ErrClusterNotReady` / `IsClusterNotReady(err)`) the caller can check instead of string-matching. Databricks serverless clusters take 30–90s to warm, and retry logic up the stack needs a reliable signal.
+Every delta is tracked as a PR queued for `apache/spark-connect-go`. When a delta lands upstream we drop it from the fork. Long-term goal is zero deltas.
 
-Every delta is tracked as a PR against this fork and queued for upstream. When a delta lands in `apache/spark-connect-go`, we drop it from the fork. The long-term goal is zero deltas.
+## Install
 
-## What this repo is
-
-A drop-in replacement for `github.com/apache/spark-connect-go` at the same package names. Swap the import path and existing code compiles; the session API, DataFrame surface, and protobuf stubs are unchanged.
-
-```go
-import (
-    sparksql "github.com/datalake-go/spark-connect-go/spark/sql"
-    _        "github.com/datalake-go/spark-connect-go/spark/sql/driver" // registers "spark" for database/sql
-)
+```bash
+go get github.com/datalake-go/spark-connect-go
 ```
 
-(The `sparksql` alias avoids collision with stdlib `database/sql` — the actual package name is `sql`.)
-
-You can use this fork without lake-orm or lakehouse. The composed runtime ([lakehouse](https://github.com/datalake-go/lakehouse)) and the ORM ([lake-orm](https://github.com/datalake-go/lake-orm)) depend on this fork's deltas; nothing in this fork requires them.
+Requires a Spark Connect server (Spark 3.4+).
 
 ## Quick start
 
 ```go
+import (
+    sparksql "github.com/datalake-go/spark-connect-go/spark/sql"
+)
+
 session, err := sparksql.NewSessionBuilder().
     Remote("sc://spark.internal:15002").
     Build(ctx)
@@ -43,27 +38,73 @@ df, _ := session.Sql(ctx, "SELECT id, email FROM users WHERE tier = 'gold'")
 _ = df.Show(ctx, 20, false)
 ```
 
-### Typed reads
+The `sparksql` alias avoids collision with stdlib `database/sql` — the actual package name is `sql`.
+
+### Using DataFrames
+
+The untyped `DataFrame` is the building block — same surface as upstream. Transformations (`Where`, `Limit`, `OrderBy`, `Select`, `Join`, `GroupBy`) compose lazily and execute on the Spark side; materialisers (`Show`, `Collect`, `First`, `Count`) round-trip and return `[]types.Row`.
+
+```go
+df, _ := session.Sql(ctx, "SELECT id, email, created_at FROM users")
+
+filtered, _ := df.Where(ctx, "tier = 'gold'")
+top, _      := filtered.OrderBy(ctx, "created_at DESC").Limit(ctx, 100)
+
+rows, _ := top.Collect(ctx)
+for _, r := range rows {
+    // r is types.Row — positional access by index or by name
+}
+```
+
+Use this when the result shape is dynamic, or as the composition surface that you eventually re-type at the edge.
+
+### Using Typed DataFrames
+
+`As[T](df) → *DataFrameOf[T]` is the typed surface. It binds a result shape to a struct, caches the reflected row plan once, and materialises into `[]T` / `*T` without re-validating on every call.
 
 ```go
 type User struct {
-    ID    string `spark:"id"`
-    Email string `spark:"email"`
+    ID      string    `spark:"id"`
+    Email   string    `spark:"email"`
+    Created time.Time `spark:"created_at"`
 }
 
-df, _  := session.Sql(ctx, "SELECT id, email FROM users WHERE tier = 'gold'")
+df, _    := session.Sql(ctx, "SELECT id, email, created_at FROM users WHERE tier = 'gold'")
+typed, _ := sparksql.As[User](df)
+
+users, _   := typed.Collect(ctx)
+alice, err := typed.First(ctx)
+if errors.Is(err, sparksql.ErrNotFound) { /* zero rows */ }
+```
+
+If you only need the result once, `Collect[T] / First[T] / Stream[T]` are top-level helpers that fold `As[T]` into the call:
+
+```go
 users, _ := sparksql.Collect[User](ctx, df)
+```
 
-// or one row:
-alice, err := sparksql.First[User](ctx, df)
-if errors.Is(err, sparksql.ErrNotFound) { /* 404 */ }
+Untagged fields map by snake_case'd field name, so plain Go structs work without tags. `spark:"-"` skips a field. `*DataFrameOf[T]` deliberately has no transformation methods — `Where` / `Limit` / `Select` / `Join` change the row shape and would make `T` lie. Compose on the untyped `DataFrame`, then re-type at the edge:
 
-// or streaming:
-for row, rerr := range sparksql.Stream[User](ctx, df) {
-    if rerr != nil { break }
-    // use row
+```go
+typed, _    := sparksql.As[User](df)
+narrower, _ := typed.DataFrame().Select(ctx, "id", "email")  // back to untyped
+ids, _      := sparksql.Collect[struct{ ID string `spark:"id"` }](ctx, narrower)
+```
+
+### Streaming Results
+
+`Stream[T]` returns a Go 1.23 [`iter.Seq2[T, error]`](https://pkg.go.dev/iter#Seq2). One of the things Go gives us over the Python / Scala clients is a real pull-based iterator — rows decode one at a time as the gRPC stream resolves them, with constant memory regardless of result size. No need to buffer the whole result, no callback API: just `range`.
+
+```go
+for row, err := range sparksql.Stream[User](ctx, df) {
+    if err != nil { break }
+    // use row — decoded from the next Arrow batch as it lands
 }
 ```
+
+Schema binding happens on the first row; if a later row's schema diverges from the first, the error surfaces through the iterator (no per-row panics).
+
+Use `Stream[T]` when result sets are large, when you want to short-circuit early without dragging the rest of the rows over the wire, or when you're piping into another `iter.Seq2` consumer.
 
 ### `database/sql` driver
 
@@ -73,27 +114,22 @@ import (
     _ "github.com/datalake-go/spark-connect-go/spark/sql/driver"
 )
 
-db, _ := sql.Open("spark", "sc://spark.internal:15002")
+db, _   := sql.Open("spark", "sc://spark.internal:15002")
 rows, _ := db.QueryContext(ctx, "SELECT id FROM users WHERE tier = $1", "gold")
 ```
 
-`$N` placeholders are rendered client-side into Spark SQL literals with type-aware quoting (strings, numbers, bools, `[]byte`, `time.Time`). `?` placeholders aren't supported — most `database/sql`-adjacent codegen (sqlc, goose dialects, pgx patterns) emits `$N`, so the narrower grammar keeps the renderer simple.
+`$N` placeholders render with type-aware quoting (strings, numbers, bools, `[]byte`, `time.Time`). `?` placeholders aren't supported — most `database/sql`-adjacent codegen (sqlc, goose dialects, pgx patterns) emits `$N`, so the narrower grammar keeps the renderer simple.
 
-## Features (deltas over upstream)
+### Cluster cold-start
 
-- **`database/sql` driver.** `sql.Open("spark", "sc://...")` — any `database/sql` consumer (goose, sqlc-generated code, ad-hoc scripts) plugs in. Registered under name `spark` in `spark/sql/driver`.
-- **Typed helpers over `DataFrame`.** `Collect[T]`, `Stream[T]`, `First[T]`, `As[T]`, `DataFrameOf[T]`. Struct tag is `spark:"<column>"`. Decode rows into struct types at the materialization edge.
-- **`SparkSessionBuilder.WithDialOptions`.** gRPC dial options exposed on the builder. Wire auth interceptors, TLS, observability without wrapping the builder.
-- **`sparkerrors.IsClusterNotReady(err)`.** Classified error for cluster cold-start states. lake-orm uses it upstack for retry decisions.
-- **Upstream parity.** Tracks `apache/master`; upstream merges flow through periodically with the fork's commits rebased on top.
+```go
+import "github.com/datalake-go/spark-connect-go/spark/sparkerrors"
 
-## Install
-
-```bash
-go get github.com/datalake-go/spark-connect-go
+df, err := session.Sql(ctx, query)
+if sparkerrors.IsClusterNotReady(err) {
+    // retry with backoff — Databricks serverless usually warms in 30-90s
+}
 ```
-
-Requires a Spark Connect server (Spark 3.4+). See [lake-k8s](https://github.com/datalake-go/lake-k8s) for a pre-baked Spark 4.0 + Iceberg + Delta image and a `docker compose up` laptop stack.
 
 ## Building from source
 
@@ -110,13 +146,6 @@ git submodule update --init --recursive
 make gen && make test
 ```
 
-## Related
-
-- [lake-orm](https://github.com/datalake-go/lake-orm) — ORM that uses this fork's typed helpers and `database/sql` driver.
-- [lakehouse](https://github.com/datalake-go/lakehouse) — composed runtime that wires this session alongside the ORM, migrations, and dashboard.
-- [lake-k8s](https://github.com/datalake-go/lake-k8s) — pre-baked Spark Connect server + laptop-mode compose stack.
-- [apache/spark-connect-go](https://github.com/apache/spark-connect-go) — the upstream project this fork tracks.
-
 ## Contributing
 
-Feature work that could land upstream should be proposed against `apache/spark-connect-go` first. Fork-only changes (anything that wouldn't be accepted upstream) stay on this tree. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Feature work that could land upstream should be proposed against [`apache/spark-connect-go`](https://github.com/apache/spark-connect-go) first. Fork-only changes (anything that wouldn't be accepted upstream) stay on this tree. See [CONTRIBUTING.md](CONTRIBUTING.md).
