@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/apache/spark-connect-go/spark/sql/utils"
 
@@ -82,13 +83,13 @@ func (s *sparkConnectClientImpl) ExecuteCommand(ctx context.Context, plan *proto
 	}
 
 	// Append the other items to the request.
-	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
-	c, err := s.client.ExecutePlan(ctx, request)
+	rpcCtx := metadata.NewOutgoingContext(ctx, s.metadata)
+	c, err := s.client.ExecutePlan(rpcCtx, request)
 	if err != nil {
 		return nil, nil, nil, sparkerrors.WithType(
 			fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
-	respHandler := NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts)
+	respHandler := newExecuteResponseStream(ctx, s, c, s.sessionId, *request.OperationId, s.opts)
 	schema, table, err := respHandler.ToTable()
 	if err != nil {
 		return nil, nil, nil, err
@@ -100,13 +101,38 @@ func (s *sparkConnectClientImpl) ExecutePlan(ctx context.Context, plan *proto.Pl
 	request := s.newExecutePlanRequest(plan)
 
 	// Append the other items to the request.
-	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
-	c, err := s.client.ExecutePlan(ctx, request)
+	rpcCtx := metadata.NewOutgoingContext(ctx, s.metadata)
+	c, err := s.client.ExecutePlan(rpcCtx, request)
 	if err != nil {
 		return nil, sparkerrors.WithType(fmt.Errorf(
 			"failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
-	return NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts), nil
+	return newExecuteResponseStream(ctx, s, c, s.sessionId, *request.OperationId, s.opts), nil
+}
+
+// Interrupt asks the server to cancel running operations on this session.
+// See base.SparkConnectClient.Interrupt for the meaning of interruptType.
+func (s *sparkConnectClientImpl) Interrupt(ctx context.Context,
+	interruptType proto.InterruptRequest_InterruptType, operationIdOrTag string,
+) (*proto.InterruptResponse, error) {
+	request := &proto.InterruptRequest{
+		SessionId:     s.sessionId,
+		UserContext:   &proto.UserContext{UserId: s.opts.UserId},
+		ClientType:    &s.opts.UserAgent,
+		InterruptType: interruptType,
+	}
+	switch interruptType {
+	case proto.InterruptRequest_INTERRUPT_TYPE_OPERATION_ID:
+		request.Interrupt = &proto.InterruptRequest_OperationId{OperationId: operationIdOrTag}
+	case proto.InterruptRequest_INTERRUPT_TYPE_TAG:
+		request.Interrupt = &proto.InterruptRequest_OperationTag{OperationTag: operationIdOrTag}
+	}
+	ctx = metadata.NewOutgoingContext(ctx, s.metadata)
+	resp, err := s.client.Interrupt(ctx, request)
+	if se := sparkerrors.FromRPCError(err); se != nil {
+		return nil, sparkerrors.WithType(se, sparkerrors.ExecutionError)
+	}
+	return resp, nil
 }
 
 // Creates a new AnalyzePlanRequest with the necessary metadata.
@@ -348,10 +374,20 @@ type ExecutePlanClient struct {
 	// The schema of the result of the operation.
 	schema *types.StructType
 	// The sessionId is ised to verify the server side session.
-	sessionId  string
-	done       bool
-	properties map[string]any
-	opts       options.SparkClientOptions
+	sessionId string
+	// operationId identifies this execution on the server so we can send an InterruptRequest
+	// for it when the caller's context is cancelled.
+	operationId string
+	// callerCtx is the caller's original context (without the gRPC outgoing-metadata wrapping).
+	// When it is cancelled, ToTable fires Interrupt(OPERATION_ID, operationId) so the server
+	// stops the running query instead of waiting for the 5-minute idle timeout.
+	callerCtx context.Context
+	// interrupter is used to send the InterruptRequest. May be nil in tests; nil disables the
+	// cancellation-watcher path.
+	interrupter base.SparkConnectClient
+	done        bool
+	properties  map[string]any
+	opts        options.SparkClientOptions
 }
 
 func (c *ExecutePlanClient) Properties() map[string]any {
@@ -363,6 +399,25 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 	var recordBatches []arrow.Record
 	var arrowSchema *arrow.Schema
 	recordBatches = make([]arrow.Record, 0)
+
+	// When the caller cancels their context, also tell the server to interrupt the running
+	// operation. Without this the gRPC stream tears down locally but the server keeps executing
+	// the query until its idle timeout — see issue #126.
+	if c.callerCtx != nil && c.interrupter != nil && c.operationId != "" {
+		watcherDone := make(chan struct{})
+		defer close(watcherDone)
+		go func() {
+			select {
+			case <-c.callerCtx.Done():
+				// Use a detached context with a short deadline — the caller's ctx is already done.
+				killCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				_, _ = c.interrupter.Interrupt(killCtx,
+					proto.InterruptRequest_INTERRUPT_TYPE_OPERATION_ID, c.operationId)
+			case <-watcherDone:
+			}
+		}()
+	}
 
 	// Explicitly needed when tracking re-attachble execution.
 	c.done = false
@@ -434,6 +489,9 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 	}
 }
 
+// NewExecuteResponseStream wraps a raw gRPC ExecutePlan stream. It does not arm the context
+// cancellation watcher — callers that want server-side interrupt on ctx cancellation should
+// use newExecuteResponseStream instead.
 func NewExecuteResponseStream(
 	responseClient proto.SparkConnectService_ExecutePlanClient,
 	sessionId string,
@@ -443,6 +501,29 @@ func NewExecuteResponseStream(
 	return &ExecutePlanClient{
 		responseStream: responseClient,
 		sessionId:      sessionId,
+		operationId:    operationId,
+		done:           false,
+		properties:     make(map[string]any),
+		opts:           opts,
+	}
+}
+
+// newExecuteResponseStream wraps a gRPC ExecutePlan stream and remembers the caller's context
+// plus a client back-reference so ToTable can fire an InterruptRequest when ctx is cancelled.
+func newExecuteResponseStream(
+	callerCtx context.Context,
+	interrupter base.SparkConnectClient,
+	responseClient proto.SparkConnectService_ExecutePlanClient,
+	sessionId string,
+	operationId string,
+	opts options.SparkClientOptions,
+) base.ExecuteResponseStream {
+	return &ExecutePlanClient{
+		responseStream: responseClient,
+		sessionId:      sessionId,
+		operationId:    operationId,
+		callerCtx:      callerCtx,
+		interrupter:    interrupter,
 		done:           false,
 		properties:     make(map[string]any),
 		opts:           opts,
