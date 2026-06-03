@@ -44,6 +44,12 @@ type SparkConnectClient interface {
 	SameSemantics(ctx context.Context, plan1 *generated.Plan, plan2 *generated.Plan) (bool, error)
 	SemanticHash(ctx context.Context, plan *generated.Plan) (int32, error)
 	Config(ctx context.Context, configRequest *generated.ConfigRequest_Operation) (*generated.ConfigResponse, error)
+	// Interrupt asks the server to interrupt running operations in this session. When interruptType
+	// is INTERRUPT_TYPE_OPERATION_ID, operationIdOrTag must be the UUID returned via OperationId;
+	// when INTERRUPT_TYPE_TAG, it must match a tag previously attached to the operation;
+	// when INTERRUPT_TYPE_ALL, operationIdOrTag is ignored.
+	Interrupt(ctx context.Context, interruptType generated.InterruptRequest_InterruptType,
+		operationIdOrTag string) (*generated.InterruptResponse, error)
 }
 
 type ExecuteResponseStream interface {

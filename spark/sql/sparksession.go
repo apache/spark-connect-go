@@ -48,6 +48,12 @@ type SparkSession interface {
 	CreateDataFrameFromArrow(ctx context.Context, data arrow.Table) (DataFrame, error)
 	CreateDataFrame(ctx context.Context, data [][]any, schema *types.StructType) (DataFrame, error)
 	Config() client.RuntimeConfig
+	// InterruptAll cancels every running operation in this session.
+	InterruptAll(ctx context.Context) ([]string, error)
+	// InterruptTag cancels every running operation tagged with tag.
+	InterruptTag(ctx context.Context, tag string) ([]string, error)
+	// InterruptOperation cancels the operation with the given operation id.
+	InterruptOperation(ctx context.Context, operationId string) ([]string, error)
 }
 
 // NewSessionBuilder creates a new session builder for starting a new spark session
@@ -165,6 +171,30 @@ func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, er
 
 func (s *sparkSessionImpl) Stop() error {
 	return nil
+}
+
+func (s *sparkSessionImpl) InterruptAll(ctx context.Context) ([]string, error) {
+	resp, err := s.client.Interrupt(ctx, proto.InterruptRequest_INTERRUPT_TYPE_ALL, "")
+	if err != nil {
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to interrupt all: %w", err), sparkerrors.ExecutionError)
+	}
+	return resp.GetInterruptedIds(), nil
+}
+
+func (s *sparkSessionImpl) InterruptTag(ctx context.Context, tag string) ([]string, error) {
+	resp, err := s.client.Interrupt(ctx, proto.InterruptRequest_INTERRUPT_TYPE_TAG, tag)
+	if err != nil {
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to interrupt tag %s: %w", tag, err), sparkerrors.ExecutionError)
+	}
+	return resp.GetInterruptedIds(), nil
+}
+
+func (s *sparkSessionImpl) InterruptOperation(ctx context.Context, operationId string) ([]string, error) {
+	resp, err := s.client.Interrupt(ctx, proto.InterruptRequest_INTERRUPT_TYPE_OPERATION_ID, operationId)
+	if err != nil {
+		return nil, sparkerrors.WithType(fmt.Errorf("failed to interrupt operation %s: %w", operationId, err), sparkerrors.ExecutionError)
+	}
+	return resp.GetInterruptedIds(), nil
 }
 
 func (s *sparkSessionImpl) Table(name string) (DataFrame, error) {
