@@ -104,6 +104,29 @@ func TestNewSessionBuilderFailsIfConnectionStringIsInvalid(t *testing.T) {
 	assert.Nil(t, spark)
 }
 
+func TestSparkSessionTagsRoundTripThroughClient(t *testing.T) {
+	s := testutils.NewConnectServiceClientMock(nil, nil, nil, t)
+	c := client.NewSparkExecutorFromClient(s, nil, "")
+	session := &sparkSessionImpl{client: c}
+
+	assert.Empty(t, session.GetTags())
+
+	assert.NoError(t, session.AddTag("etl"))
+	assert.NoError(t, session.AddTag("nightly"))
+	assert.Equal(t, []string{"etl", "nightly"}, session.GetTags())
+
+	// Invalid tags must be rejected at the session layer too.
+	assert.ErrorIs(t, session.AddTag(""), sparkerrors.InvalidArgumentError)
+	assert.ErrorIs(t, session.AddTag("a,b"), sparkerrors.InvalidArgumentError)
+	assert.Equal(t, []string{"etl", "nightly"}, session.GetTags(), "invalid tags must not be stored")
+
+	assert.NoError(t, session.RemoveTag("etl"))
+	assert.Equal(t, []string{"nightly"}, session.GetTags())
+
+	session.ClearTags()
+	assert.Empty(t, session.GetTags())
+}
+
 func TestWriteResultStreamsArrowResultToCollector(t *testing.T) {
 	ctx := context.Background()
 

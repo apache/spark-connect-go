@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
+	"sync"
 
 	"github.com/apache/spark-connect-go/spark/sql/utils"
 
@@ -46,6 +48,52 @@ type sparkConnectClientImpl struct {
 	metadata  metadata.MD
 	sessionId string
 	opts      options.SparkClientOptions
+
+	tagsMu sync.RWMutex
+	tags   map[string]struct{}
+}
+
+func (s *sparkConnectClientImpl) AddTag(tag string) error {
+	if err := base.ValidateTag(tag); err != nil {
+		return sparkerrors.WithType(err, sparkerrors.InvalidArgumentError)
+	}
+	s.tagsMu.Lock()
+	defer s.tagsMu.Unlock()
+	if s.tags == nil {
+		s.tags = make(map[string]struct{})
+	}
+	s.tags[tag] = struct{}{}
+	return nil
+}
+
+func (s *sparkConnectClientImpl) RemoveTag(tag string) error {
+	if err := base.ValidateTag(tag); err != nil {
+		return sparkerrors.WithType(err, sparkerrors.InvalidArgumentError)
+	}
+	s.tagsMu.Lock()
+	defer s.tagsMu.Unlock()
+	delete(s.tags, tag)
+	return nil
+}
+
+func (s *sparkConnectClientImpl) GetTags() []string {
+	s.tagsMu.RLock()
+	defer s.tagsMu.RUnlock()
+	if len(s.tags) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(s.tags))
+	for t := range s.tags {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func (s *sparkConnectClientImpl) ClearTags() {
+	s.tagsMu.Lock()
+	defer s.tagsMu.Unlock()
+	s.tags = nil
 }
 
 func (s *sparkConnectClientImpl) newExecutePlanRequest(plan *proto.Plan) *proto.ExecutePlanRequest {
@@ -69,6 +117,7 @@ func (s *sparkConnectClientImpl) newExecutePlanRequest(plan *proto.Plan) *proto.
 				},
 			},
 		},
+		Tags: s.GetTags(),
 	}
 }
 
