@@ -18,6 +18,7 @@ package mocks
 import (
 	"context"
 	"errors"
+	"sort"
 
 	"github.com/apache/spark-connect-go/spark/sql/utils"
 
@@ -32,6 +33,7 @@ type TestExecutor struct {
 	Client   base.ExecuteResponseStream
 	response *generated.AnalyzePlanResponse
 	Err      error
+	tags     map[string]struct{}
 }
 
 func (t *TestExecutor) ExecutePlan(ctx context.Context, plan *generated.Plan) (base.ExecuteResponseStream, error) {
@@ -88,4 +90,39 @@ func (t *TestExecutor) SemanticHash(ctx context.Context, plan *generated.Plan) (
 
 func (t *TestExecutor) Config(ctx context.Context, configRequest *generated.ConfigRequest_Operation) (*generated.ConfigResponse, error) {
 	return nil, errors.New("not implemented")
+}
+
+func (t *TestExecutor) AddTag(tag string) error {
+	if err := base.ValidateTag(tag); err != nil {
+		return err
+	}
+	if t.tags == nil {
+		t.tags = make(map[string]struct{})
+	}
+	t.tags[tag] = struct{}{}
+	return nil
+}
+
+func (t *TestExecutor) RemoveTag(tag string) error {
+	if err := base.ValidateTag(tag); err != nil {
+		return err
+	}
+	delete(t.tags, tag)
+	return nil
+}
+
+func (t *TestExecutor) GetTags() []string {
+	if len(t.tags) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(t.tags))
+	for tag := range t.tags {
+		out = append(out, tag)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func (t *TestExecutor) ClearTags() {
+	t.tags = nil
 }

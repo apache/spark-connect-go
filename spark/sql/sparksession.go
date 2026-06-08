@@ -48,6 +48,18 @@ type SparkSession interface {
 	CreateDataFrameFromArrow(ctx context.Context, data arrow.Table) (DataFrame, error)
 	CreateDataFrame(ctx context.Context, data [][]any, schema *types.StructType) (DataFrame, error)
 	Config() client.RuntimeConfig
+
+	// AddTag attaches a tag to every operation started by this session afterwards. The tag is
+	// sent as part of ExecutePlanRequest.tags and can later be used with InterruptTag to cancel
+	// every running operation that carries it. Tag must be non-empty and must not contain ','.
+	AddTag(tag string) error
+	// RemoveTag removes a tag previously added via AddTag. Removing a tag that was never added
+	// is a no-op. Returns an error only if the tag itself is invalid.
+	RemoveTag(tag string) error
+	// GetTags returns the tags currently attached to this session, sorted lexicographically.
+	GetTags() []string
+	// ClearTags removes every tag currently attached to this session.
+	ClearTags()
 }
 
 // NewSessionBuilder creates a new session builder for starting a new spark session
@@ -165,6 +177,22 @@ func (s *sparkSessionImpl) Sql(ctx context.Context, query string) (DataFrame, er
 
 func (s *sparkSessionImpl) Stop() error {
 	return nil
+}
+
+func (s *sparkSessionImpl) AddTag(tag string) error {
+	return s.client.AddTag(tag)
+}
+
+func (s *sparkSessionImpl) RemoveTag(tag string) error {
+	return s.client.RemoveTag(tag)
+}
+
+func (s *sparkSessionImpl) GetTags() []string {
+	return s.client.GetTags()
+}
+
+func (s *sparkSessionImpl) ClearTags() {
+	s.client.ClearTags()
 }
 
 func (s *sparkSessionImpl) Table(name string) (DataFrame, error) {
