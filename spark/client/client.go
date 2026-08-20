@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
+	"time"
 
 	"github.com/apache/spark-connect-go/spark/sql/utils"
 
@@ -88,7 +90,7 @@ func (s *sparkConnectClientImpl) ExecuteCommand(ctx context.Context, plan *proto
 		return nil, nil, nil, sparkerrors.WithType(
 			fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
-	respHandler := NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts, s.client, s.metadata)
+	respHandler := NewExecuteResponseStream(c, s.sessionId, request, s.opts, s.client, s.metadata)
 	schema, table, err := respHandler.ToTable(ctx)
 	if err != nil {
 		return nil, nil, nil, err
@@ -106,7 +108,7 @@ func (s *sparkConnectClientImpl) ExecutePlan(ctx context.Context, plan *proto.Pl
 		return nil, sparkerrors.WithType(fmt.Errorf(
 			"failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
-	return NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts, s.client, s.metadata), nil
+	return NewExecuteResponseStream(c, s.sessionId, request, s.opts, s.client, s.metadata), nil
 }
 
 // Creates a new AnalyzePlanRequest with the necessary metadata.
@@ -363,10 +365,16 @@ type ExecutePlanClient struct {
 	// ReattachExecute, quoting the last response it managed to read. Resuming
 	// needs the RPC client, the operation's id, and the outgoing metadata the
 	// original ExecutePlan call carried, so they travel with the stream.
-	client         base.SparkConnectRPCClient
+	client base.SparkConnectRPCClient
+	// initialRequest is kept so the execution can be started over if the server
+	// has no record of it -- see reattach.
+	initialRequest *proto.ExecutePlanRequest
 	metadata       metadata.MD
 	operationId    string
 	lastResponseId string
+	// released guards ReleaseExecute(release_all) so the execution is only
+	// disowned once.
+	released bool
 }
 
 func (c *ExecutePlanClient) Properties() map[string]any {
@@ -381,6 +389,15 @@ func (c *ExecutePlanClient) ToTable(ctx context.Context) (*types.StructType, arr
 
 	// Explicitly needed when tracking re-attachble execution.
 	c.done = false
+	// Covers every way out of the loop that isn't a completed result: the
+	// execution is being abandoned, so tell the server instead of leaving it
+	// buffered until it ages out. ResultComplete releases on its own, and
+	// releaseAll only ever sends once.
+	defer func() {
+		if !c.done {
+			c.releaseAll()
+		}
+	}()
 	for {
 		resp, err := c.responseStream.Recv()
 		// EOF is received when the last message has been processed and the stream
@@ -430,6 +447,8 @@ func (c *ExecutePlanClient) ToTable(ctx context.Context) (*types.StructType, arr
 		// already-delivered batches being replayed into recordBatches.
 		if id := resp.GetResponseId(); id != "" {
 			c.lastResponseId = id
+			// Processed, so the server no longer needs to keep it for a resume.
+			c.releaseUntil(id)
 		}
 
 		// Check if the response has already the schema set and if yes, convert
@@ -457,6 +476,8 @@ func (c *ExecutePlanClient) ToTable(ctx context.Context) (*types.StructType, arr
 			recordBatches = append(recordBatches, record)
 		case *proto.ExecutePlanResponse_ResultComplete_:
 			c.done = true
+			// The result is fully delivered, so the execution can be disowned.
+			c.releaseAll()
 		default:
 			// Explicitly ignore messages that we cannot process at the moment.
 		}
@@ -510,19 +531,138 @@ func (c *ExecutePlanClient) reattach(ctx context.Context) error {
 	}
 
 	stream, err := c.client.ReattachExecute(metadata.NewOutgoingContext(ctx, c.metadata), request)
-	if err != nil {
+	if err == nil {
+		c.responseStream = stream
+		return nil
+	}
+	if !isUnknownHandle(err) {
 		return sparkerrors.WithType(fmt.Errorf(
 			"failed to reattach to operation %s in session %s: %w",
 			c.operationId, c.sessionId, err), sparkerrors.ExecutionError)
 	}
-	c.responseStream = stream
+
+	// The server has no record of the operation, which means the original
+	// ExecutePlan never reached it -- so nothing has run and starting over is
+	// safe. That only holds while no response has been consumed: once responses
+	// are in hand, a fresh execution would replay them and duplicate rows, so
+	// fail instead.
+	if c.lastResponseId != "" {
+		return sparkerrors.WithType(fmt.Errorf(
+			"cannot restart operation %s in session %s: responses were already received, "+
+				"so re-executing would duplicate them: %w",
+			c.operationId, c.sessionId, err), sparkerrors.ExecutionError)
+	}
+	if c.initialRequest == nil {
+		return sparkerrors.WithType(fmt.Errorf(
+			"cannot restart operation %s: response stream was created without the originating request: %w",
+			c.operationId, err), sparkerrors.ExecutionError)
+	}
+	restarted, execErr := c.client.ExecutePlan(metadata.NewOutgoingContext(ctx, c.metadata), c.initialRequest)
+	if execErr != nil {
+		return sparkerrors.WithType(fmt.Errorf(
+			"failed to restart operation %s in session %s after the server reported it unknown: %w",
+			c.operationId, c.sessionId, execErr), sparkerrors.ExecutionError)
+	}
+	c.responseStream = restarted
 	return nil
 }
+
+// unknownHandleMarkers are the server-side error classes meaning the execution
+// this client is holding no longer exists (or never did). Matched on the
+// message because that is where Spark puts the error class.
+var unknownHandleMarkers = []string{
+	"INVALID_HANDLE.OPERATION_NOT_FOUND",
+	"INVALID_HANDLE.SESSION_NOT_FOUND",
+}
+
+func isUnknownHandle(err error) bool {
+	if err == nil {
+		return false
+	}
+	for _, marker := range unknownHandleMarkers {
+		if strings.Contains(err.Error(), marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// releaseUntil tells the server it may drop everything it has buffered up to
+// and including responseId. Reattachable executions buffer responses so a
+// resumed stream can backtrack, and without this the server holds all of them
+// until the execution is GC'd.
+func (c *ExecutePlanClient) releaseUntil(responseId string) {
+	request := c.newReleaseRequest()
+	if request == nil {
+		return
+	}
+	request.Release = &proto.ReleaseExecuteRequest_ReleaseUntil_{
+		ReleaseUntil: &proto.ReleaseExecuteRequest_ReleaseUntil{ResponseId: responseId},
+	}
+	c.sendRelease(request)
+}
+
+// releaseAll disowns the execution once its result has been consumed, or once
+// it has failed in a way no resume can recover. Sent at most once.
+func (c *ExecutePlanClient) releaseAll() {
+	if c.released {
+		return
+	}
+	c.released = true
+	request := c.newReleaseRequest()
+	if request == nil {
+		return
+	}
+	request.Release = &proto.ReleaseExecuteRequest_ReleaseAll_{
+		ReleaseAll: &proto.ReleaseExecuteRequest_ReleaseAll{},
+	}
+	c.sendRelease(request)
+}
+
+// newReleaseRequest builds the common part of a ReleaseExecute, or returns nil
+// when releasing does not apply -- a non-reattachable execution buffers nothing,
+// and a stream built without an RPC client has nobody to tell.
+func (c *ExecutePlanClient) newReleaseRequest() *proto.ReleaseExecuteRequest {
+	if c.client == nil || !c.opts.ReattachExecution {
+		return nil
+	}
+	return &proto.ReleaseExecuteRequest{
+		SessionId:   c.sessionId,
+		OperationId: c.operationId,
+		UserContext: &proto.UserContext{
+			UserId: c.opts.UserId,
+		},
+		ClientType: &c.opts.UserAgent,
+	}
+}
+
+// sendRelease issues a ReleaseExecute in the background and ignores the outcome.
+//
+// Deliberately fire-and-forget, matching the reference clients: releasing is an
+// optimisation that lets the server reclaim buffered responses sooner, and the
+// server already copes with executions that are never released by aging them
+// out. Blocking the read loop on it, or failing a query because a release RPC
+// did, would both be worse than the buffering it avoids.
+func (c *ExecutePlanClient) sendRelease(request *proto.ReleaseExecuteRequest) {
+	// Detached from the caller's context: a release issued as the query finishes
+	// would otherwise be cancelled the moment the caller returns, which is
+	// exactly when it matters most.
+	ctx, cancel := context.WithTimeout(
+		metadata.NewOutgoingContext(context.Background(), c.metadata), releaseTimeout)
+	go func() {
+		defer cancel()
+		_, _ = c.client.ReleaseExecute(ctx, request)
+	}()
+}
+
+// releaseTimeout bounds a background ReleaseExecute so a wedged server cannot
+// accumulate goroutines for the life of the process.
+const releaseTimeout = 30 * time.Second
 
 func NewExecuteResponseStream(
 	responseClient proto.SparkConnectService_ExecutePlanClient,
 	sessionId string,
-	operationId string,
+	request *proto.ExecutePlanRequest,
 	opts options.SparkClientOptions,
 	client base.SparkConnectRPCClient,
 	md metadata.MD,
@@ -534,23 +674,31 @@ func NewExecuteResponseStream(
 		properties:     make(map[string]any),
 		opts:           opts,
 		client:         client,
+		initialRequest: request,
 		metadata:       md,
-		operationId:    operationId,
+		operationId:    request.GetOperationId(),
 	}
+}
+
+// testRequest is the minimal originating request the fixtures need; they run
+// with reattachable execution off, so it is never used to restart anything.
+func testRequest(sessionId string) *proto.ExecutePlanRequest {
+	operationId := uuid.NewString()
+	return &proto.ExecutePlanRequest{SessionId: sessionId, OperationId: &operationId}
 }
 
 func NewTestConnectClientFromResponses(sessionId string, r ...*mocks.MockResponse) base.SparkConnectClient {
 	protoClient := mocks.NewProtoClientMock(r...)
 	// No RPC client or metadata: these fixtures run with reattachable execution
 	// off, so the stream is never resumed and reattach is unreachable.
-	stream := NewExecuteResponseStream(protoClient, sessionId, uuid.NewString(), options.DefaultSparkClientOptions, nil, nil)
+	stream := NewExecuteResponseStream(protoClient, sessionId, testRequest(sessionId), options.DefaultSparkClientOptions, nil, nil)
 	return &mocks.TestExecutor{
 		Client: stream,
 	}
 }
 
 func NewTestConnectClientWithImmediateError(sessionId string, err error) base.SparkConnectClient {
-	stream := NewExecuteResponseStream(nil, sessionId, uuid.NewString(), options.DefaultSparkClientOptions, nil, nil)
+	stream := NewExecuteResponseStream(nil, sessionId, testRequest(sessionId), options.DefaultSparkClientOptions, nil, nil)
 	return &mocks.TestExecutor{
 		Client: stream,
 		Err:    err,

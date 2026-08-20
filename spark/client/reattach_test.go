@@ -17,8 +17,11 @@ package client
 
 import (
 	"context"
+	"errors"
 	"io"
+	"sync"
 	"testing"
+	"time"
 
 	proto "github.com/apache/spark-connect-go/internal/generated"
 	"github.com/apache/spark-connect-go/spark/client/options"
@@ -37,6 +40,61 @@ type reattachRPCMock struct {
 	streams  []proto.SparkConnectService_ExecutePlanClient
 	requests []*proto.ReattachExecuteRequest
 	err      error
+
+	// Releases are sent from a background goroutine, so they need a lock and
+	// have to be asserted with Eventually rather than read directly.
+	mu       sync.Mutex
+	releases []*proto.ReleaseExecuteRequest
+
+	// Set when the execution is started over because the server did not
+	// recognise it.
+	restartStream proto.SparkConnectService_ExecutePlanClient
+	executePlans  []*proto.ExecutePlanRequest
+}
+
+// errUnknownHandle is how the server reports an execution it has no record of.
+var errUnknownHandle = errors.New(
+	"INVALID_HANDLE.OPERATION_NOT_FOUND: operation not found")
+
+func (m *reattachRPCMock) ReleaseExecute(
+	_ context.Context, in *proto.ReleaseExecuteRequest, _ ...grpc.CallOption,
+) (*proto.ReleaseExecuteResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.releases = append(m.releases, in)
+	return &proto.ReleaseExecuteResponse{}, nil
+}
+
+// releasedAll reports whether a release_all has arrived yet.
+func (m *reattachRPCMock) releasedAll() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, r := range m.releases {
+		if r.GetReleaseAll() != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// releasedUntil returns the response ids the client asked the server to drop.
+func (m *reattachRPCMock) releasedUntil() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []string
+	for _, r := range m.releases {
+		if u := r.GetReleaseUntil(); u != nil {
+			out = append(out, u.GetResponseId())
+		}
+	}
+	return out
+}
+
+func (m *reattachRPCMock) ExecutePlan(
+	_ context.Context, in *proto.ExecutePlanRequest, _ ...grpc.CallOption,
+) (proto.SparkConnectService_ExecutePlanClient, error) {
+	m.executePlans = append(m.executePlans, in)
+	return m.restartStream, nil
 }
 
 func (m *reattachRPCMock) ReattachExecute(
@@ -53,6 +111,12 @@ func (m *reattachRPCMock) ReattachExecute(
 		idx = len(m.streams) - 1
 	}
 	return m.streams[idx], nil
+}
+
+// execRequest is the originating ExecutePlan the stream keeps so it can restart
+// an execution the server has no record of.
+func execRequest(operationId string) *proto.ExecutePlanRequest {
+	return &proto.ExecutePlanRequest{SessionId: testSessionId, OperationId: &operationId}
 }
 
 func response(responseId string) *mocks.MockResponse {
@@ -93,7 +157,7 @@ func TestToTable_ResumesWhenStreamEndsBeforeResultComplete(t *testing.T) {
 	resumed := mocks.NewProtoClientMock(resultComplete("r2"), eof())
 	rpc := &reattachRPCMock{streams: []proto.SparkConnectService_ExecutePlanClient{resumed}}
 
-	stream := NewExecuteResponseStream(first, testSessionId, "op-1", reattachOpts(), rpc, nil)
+	stream := NewExecuteResponseStream(first, testSessionId, execRequest("op-1"), reattachOpts(), rpc, nil)
 	_, _, err := stream.ToTable(context.Background())
 	require.NoError(t, err, "an early stream end must be resumed, not reported as a truncated result")
 
@@ -114,7 +178,7 @@ func TestToTable_ReattachOmitsLastResponseIdWhenNothingSeen(t *testing.T) {
 	resumed := mocks.NewProtoClientMock(resultComplete("r1"), eof())
 	rpc := &reattachRPCMock{streams: []proto.SparkConnectService_ExecutePlanClient{resumed}}
 
-	stream := NewExecuteResponseStream(first, testSessionId, "op-2", reattachOpts(), rpc, nil)
+	stream := NewExecuteResponseStream(first, testSessionId, execRequest("op-2"), reattachOpts(), rpc, nil)
 	_, _, err := stream.ToTable(context.Background())
 	require.NoError(t, err)
 
@@ -140,7 +204,7 @@ func TestToTable_ToleratesRotationsThatDeliverNothing(t *testing.T) {
 		mocks.NewProtoClientMock(resultComplete("r1"), eof()),
 	}}
 
-	stream := NewExecuteResponseStream(first, testSessionId, "op-3", reattachOpts(), rpc, nil)
+	stream := NewExecuteResponseStream(first, testSessionId, execRequest("op-3"), reattachOpts(), rpc, nil)
 	_, _, err := stream.ToTable(context.Background())
 
 	require.NoError(t, err, "silent rotations are a running query, not a wedged one")
@@ -160,7 +224,7 @@ func TestToTable_StopsWhenContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	stream := NewExecuteResponseStream(first, testSessionId, "op-4", reattachOpts(), rpc, nil)
+	stream := NewExecuteResponseStream(first, testSessionId, execRequest("op-4"), reattachOpts(), rpc, nil)
 	_, _, err := stream.ToTable(ctx)
 
 	require.Error(t, err, "a cancelled context must stop the reattach loop")
@@ -175,9 +239,82 @@ func TestToTable_DoesNotReattachWhenDisabled(t *testing.T) {
 	first := mocks.NewProtoClientMock(response("r1"), eof())
 	rpc := &reattachRPCMock{}
 
-	stream := NewExecuteResponseStream(first, testSessionId, "op-4", options.DefaultSparkClientOptions, rpc, nil)
+	stream := NewExecuteResponseStream(first, testSessionId, execRequest("op-4"), options.DefaultSparkClientOptions, rpc, nil)
 	_, _, err := stream.ToTable(context.Background())
 
 	require.NoError(t, err)
 	assert.Empty(t, rpc.requests, "reattach must not be issued when the option is off")
+}
+
+// TestToTable_ReleasesBufferedResponses covers the other half of reattachable
+// execution: the server buffers responses so a resumed stream can backtrack, and
+// only stops once the client says it is safe. Without this the buffer is held
+// until the execution ages out, which is what the reference clients avoid with
+// release_until as they consume and release_all at the end.
+func TestToTable_ReleasesBufferedResponses(t *testing.T) {
+	first := mocks.NewProtoClientMock(response("r1"), resultComplete("r2"), eof())
+	rpc := &reattachRPCMock{}
+
+	stream := NewExecuteResponseStream(first, testSessionId, execRequest("op-5"), reattachOpts(), rpc, nil)
+	_, _, err := stream.ToTable(context.Background())
+	require.NoError(t, err)
+
+	require.Eventually(t, rpc.releasedAll, time.Second, 10*time.Millisecond,
+		"a completed result must disown the execution so the server can drop it")
+	assert.Contains(t, rpc.releasedUntil(), "r1",
+		"each consumed response must be released so the server stops buffering it")
+}
+
+// TestToTable_DoesNotReleaseWhenReattachDisabled pins that the extra RPCs only
+// exist for reattachable executions -- a non-reattachable one buffers nothing,
+// so releasing it would be pure overhead on every query.
+func TestToTable_DoesNotReleaseWhenReattachDisabled(t *testing.T) {
+	first := mocks.NewProtoClientMock(response("r1"), eof())
+	rpc := &reattachRPCMock{}
+
+	stream := NewExecuteResponseStream(first, testSessionId, execRequest("op-6"), options.DefaultSparkClientOptions, rpc, nil)
+	_, _, err := stream.ToTable(context.Background())
+	require.NoError(t, err)
+
+	time.Sleep(50 * time.Millisecond) // give any stray background release a chance to land
+	assert.Empty(t, rpc.releasedUntil())
+	assert.False(t, rpc.releasedAll())
+}
+
+// TestToTable_RestartsWhenServerHasNoRecordOfTheOperation covers the case the
+// client sets its own operation id for: if the original ExecutePlan never
+// reached the server, reattaching fails with INVALID_HANDLE.OPERATION_NOT_FOUND.
+// Nothing ran, so starting over is safe and is what the reference clients do.
+func TestToTable_RestartsWhenServerHasNoRecordOfTheOperation(t *testing.T) {
+	first := mocks.NewProtoClientMock(eof())
+	rpc := &reattachRPCMock{
+		err:           errUnknownHandle,
+		restartStream: mocks.NewProtoClientMock(resultComplete("r1"), eof()),
+	}
+
+	stream := NewExecuteResponseStream(first, testSessionId, execRequest("op-7"), reattachOpts(), rpc, nil)
+	_, _, err := stream.ToTable(context.Background())
+
+	require.NoError(t, err, "an execution the server never received must be started over")
+	require.Len(t, rpc.executePlans, 1, "exactly one restart")
+	assert.Equal(t, "op-7", rpc.executePlans[0].GetOperationId(),
+		"the restart must reuse the operation id so it stays reattachable")
+}
+
+// TestToTable_RefusesToRestartAfterResponsesReceived is the safety rule on that
+// path. Once responses have been consumed, a fresh execution would replay them
+// and silently duplicate rows, so this has to fail loudly instead.
+func TestToTable_RefusesToRestartAfterResponsesReceived(t *testing.T) {
+	first := mocks.NewProtoClientMock(response("r1"), eof())
+	rpc := &reattachRPCMock{
+		err:           errUnknownHandle,
+		restartStream: mocks.NewProtoClientMock(resultComplete("r2"), eof()),
+	}
+
+	stream := NewExecuteResponseStream(first, testSessionId, execRequest("op-8"), reattachOpts(), rpc, nil)
+	_, _, err := stream.ToTable(context.Background())
+
+	require.Error(t, err, "restarting after partial consumption would duplicate rows")
+	assert.Contains(t, err.Error(), "would duplicate")
+	assert.Empty(t, rpc.executePlans, "no restart may be attempted once responses are in hand")
 }
