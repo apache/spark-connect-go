@@ -88,8 +88,8 @@ func (s *sparkConnectClientImpl) ExecuteCommand(ctx context.Context, plan *proto
 		return nil, nil, nil, sparkerrors.WithType(
 			fmt.Errorf("failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
-	respHandler := NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts)
-	schema, table, err := respHandler.ToTable()
+	respHandler := NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts, s.client, s.metadata)
+	schema, table, err := respHandler.ToTable(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -106,7 +106,7 @@ func (s *sparkConnectClientImpl) ExecutePlan(ctx context.Context, plan *proto.Pl
 		return nil, sparkerrors.WithType(fmt.Errorf(
 			"failed to call ExecutePlan in session %s: %w", s.sessionId, err), sparkerrors.ExecutionError)
 	}
-	return NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts), nil
+	return NewExecuteResponseStream(c, s.sessionId, *request.OperationId, s.opts, s.client, s.metadata), nil
 }
 
 // Creates a new AnalyzePlanRequest with the necessary metadata.
@@ -352,6 +352,21 @@ type ExecutePlanClient struct {
 	done       bool
 	properties map[string]any
 	opts       options.SparkClientOptions
+
+	// The fields below exist to support reattachable execution.
+	//
+	// When ReattachOptions.Reattachable is set, the server does not hold one
+	// response stream open for the lifetime of the query. It ends the stream on
+	// its own schedule -- after
+	// spark.connect.execute.reattachable.senderMaxStreamDuration, two minutes by
+	// default -- and expects the client to resume the same operation with
+	// ReattachExecute, quoting the last response it managed to read. Resuming
+	// needs the RPC client, the operation's id, and the outgoing metadata the
+	// original ExecutePlan call carried, so they travel with the stream.
+	client         base.SparkConnectRPCClient
+	metadata       metadata.MD
+	operationId    string
+	lastResponseId string
 }
 
 func (c *ExecutePlanClient) Properties() map[string]any {
@@ -359,7 +374,7 @@ func (c *ExecutePlanClient) Properties() map[string]any {
 }
 
 // ToTable converts the result of the execution of a query plan to an Arrow Table.
-func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
+func (c *ExecutePlanClient) ToTable(ctx context.Context) (*types.StructType, arrow.Table, error) {
 	var recordBatches []arrow.Record
 	var arrowSchema *arrow.Schema
 	recordBatches = make([]arrow.Record, 0)
@@ -371,7 +386,27 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 		// EOF is received when the last message has been processed and the stream
 		// finished normally.
 		if errors.Is(err, io.EOF) {
-			break
+			// Under reattachable execution EOF does not imply the result is
+			// finished -- only ResultComplete does. An EOF before that is the
+			// server rotating the stream, and the query is still running, so
+			// resume it rather than reporting a truncated result.
+			if !c.opts.ReattachExecution || c.done {
+				break
+			}
+			// A rotation that delivered nothing is normal and says nothing about
+			// health: a command such as a parquet write emits no responses at all
+			// until it finishes, so a query running for many minutes rotates
+			// repeatedly with an empty stream each time. Counting those as a
+			// stall would cap how long a query is allowed to run. Boundedness
+			// comes from ctx instead, as in the reference clients.
+			if err := ctx.Err(); err != nil {
+				return nil, nil, sparkerrors.WithType(fmt.Errorf(
+					"gave up reattaching to operation %s: %w", c.operationId, err), sparkerrors.ExecutionError)
+			}
+			if err := c.reattach(ctx); err != nil {
+				return nil, nil, err
+			}
+			continue
 		}
 
 		// If the error was not EOF, there might be another error.
@@ -388,6 +423,13 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 				OwnSessionId:      c.sessionId,
 				ReceivedSessionId: resp.GetSessionId(),
 			}, sparkerrors.InvalidServerSideSessionError)
+		}
+
+		// Remember where the stream got to. If the server ends it early, this is
+		// the point ReattachExecute resumes from, and quoting it is what stops
+		// already-delivered batches being replayed into recordBatches.
+		if id := resp.GetResponseId(); id != "" {
+			c.lastResponseId = id
 		}
 
 		// Check if the response has already the schema set and if yes, convert
@@ -420,11 +462,13 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 		}
 	}
 
-	// Check that the result is logically complete. The result might not be complete
-	// because after 2 minutes the server will interrupt the connection, and we have to
-	// send a ReAttach execute request.
+	// A reattachable execution is only finished once the server has said so with
+	// ResultComplete; the loop above resumes on anything short of that, so
+	// reaching here without it means the stream ended in a way reattaching
+	// cannot recover.
 	if c.opts.ReattachExecution && !c.done {
-		return nil, nil, sparkerrors.WithType(fmt.Errorf("the result is not complete"), sparkerrors.ExecutionError)
+		return nil, nil, sparkerrors.WithType(fmt.Errorf(
+			"the result for operation %s is not complete", c.operationId), sparkerrors.ExecutionError)
 	}
 	// Return the schema and table.
 	if arrowSchema == nil {
@@ -434,11 +478,54 @@ func (c *ExecutePlanClient) ToTable() (*types.StructType, arrow.Table, error) {
 	}
 }
 
+// reattach resumes an execution whose response stream the server ended before
+// the result was complete, picking up after the last response already seen.
+//
+// The reattach stream and the original ExecutePlan stream carry the same
+// message type, so the resumed stream simply replaces the old one and the
+// caller's read loop continues unchanged.
+func (c *ExecutePlanClient) reattach(ctx context.Context) error {
+	if c.client == nil {
+		return sparkerrors.WithType(fmt.Errorf(
+			"cannot reattach to operation %s: response stream was created without an RPC client",
+			c.operationId), sparkerrors.ExecutionError)
+	}
+
+	request := &proto.ReattachExecuteRequest{
+		SessionId:   c.sessionId,
+		OperationId: c.operationId,
+		UserContext: &proto.UserContext{
+			UserId: c.opts.UserId,
+		},
+		ClientType: &c.opts.UserAgent,
+	}
+	// Omitted on the first reattach of a stream that produced nothing, which
+	// tells the server to resume from the beginning rather than after a
+	// response it never sent.
+	if c.lastResponseId != "" {
+		// Copied rather than pointing at the field, which keeps advancing as the
+		// resumed stream is read.
+		lastResponseId := c.lastResponseId
+		request.LastResponseId = &lastResponseId
+	}
+
+	stream, err := c.client.ReattachExecute(metadata.NewOutgoingContext(ctx, c.metadata), request)
+	if err != nil {
+		return sparkerrors.WithType(fmt.Errorf(
+			"failed to reattach to operation %s in session %s: %w",
+			c.operationId, c.sessionId, err), sparkerrors.ExecutionError)
+	}
+	c.responseStream = stream
+	return nil
+}
+
 func NewExecuteResponseStream(
 	responseClient proto.SparkConnectService_ExecutePlanClient,
 	sessionId string,
 	operationId string,
 	opts options.SparkClientOptions,
+	client base.SparkConnectRPCClient,
+	md metadata.MD,
 ) base.ExecuteResponseStream {
 	return &ExecutePlanClient{
 		responseStream: responseClient,
@@ -446,19 +533,24 @@ func NewExecuteResponseStream(
 		done:           false,
 		properties:     make(map[string]any),
 		opts:           opts,
+		client:         client,
+		metadata:       md,
+		operationId:    operationId,
 	}
 }
 
 func NewTestConnectClientFromResponses(sessionId string, r ...*mocks.MockResponse) base.SparkConnectClient {
 	protoClient := mocks.NewProtoClientMock(r...)
-	stream := NewExecuteResponseStream(protoClient, sessionId, uuid.NewString(), options.DefaultSparkClientOptions)
+	// No RPC client or metadata: these fixtures run with reattachable execution
+	// off, so the stream is never resumed and reattach is unreachable.
+	stream := NewExecuteResponseStream(protoClient, sessionId, uuid.NewString(), options.DefaultSparkClientOptions, nil, nil)
 	return &mocks.TestExecutor{
 		Client: stream,
 	}
 }
 
 func NewTestConnectClientWithImmediateError(sessionId string, err error) base.SparkConnectClient {
-	stream := NewExecuteResponseStream(nil, sessionId, uuid.NewString(), options.DefaultSparkClientOptions)
+	stream := NewExecuteResponseStream(nil, sessionId, uuid.NewString(), options.DefaultSparkClientOptions, nil, nil)
 	return &mocks.TestExecutor{
 		Client: stream,
 		Err:    err,

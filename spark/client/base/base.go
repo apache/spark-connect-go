@@ -47,6 +47,6 @@ type SparkConnectClient interface {
 }
 
 type ExecuteResponseStream interface {
-	ToTable() (*types.StructType, arrow.Table, error)
+	ToTable(ctx context.Context) (*types.StructType, arrow.Table, error)
 	Properties() map[string]any
 }

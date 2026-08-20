@@ -94,7 +94,7 @@ func (w *dataFrameWriterImpl) Save(ctx context.Context, path string) error {
 		return err
 	}
 
-	_, _, err = responseClient.ToTable()
+	_, _, err = responseClient.ToTable(ctx)
 	return err
 }
 
