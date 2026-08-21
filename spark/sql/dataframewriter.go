@@ -33,12 +33,14 @@ type DataFrameWriter interface {
 	Format(source string) DataFrameWriter
 	// Save writes data frame to the given path.
 	Save(ctx context.Context, path string) error
+	Option(key, value string) DataFrameWriter
 }
 
 func newDataFrameWriter(sparkExecutor *sparkSessionImpl, relation *proto.Relation) DataFrameWriter {
 	return &dataFrameWriterImpl{
 		sparkExecutor: sparkExecutor,
 		relation:      relation,
+		options:       nil,
 	}
 }
 
@@ -48,6 +50,7 @@ type dataFrameWriterImpl struct {
 	relation      *proto.Relation
 	saveMode      string
 	formatSource  string
+	options       map[string]string
 }
 
 func (w *dataFrameWriterImpl) Mode(saveMode string) DataFrameWriter {
@@ -80,6 +83,7 @@ func (w *dataFrameWriterImpl) Save(ctx context.Context, path string) error {
 						SaveType: &proto.WriteOperation_Path{
 							Path: path,
 						},
+						Options: w.options,
 					},
 				},
 			},
@@ -90,8 +94,16 @@ func (w *dataFrameWriterImpl) Save(ctx context.Context, path string) error {
 		return err
 	}
 
-	_, _, err = responseClient.ToTable()
+	_, _, err = responseClient.ToTable(ctx)
 	return err
+}
+
+func (w *dataFrameWriterImpl) Option(key, value string) DataFrameWriter {
+	if w.options == nil {
+		w.options = make(map[string]string)
+	}
+	w.options[key] = value
+	return w
 }
 
 func getSaveMode(mode string) (proto.WriteOperation_SaveMode, error) {

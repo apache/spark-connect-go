@@ -340,7 +340,7 @@ func (df *dataFrameImpl) CorrWithMethod(ctx context.Context, col1, col2 string, 
 		return 0, sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
 	}
 
-	_, table, err := responseClient.ToTable()
+	_, table, err := responseClient.ToTable(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -389,7 +389,7 @@ func (df *dataFrameImpl) Cov(ctx context.Context, col1, col2 string) (float64, e
 		return 0, sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
 	}
 
-	_, table, err := responseClient.ToTable()
+	_, table, err := responseClient.ToTable(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -511,7 +511,7 @@ func (df *dataFrameImpl) WriteResult(ctx context.Context, collector ResultCollec
 		return sparkerrors.WithType(fmt.Errorf("failed to show dataframe: %w", err), sparkerrors.ExecutionError)
 	}
 
-	_, table, err := responseClient.ToTable()
+	_, table, err := responseClient.ToTable(ctx)
 	if err != nil {
 		return err
 	}
@@ -544,7 +544,7 @@ func (df *dataFrameImpl) Collect(ctx context.Context) ([]types.Row, error) {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
 	}
 
-	_, table, err := responseClient.ToTable()
+	_, table, err := responseClient.ToTable(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -581,7 +581,7 @@ func (df *dataFrameImpl) CreateTempView(ctx context.Context, viewName string, re
 			viewName, err), sparkerrors.ExecutionError)
 	}
 
-	_, _, err = responseClient.ToTable()
+	_, _, err = responseClient.ToTable(ctx)
 	return err
 }
 
@@ -928,7 +928,7 @@ func (df *dataFrameImpl) ToArrow(ctx context.Context) (*arrow.Table, error) {
 		return nil, sparkerrors.WithType(fmt.Errorf("failed to execute plan: %w", err), sparkerrors.ExecutionError)
 	}
 
-	_, table, err := responseClient.ToTable()
+	_, table, err := responseClient.ToTable(ctx)
 	if err != nil {
 		return nil, err
 	}

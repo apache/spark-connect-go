@@ -52,18 +52,37 @@ type SparkSession interface {
 
 // NewSessionBuilder creates a new session builder for starting a new spark session
 func NewSessionBuilder() *SparkSessionBuilder {
-	return &SparkSessionBuilder{}
+	return &SparkSessionBuilder{
+		reattachExecution: options.DefaultSparkClientOptions.ReattachExecution,
+	}
 }
 
 type SparkSessionBuilder struct {
-	connectionString string
-	channelBuilder   channel.Builder
+	connectionString  string
+	channelBuilder    channel.Builder
+	reattachExecution bool
 }
 
 // Remote sets the connection string for remote connection
 func (s *SparkSessionBuilder) Remote(connectionString string) *SparkSessionBuilder {
 	s.connectionString = connectionString
 	return s
+}
+
+// WithReattachExecution asks the server to make executions reattachable. The
+// server is then free to end a response stream while the query is still running
+// and the client resumes it, which is what lets a query outlive the stream it
+// was started on. Off by default, since it costs extra RPCs per response.
+func (s *SparkSessionBuilder) WithReattachExecution(reattach bool) *SparkSessionBuilder {
+	s.reattachExecution = reattach
+	return s
+}
+
+// clientOptions is the client configuration this builder describes, less the
+// parts only a built channel can supply. Split out from Build so the path from
+// the setter above to the client is assertable without a connection.
+func (s *SparkSessionBuilder) clientOptions() options.SparkClientOptions {
+	return options.NewSparkClientOptions(s.reattachExecution)
 }
 
 func (s *SparkSessionBuilder) WithChannelBuilder(cb channel.Builder) *SparkSessionBuilder {
@@ -95,7 +114,7 @@ func (s *SparkSessionBuilder) Build(ctx context.Context) (SparkSession, error) {
 	sessionId := uuid.NewString()
 
 	// Update the options according to the configuration.
-	opts := options.NewSparkClientOptions(options.DefaultSparkClientOptions.ReattachExecution)
+	opts := s.clientOptions()
 	opts.UserAgent = s.channelBuilder.UserAgent()
 	opts.UserId = s.channelBuilder.User()
 
