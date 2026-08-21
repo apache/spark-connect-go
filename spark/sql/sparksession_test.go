@@ -31,6 +31,7 @@ import (
 
 	proto "github.com/apache/spark-connect-go/internal/generated"
 	"github.com/apache/spark-connect-go/spark/client"
+	"github.com/apache/spark-connect-go/spark/client/options"
 	"github.com/apache/spark-connect-go/spark/client/testutils"
 	"github.com/apache/spark-connect-go/spark/mocks"
 	"github.com/apache/spark-connect-go/spark/sparkerrors"
@@ -94,6 +95,20 @@ func TestNewSessionBuilderCreatesASession(t *testing.T) {
 	spark, err := NewSessionBuilder().Remote("sc://connection").Build(ctx)
 	assert.NoError(t, err)
 	assert.NotNil(t, spark)
+}
+
+// TestSessionBuilderCarriesReattachExecution pins the only way a caller can turn
+// reattachable execution on. Without a setter here the whole mechanism is
+// unreachable: Build is the sole place client options are constructed for real
+// use, so a hardcoded default there leaves the feature dead no matter what the
+// client supports.
+func TestSessionBuilderCarriesReattachExecution(t *testing.T) {
+	assert.Equal(t, options.DefaultSparkClientOptions.ReattachExecution,
+		NewSessionBuilder().clientOptions().ReattachExecution,
+		"the builder default must follow the client default, not a copy of it")
+
+	assert.True(t, NewSessionBuilder().WithReattachExecution(true).clientOptions().ReattachExecution,
+		"the setter must reach the options Build hands to the client")
 }
 
 func TestNewSessionBuilderFailsIfConnectionStringIsInvalid(t *testing.T) {
