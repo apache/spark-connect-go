@@ -33,6 +33,11 @@ type wrappedError struct {
 }
 
 func (w *wrappedError) Unwrap() []error {
+	// The cause is nil when a nil error was wrapped. Returning a typed nil
+	// *errors.Error would make errors.As/Is panic when they call Unwrap on it.
+	if w.cause == nil {
+		return []error{w.errorType}
+	}
 	return []error{w.errorType, w.cause}
 }
 
@@ -76,7 +81,9 @@ func (w *wrappedError) Format(s fmt.State, verb rune) {
 		if s.Flag('+') {
 			_, _ = io.WriteString(s, "[sparkerror] ")
 			_, _ = io.WriteString(s, fmt.Sprintf("Error Type: %s\n", w.errorType.Error()))
-			_, _ = io.WriteString(s, fmt.Sprintf("Error Cause: %s\n%s", w.cause.Err.Error(), w.cause.Stack()))
+			if w.cause != nil {
+				_, _ = io.WriteString(s, fmt.Sprintf("Error Cause: %s\n%s", w.cause.Err.Error(), w.cause.Stack()))
+			}
 			return
 		}
 		fallthrough
