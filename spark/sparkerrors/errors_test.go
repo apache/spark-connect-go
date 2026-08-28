@@ -36,6 +36,22 @@ func TestErrorStringContainsErrorType(t *testing.T) {
 	assert.Contains(t, err.Error(), ConnectionError.Error())
 }
 
+func TestWithTypeNilCauseCanBeConvertedWithoutPanic(t *testing.T) {
+	err := WithType(nil, RetriesExceeded)
+	assert.ErrorIs(t, err, RetriesExceeded)
+	assert.NotPanics(t, func() {
+		se := FromRPCError(err)
+		assert.Equal(t, codes.Unknown, se.Code)
+	})
+}
+
+func TestWithTypeNilCauseFormatsWithoutPanic(t *testing.T) {
+	err := WithType(nil, ConnectionError)
+	formatted := fmt.Sprintf("%+v", err)
+	assert.Contains(t, formatted, ConnectionError.Error())
+	assert.NotContains(t, formatted, "PANIC")
+}
+
 func TestGRPCErrorConversion(t *testing.T) {
 	err := status.Error(codes.Internal, "invalid argument")
 	se := FromRPCError(err)

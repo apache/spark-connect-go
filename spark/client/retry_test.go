@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	proto "github.com/apache/spark-connect-go/internal/generated"
 	"github.com/apache/spark-connect-go/spark/client/options"
 
 	"github.com/apache/spark-connect-go/spark/client/testutils"
@@ -317,6 +318,44 @@ func Test_client_retriable_basics_execute(t *testing.T) {
 
 	_, err = stream.Recv()
 	assert.ErrorIs(t, err, io.EOF)
+}
+
+func Test_client_retriable_non_retriable_error_is_preserved(t *testing.T) {
+	nonRetriable := status.Error(codes.Internal, "ANALYSIS EXCEPTION")
+	client := retriableSparkConnectClient{
+		client:        testutils.NewConnectServiceClientMock(nil, nil, nonRetriable, t),
+		sessionId:     mocks.MockSessionId,
+		retryPolicies: []RetryPolicy{DefaultRetryPolicy},
+		options:       options.DefaultSparkClientOptions,
+	}
+	ctx := context.Background()
+
+	t.Run("ExecutePlan", func(t *testing.T) {
+		_, err := client.ExecutePlan(ctx, &mocks.ExecutePlanRequestSql)
+		assert.ErrorIs(t, err, sparkerrors.RetriesExceeded)
+		assert.NotPanics(t, func() {
+			assert.ErrorIs(t, err, nonRetriable)
+			assert.Equal(t, codes.Internal, sparkerrors.FromRPCError(err).Code)
+		})
+	})
+
+	t.Run("ReattachExecute", func(t *testing.T) {
+		_, err := client.ReattachExecute(ctx, &proto.ReattachExecuteRequest{SessionId: mocks.MockSessionId})
+		assert.ErrorIs(t, err, sparkerrors.RetriesExceeded)
+		assert.NotPanics(t, func() {
+			assert.ErrorIs(t, err, nonRetriable)
+			assert.Equal(t, codes.Internal, sparkerrors.FromRPCError(err).Code)
+		})
+	})
+
+	t.Run("AddArtifacts", func(t *testing.T) {
+		_, err := client.AddArtifacts(ctx)
+		assert.ErrorIs(t, err, sparkerrors.RetriesExceeded)
+		assert.NotPanics(t, func() {
+			assert.ErrorIs(t, err, nonRetriable)
+			assert.Equal(t, codes.Internal, sparkerrors.FromRPCError(err).Code)
+		})
+	})
 }
 
 func Test_client_retriable_basics_analyze(t *testing.T) {

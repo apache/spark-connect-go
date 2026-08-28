@@ -236,7 +236,8 @@ func (r *retriableSparkConnectClient) ExecutePlan(ctx context.Context, in *proto
 	for canRetry {
 		// Every loop iteration starts with being non-retriable.
 		canRetry = false
-		response, lastErr := r.client.ExecutePlan(ctx, in, opts...)
+		var response proto.SparkConnectService_ExecutePlanClient
+		response, lastErr = r.client.ExecutePlan(ctx, in, opts...)
 		if lastErr != nil {
 			for _, h := range r.retryPolicies {
 				if h.Handler(lastErr) {
@@ -294,7 +295,8 @@ func (r *retriableSparkConnectClient) AddArtifacts(ctx context.Context, opts ...
 	for canRetry {
 		// Every loop iteration starts with being non-retriable.
 		canRetry = false
-		response, lastErr := r.client.AddArtifacts(ctx, opts...)
+		var response proto.SparkConnectService_AddArtifactsClient
+		response, lastErr = r.client.AddArtifacts(ctx, opts...)
 		if lastErr != nil {
 			for _, h := range r.retryPolicies {
 				if h.Handler(lastErr) {
@@ -348,7 +350,8 @@ func (r *retriableSparkConnectClient) ReattachExecute(ctx context.Context,
 	for canRetry {
 		// Every loop iteration starts with being non-retriable.
 		canRetry = false
-		response, lastErr := r.client.ReattachExecute(ctx, in, opts...)
+		var response proto.SparkConnectService_ReattachExecuteClient
+		response, lastErr = r.client.ReattachExecute(ctx, in, opts...)
 		if lastErr != nil {
 			for _, h := range r.retryPolicies {
 				if h.Handler(lastErr) {
